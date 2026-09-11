@@ -17,4 +17,9 @@ public class AuthController {
         AuthDTOs.AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/establecer-credenciales")
+    public ResponseEntity<AuthDTOs.AuthResponse> establecerCredenciales(@Valid @RequestBody AuthDTOs.EstablecerCredencialesRequest request) {
+        return ResponseEntity.ok(authService.establecerCredenciales(request));
+    }
 }

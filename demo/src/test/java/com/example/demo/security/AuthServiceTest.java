@@ -18,11 +18,13 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
@@ -31,6 +33,9 @@ class AuthServiceTest {
 
     @Mock
     private com.example.demo.modules.usuarios.usuarios.UsuarioRepository usuarioRepository;
+
+    @Mock
+    private UsuarioPinRepository pinRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -194,5 +199,86 @@ class AuthServiceTest {
         when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
 
         assertThrows(BadCredentialsException.class, () -> authService.login(req, LocalDate.now(), LocalTime.now()));
+    }
+
+    @Test
+    void login_LanzaExcepcion_CuandoPasswordAunNoEstablecida() {
+        usuarioSemanal.setPassword(null);
+        AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("jperez", "password123");
+        when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
+
+        assertThrows(BadCredentialsException.class, () -> authService.login(req, LocalDate.now(), LocalTime.now()));
+        verify(passwordEncoder, never()).matches(any(), any());
+    }
+
+    @Test
+    void establecerCredenciales_Exitoso() {
+        usuarioSemanal.setPassword(null);
+        UsuarioPinEntity pin = UsuarioPinEntity.builder()
+                .id(1L).usuario(usuarioSemanal).codigo("123456")
+                .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
+                .usado(false).intentos(0).build();
+
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123", "nuevaPass123");
+
+        when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
+        when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
+        when(passwordEncoder.encode("nuevaPass123")).thenReturn("encodedNueva");
+        when(jwtUtil.generateToken("jperez", 1L)).thenReturn("jwt-token");
+
+        AuthDTOs.AuthResponse resp = authService.establecerCredenciales(req);
+
+        assertEquals("jwt-token", resp.token());
+        assertEquals("encodedNueva", usuarioSemanal.getPassword());
+        assertTrue(pin.isUsado());
+        verify(pinRepository, atLeastOnce()).save(pin);
+    }
+
+    @Test
+    void establecerCredenciales_LanzaExcepcion_CuandoPinIncorrecto() {
+        UsuarioPinEntity pin = UsuarioPinEntity.builder()
+                .id(1L).usuario(usuarioSemanal).codigo("123456")
+                .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
+                .usado(false).intentos(0).build();
+
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "000000", "nuevaPass123", "nuevaPass123");
+
+        when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
+        when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
+
+        assertThrows(IllegalArgumentException.class, () -> authService.establecerCredenciales(req));
+        assertEquals(1, pin.getIntentos());
+    }
+
+    @Test
+    void establecerCredenciales_LanzaExcepcion_CuandoPinExpirado() {
+        UsuarioPinEntity pin = UsuarioPinEntity.builder()
+                .id(1L).usuario(usuarioSemanal).codigo("123456")
+                .fechaCreacion(LocalDateTime.now().minusHours(2)).fechaExpiracion(LocalDateTime.now().minusHours(1))
+                .usado(false).intentos(0).build();
+
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123", "nuevaPass123");
+
+        when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
+        when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
+
+        assertThrows(IllegalArgumentException.class, () -> authService.establecerCredenciales(req));
+        assertTrue(pin.isUsado());
+    }
+
+    @Test
+    void establecerCredenciales_LanzaExcepcion_CuandoLimiteDeIntentosAlcanzado() {
+        UsuarioPinEntity pin = UsuarioPinEntity.builder()
+                .id(1L).usuario(usuarioSemanal).codigo("123456")
+                .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
+                .usado(false).intentos(3).build();
+
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123", "nuevaPass123");
+
+        when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
+        when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
+
+        assertThrows(IllegalArgumentException.class, () -> authService.establecerCredenciales(req));
+        verify(pinRepository, never()).save(any());
     }
 }

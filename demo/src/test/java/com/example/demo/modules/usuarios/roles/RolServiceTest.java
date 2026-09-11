@@ -22,9 +22,6 @@ class RolServiceTest {
     private RolRepository repository;
 
     @Mock
-    private RolPermisoRepository rolPermisoRepository;
-
-    @Mock
     private RolMapper mapper;
 
     @Mock
@@ -155,9 +152,12 @@ class RolServiceTest {
 
     @Test
     void actualizar_Exitoso() {
+        SubmoduloEntity subExistente = SubmoduloEntity.builder().id(1L).codigo("ROLES").nombre("Roles").estado(true).build();
+        subExistente.setModulo(ModuloEntity.builder().codigo("USUARIOS").nombre("Usuarios").build());
+
         RolEntity existente = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Rol Antiguo").estado(true).build();
         existente.setPermisos(new ArrayList<>(List.of(
-                RolPermisoEntity.builder().id(10L).puedeLeer(true).build()
+                RolPermisoEntity.builder().id(10L).submodulo(subExistente).puedeLeer(true).build()
         )));
 
         SubmoduloEntity sub = SubmoduloEntity.builder().id(2L).codigo("HORARIOS").nombre("Horarios").estado(true).build();
@@ -179,10 +179,9 @@ class RolServiceTest {
 
         assertEquals(response, resultado);
         verify(repository).save(any(RolEntity.class));
-        verify(rolPermisoRepository).deleteAll(existente.getPermisos());
-        verify(rolPermisoRepository).flush();
-        // verificar que se limpió lista anterior
+        // el submodulo antiguo (1) ya no viene en la petición -> se elimina; solo queda el submodulo 2
         assertEquals(1, existente.getPermisos().size());
+        assertEquals(2L, existente.getPermisos().getFirst().getSubmodulo().getId());
     }
 
     @Test

@@ -16,7 +16,7 @@ public class UsuarioController {
     private final UsuarioService service;
 
     @PostMapping
-    public ResponseEntity<UsuarioDTOs.Response> crear(@Valid @RequestBody UsuarioDTOs.Request request) {
+    public ResponseEntity<UsuarioDTOs.CrearResponse> crear(@Valid @RequestBody UsuarioDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
 
@@ -33,7 +33,7 @@ public class UsuarioController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<UsuarioDTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<UsuarioDTOs.Response> obtenerPorId(@PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 

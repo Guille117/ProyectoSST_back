@@ -43,6 +43,9 @@ class UsuarioServiceTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private UsuarioPinRepository pinRepository;
+
     @InjectMocks
     private UsuarioService service;
 
@@ -56,8 +59,6 @@ class UsuarioServiceTest {
                 1L,
                 1L,
                 "jperez",
-                "password123",
-                "password123",
                 true
         );
     }
@@ -92,15 +93,18 @@ class UsuarioServiceTest {
         when(puestoRepository.findById(1L)).thenReturn(Optional.of(puesto));
         when(horarioRepository.findById(1L)).thenReturn(Optional.of(horario));
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rol));
-        when(passwordEncoder.encode("password123")).thenReturn("encodedPass");
         when(repository.count()).thenReturn(0L);
         when(repository.save(any(UsuarioEntity.class))).thenReturn(guardado);
         when(mapper.toDTO(guardado)).thenReturn(response);
+        when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UsuarioDTOs.Response resultado = service.crear(req);
+        UsuarioDTOs.CrearResponse resultado = service.crear(req);
 
-        assertEquals(response, resultado);
+        assertEquals(response, resultado.usuario());
+        assertNotNull(resultado.pin());
+        assertEquals(6, resultado.pin().length());
         verify(repository).save(any(UsuarioEntity.class));
+        verify(pinRepository).save(any(UsuarioPinEntity.class));
     }
 
     @Test
@@ -115,19 +119,6 @@ class UsuarioServiceTest {
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
         assertTrue(ex.getMessage().contains("CUI"));
-        verify(repository, never()).save(any());
-    }
-
-    @Test
-    void crear_LanzaExcepcion_CuandoPasswordNoCoincide() {
-        UsuarioDTOs.Request req = new UsuarioDTOs.Request(
-            new UsuarioDTOs.PersonaRequest("1234567890123", "Juan", "Perez", Sexo.MASCULINO,
-                LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"),
-            1L, 1L, 1L, "jperez", "pass1", "pass2", true
-        );
-
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
-        assertEquals("Las contraseñas no coinciden", ex.getMessage());
         verify(repository, never()).save(any());
     }
 

@@ -6,13 +6,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class RolesDataInitializer implements CommandLineRunner {
 
+    private static final String ROL_SUPER_USUARIO = "Super Usuario";
+
     private final ModuloRepository moduloRepository;
     private final SubmoduloRepository submoduloRepository;
+    private final RolRepository rolRepository;
+    private final RolPermisoRepository rolPermisoRepository;
 
     @Override
     @Transactional
@@ -56,7 +62,45 @@ public class RolesDataInitializer implements CommandLineRunner {
         crearSubmodulo(usuarios, "USUARIOS", "Usuarios");
         crearSubmodulo(usuarios, "ROLES", "Roles");
         crearSubmodulo(usuarios, "HORARIOS", "Horarios");
-        
+
+        crearOActualizarRolSuperUsuario();
+    }
+
+    // Rol con acceso total (los 4 permisos en true) a todos los submódulos existentes.
+    // Idempotente: si se agregan submódulos nuevos en un arranque posterior, se les otorga el permiso automáticamente.
+    private void crearOActualizarRolSuperUsuario() {
+        RolEntity rol = rolRepository.findByNombreIgnoreCase(ROL_SUPER_USUARIO).orElseGet(() -> {
+            RolEntity nuevo = RolEntity.builder()
+                    .codigo(generarCodigoRol())
+                    .nombre(ROL_SUPER_USUARIO)
+                    .estado(true)
+                    .build();
+            return rolRepository.save(nuevo);
+        });
+
+        Set<Long> submodulosConPermiso = rol.getPermisos().stream()
+                .map(p -> p.getSubmodulo().getId())
+                .collect(Collectors.toSet());
+
+        for (SubmoduloEntity sub : submoduloRepository.findAll()) {
+            if (submodulosConPermiso.contains(sub.getId())) {
+                continue;
+            }
+            rol.getPermisos().add(RolPermisoEntity.builder()
+                    .rol(rol)
+                    .submodulo(sub)
+                    .puedeLeer(true)
+                    .puedeCrear(true)
+                    .puedeEditar(true)
+                    .puedeEliminar(true)
+                    .build());
+        }
+        rolRepository.save(rol);
+    }
+
+    private String generarCodigoRol() {
+        long total = rolRepository.count();
+        return String.format("ROL-%02d", total + 1);
     }
 
 

@@ -40,7 +40,8 @@ public class UsuarioEntity {
     @Column(nullable = false, unique = true, length = 50)
     private String username;
 
-    @Column(nullable = false, length = 255)
+    // Null hasta que el usuario establece sus credenciales con el PIN de primer ingreso.
+    @Column(length = 255)
     private String password;
 
     @Column(nullable = false)

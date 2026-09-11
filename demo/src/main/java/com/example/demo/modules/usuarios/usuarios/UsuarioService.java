@@ -8,6 +8,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,15 +24,12 @@ public class UsuarioService {
     private final RolRepository rolRepository;
     private final UsuarioMapper mapper;
     private final PasswordEncoder passwordEncoder;
+    private final UsuarioPinRepository pinRepository;
 
     @Transactional
-    public UsuarioDTOs.Response crear(UsuarioDTOs.Request req) {
+    public UsuarioDTOs.CrearResponse crear(UsuarioDTOs.Request req) {
         if (req == null) {
             throw new IllegalArgumentException("La solicitud es obligatoria");
-        }
-
-        if (!req.password().equals(req.confirmPassword())) {
-            throw new IllegalArgumentException("Las contraseñas no coinciden");
         }
 
         String cui = StringNormalizer.normalizarTexto(req.persona().cui());
@@ -60,6 +59,7 @@ public class UsuarioService {
                 .email(email)
                 .build();
 
+        // Sin password: se define luego mediante el PIN de un solo uso (ver establecerCredenciales).
         UsuarioEntity entity = UsuarioEntity.builder()
                 .codigo(generarCodigoUsuario())
                 .persona(persona)
@@ -67,12 +67,31 @@ public class UsuarioService {
                 .horario(horario)
                 .rol(rol)
                 .username(username)
-                .password(passwordEncoder.encode(req.password()))
                 .estado(req.estado() != null ? req.estado() : true)
                 .build();
 
         UsuarioEntity guardado = repository.save(entity);
-        return mapper.toDTO(guardado);
+        UsuarioPinEntity pin = generarPin(guardado);
+
+        return new UsuarioDTOs.CrearResponse(mapper.toDTO(guardado), pin.getCodigo(), pin.getFechaExpiracion());
+    }
+
+    private UsuarioPinEntity generarPin(UsuarioEntity usuario) {
+        LocalDateTime ahora = LocalDateTime.now();
+        UsuarioPinEntity pin = UsuarioPinEntity.builder()
+                .usuario(usuario)
+                .codigo(generarCodigoPin())
+                .fechaCreacion(ahora)
+                .fechaExpiracion(ahora.plusHours(1))
+                .usado(false)
+                .intentos(0)
+                .build();
+        return pinRepository.save(pin);
+    }
+
+    private String generarCodigoPin() {
+        // SecureRandom para que el PIN no sea predecible (es la única credencial en el primer ingreso).
+        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
 
     @Transactional

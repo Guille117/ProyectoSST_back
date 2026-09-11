@@ -15,7 +15,7 @@ public class PuestoController {
     private final PuestoService service;
 
     @GetMapping
-    public ResponseEntity<List<PuestoDTOs.Response>> obtenerTodos(@RequestParam(required = false) Boolean activos) {
+    public ResponseEntity<List<PuestoDTOs.Response>> obtenerTodos(@RequestParam(required = false, name = "activos") Boolean activos) {
         return ResponseEntity.ok(service.obtenerTodos(activos));
     }
 

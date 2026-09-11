@@ -20,14 +20,15 @@ public class UsuarioDTOs {
                         @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
                         String username,
 
-                        @NotBlank(message = "La contraseña es obligatoria")
-                        @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
-                        String password,
-
-                        @NotBlank(message = "La confirmación de contraseña es obligatoria")
-                        String confirmPassword,
-
                         Boolean estado
+        ) {}
+
+        // Respuesta de creación: incluye el PIN de un solo uso que el usuario debe usar
+        // junto con /api/v1/auth/establecer-credenciales para definir su contraseña.
+        public record CrearResponse(
+                Response usuario,
+                String pin,
+                java.time.LocalDateTime pinExpiracion
         ) {}
 
         public record PersonaRequest(

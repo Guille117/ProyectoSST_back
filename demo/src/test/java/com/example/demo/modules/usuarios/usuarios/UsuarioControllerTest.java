@@ -51,7 +51,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Request request = new UsuarioDTOs.Request(
                 new UsuarioDTOs.PersonaRequest("1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                         LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"),
-                1L, 1L, 1L, "jperez", "password123", "password123", true
+                1L, 1L, 1L, "jperez", true
         );
 
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
@@ -62,17 +62,19 @@ class UsuarioControllerTest {
                 1L, "ROL-01", "Admin",
                 "jperez", true
         );
+        UsuarioDTOs.CrearResponse crearResponse = new UsuarioDTOs.CrearResponse(response, "123456", java.time.LocalDateTime.now().plusHours(1));
 
-        when(usuarioService.crear(any(UsuarioDTOs.Request.class))).thenReturn(response);
+        when(usuarioService.crear(any(UsuarioDTOs.Request.class))).thenReturn(crearResponse);
 
         mockMvc.perform(post("/api/v1/usuarios")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.codigo").value("USR-01"))
-                .andExpect(jsonPath("$.username").value("jperez"))
-                .andExpect(jsonPath("$.password").doesNotExist());
+                .andExpect(jsonPath("$.usuario.id").value(1))
+                .andExpect(jsonPath("$.usuario.codigo").value("USR-01"))
+                .andExpect(jsonPath("$.usuario.username").value("jperez"))
+                .andExpect(jsonPath("$.pin").value("123456"))
+                .andExpect(jsonPath("$.usuario.password").doesNotExist());
     }
 
     @Test
@@ -80,7 +82,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Request request = new UsuarioDTOs.Request(
                 new UsuarioDTOs.PersonaRequest("123", "Juan", "Perez", Sexo.MASCULINO,
                         LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"),
-                1L, 1L, 1L, "jperez", "password123", "password123", true
+                1L, 1L, 1L, "jperez", true
         );
 
         mockMvc.perform(post("/api/v1/usuarios")
