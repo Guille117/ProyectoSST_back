@@ -1,0 +1,222 @@
+package com.example.demo.modules.usuarios.usuarios;
+
+import com.example.demo.modules.usuarios.horarios.HorarioRepository;
+import com.example.demo.modules.usuarios.roles.RolRepository;
+import com.example.demo.utils.StringNormalizer;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+public class UsuarioService {
+
+    private final UsuarioRepository repository;
+    private final PersonaRepository personaRepository;
+    private final PuestoRepository puestoRepository;
+    private final HorarioRepository horarioRepository;
+    private final RolRepository rolRepository;
+    private final UsuarioMapper mapper;
+    private final PasswordEncoder passwordEncoder;
+
+    @Transactional
+    public UsuarioDTOs.Response crear(UsuarioDTOs.Request req) {
+        if (req == null) {
+            throw new IllegalArgumentException("La solicitud es obligatoria");
+        }
+
+        if (!req.password().equals(req.confirmPassword())) {
+            throw new IllegalArgumentException("Las contraseñas no coinciden");
+        }
+
+        String cui = StringNormalizer.normalizarTexto(req.persona().cui());
+        String nombres = StringNormalizer.normalizarTexto(req.persona().nombres());
+        String apellidos = StringNormalizer.normalizarTexto(req.persona().apellidos());
+        String username = StringNormalizer.normalizarTexto(req.username());
+        String telefono = StringNormalizer.normalizarNullable(req.persona().telefono());
+        String email = StringNormalizer.normalizarNullable(req.persona().email());
+
+        validarNoDuplicado(null, cui, username);
+
+        // Validar existen referencias
+        PuestoEntity puesto = puestoRepository.findById(req.puestoId())
+                .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
+        var horario = horarioRepository.findById(req.horarioId())
+                .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
+        var rol = rolRepository.findById(req.rolId())
+                .orElseThrow(() -> new RuntimeException("Rol no encontrado con el ID: " + req.rolId()));
+
+        PersonaEntity persona = PersonaEntity.builder()
+                .cui(cui)
+                .nombres(nombres)
+                .apellidos(apellidos)
+                .sexo(req.persona().sexo())
+                .fechaNacimiento(req.persona().fechaNacimiento())
+                .telefono(telefono)
+                .email(email)
+                .build();
+
+        UsuarioEntity entity = UsuarioEntity.builder()
+                .codigo(generarCodigoUsuario())
+                .persona(persona)
+                .puesto(puesto)
+                .horario(horario)
+                .rol(rol)
+                .username(username)
+                .password(passwordEncoder.encode(req.password()))
+                .estado(req.estado() != null ? req.estado() : true)
+                .build();
+
+        UsuarioEntity guardado = repository.save(entity);
+        return mapper.toDTO(guardado);
+    }
+
+    @Transactional
+    public UsuarioDTOs.Response actualizar(Long id, UsuarioDTOs.UpdateRequest req) {
+        if (req == null) {
+            throw new IllegalArgumentException("Sin datos para actualizar");
+        }
+
+        UsuarioEntity existente = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        String cui = StringNormalizer.normalizarTexto(req.persona().cui());
+        String nombres = StringNormalizer.normalizarTexto(req.persona().nombres());
+        String apellidos = StringNormalizer.normalizarTexto(req.persona().apellidos());
+        String username = StringNormalizer.normalizarTexto(req.username());
+        String telefono = StringNormalizer.normalizarNullable(req.persona().telefono());
+        String email = StringNormalizer.normalizarNullable(req.persona().email());
+
+        validarNoDuplicado(id, cui, username);
+
+        // validar password si viene con valor
+        if (req.password() != null && !req.password().isBlank()) {
+            if (req.confirmPassword() == null || !req.password().equals(req.confirmPassword())) {
+                throw new IllegalArgumentException("Las contraseñas no coinciden");
+            }
+            existente.setPassword(passwordEncoder.encode(req.password()));
+        }
+
+        PuestoEntity puesto = puestoRepository.findById(req.puestoId())
+                .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
+        var horario = horarioRepository.findById(req.horarioId())
+                .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
+        var rol = rolRepository.findById(req.rolId())
+                .orElseThrow(() -> new RuntimeException("Rol no encontrado con el ID: " + req.rolId()));
+
+        PersonaEntity persona = existente.getPersona();
+        persona.setCui(cui);
+        persona.setNombres(nombres);
+        persona.setApellidos(apellidos);
+        persona.setSexo(req.persona().sexo());
+        persona.setFechaNacimiento(req.persona().fechaNacimiento());
+        persona.setTelefono(telefono);
+        persona.setEmail(email);
+
+        existente.setPuesto(puesto);
+        existente.setHorario(horario);
+        existente.setRol(rol);
+        existente.setUsername(username);
+        existente.setEstado(req.estado() != null ? req.estado() : existente.isEstado());
+
+        UsuarioEntity actualizado = repository.save(existente);
+        return mapper.toDTO(actualizado);
+    }
+
+    @Transactional(readOnly = true)
+    public UsuarioDTOs.Response obtenerPorId(Long id) {
+        UsuarioEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con el ID: " + id));
+        return mapper.toDTO(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioDTOs.Response> obtenerTodos(Boolean activos) {
+        if (activos == null) {
+            return repository.findAll().stream()
+                    .map(mapper::toDTO)
+                    .toList();
+        }
+        return repository.findByEstado(activos).stream()
+                .map(mapper::toDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioDTOs.Response> buscarPorCriterio(String criterio, Boolean activos) {
+        if (criterio == null || criterio.isBlank()) {
+            return List.of();
+        }
+        String c = criterio.trim().toLowerCase();
+
+        List<UsuarioEntity> base;
+        if (activos == null) {
+            base = repository.findAll();
+        } else {
+            base = repository.findByEstado(activos);
+        }
+
+        return base.stream()
+                .filter(u -> {
+                    PersonaEntity p = u.getPersona();
+                    return (p != null && (
+                            p.getCui() != null && p.getCui().toLowerCase().contains(c) ||
+                            p.getNombres() != null && p.getNombres().toLowerCase().contains(c) ||
+                            p.getApellidos() != null && p.getApellidos().toLowerCase().contains(c)
+                    )) ||
+                    (u.getUsername() != null && u.getUsername().toLowerCase().contains(c)) ||
+                    (u.getCodigo() != null && u.getCodigo().toLowerCase().contains(c));
+                })
+                .map(mapper::toDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioDTOs.Response> buscarPorNombre(String nombre, Boolean activos) {
+        return buscarPorCriterio(nombre, activos);
+    }
+
+    @Transactional
+    public void cambiarEstado(Long id) {
+        UsuarioEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Usuario no encontrado con el ID: " + id));
+        entity.setEstado(!entity.isEstado());
+        repository.save(entity);
+    }
+
+    private void validarNoDuplicado(Long idActual, String cui, String username) {
+        // CUI único
+        Optional<PersonaEntity> personaDup = personaRepository.findByCui(cui);
+        if (personaDup.isPresent()) {
+            // buscar usuario que posee esa persona
+            Optional<UsuarioEntity> usuarioConCui = repository.findAll().stream()
+                    .filter(u -> u.getPersona() != null && u.getPersona().getCui().equals(cui))
+                    .findFirst();
+            if (usuarioConCui.isPresent() && !usuarioConCui.get().getId().equals(idActual)) {
+                if (usuarioConCui.get().isEstado()) {
+                    throw new IllegalArgumentException("Ya existe un usuario activo con el CUI: " + cui);
+                }
+                throw new IllegalArgumentException("Ya existe un usuario con el CUI: " + cui + " pero está inactivo. Actívalo primero o actualiza ese registro inactivo.");
+            }
+        }
+
+        // Username único
+        Optional<UsuarioEntity> dupUser = repository.findByUsernameIgnoreCase(username);
+        if (dupUser.isEmpty() || dupUser.get().getId().equals(idActual)) {
+            return;
+        }
+        if (dupUser.get().isEstado()) {
+            throw new IllegalArgumentException("Ya existe un usuario activo con el username: " + username);
+        }
+        throw new IllegalArgumentException("Ya existe un usuario con el username: " + username + " pero está inactivo. Actívalo primero o actualiza ese registro inactivo.");
+    }
+
+    private String generarCodigoUsuario() {
+        long total = repository.count();
+        return String.format("USR-%02d", total + 1);
+    }
+}
