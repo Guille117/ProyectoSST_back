@@ -21,29 +21,29 @@ public class ProveedorController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProveedorDTOs.Response>> obtenerTodos(@RequestParam(required = false) Boolean activos) {
+    public ResponseEntity<List<ProveedorDTOs.Response>> obtenerTodos(@RequestParam(name = "activos", required = false) Boolean activos) {
         return ResponseEntity.ok(service.obtenerTodos(activos));
     }
 
     @GetMapping("/buscar")
     public ResponseEntity<List<ProveedorDTOs.Response>> buscarPorNombre(
-            @RequestParam String nombre,
-            @RequestParam(required = false) Boolean activos) {
+            @RequestParam(name = "nombre") String nombre,
+            @RequestParam(name = "activos", required = false) Boolean activos) {
         return ResponseEntity.ok(service.buscarPorNombre(nombre, activos));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProveedorDTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<ProveedorDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProveedorDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody ProveedorDTOs.Request request) {
+    public ResponseEntity<ProveedorDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody ProveedorDTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> actualizarEstado(@PathVariable Long id) {
+    public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }

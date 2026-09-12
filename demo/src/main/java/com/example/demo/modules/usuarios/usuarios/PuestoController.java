@@ -25,14 +25,14 @@ public class PuestoController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PuestoDTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<PuestoDTOs.Response> obtenerPorId(@PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @GetMapping("/buscar")
     public ResponseEntity<List<PuestoDTOs.Response>> buscarPorNombre(
-            @RequestParam String nombre,
-            @RequestParam(required = false) Boolean activos) {
+            @RequestParam(name = "nombre") String nombre,
+            @RequestParam(required = false, name = "activos") Boolean activos) {
         return ResponseEntity.ok(service.buscarPorNombre(nombre, activos));
     }
 }

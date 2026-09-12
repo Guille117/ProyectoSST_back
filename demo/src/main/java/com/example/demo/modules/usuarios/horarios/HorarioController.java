@@ -33,17 +33,17 @@ public class HorarioController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<HorarioDTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<HorarioDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<HorarioDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody HorarioDTOs.Request request) {
+    public ResponseEntity<HorarioDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody HorarioDTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> actualizarEstado(@PathVariable Long id) {
+    public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }

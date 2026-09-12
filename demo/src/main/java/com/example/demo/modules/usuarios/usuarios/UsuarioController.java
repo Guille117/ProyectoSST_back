@@ -38,12 +38,12 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody UsuarioDTOs.UpdateRequest request) {
+    public ResponseEntity<UsuarioDTOs.Response> actualizar(@PathVariable(name = "id") Long id, @Valid @RequestBody UsuarioDTOs.UpdateRequest request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> actualizarEstado(@PathVariable Long id) {
+    public ResponseEntity<Void> actualizarEstado(@PathVariable(name = "id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }

@@ -21,27 +21,27 @@ public class MedicinaNose2Controller {
     }
 
     @GetMapping
-    public ResponseEntity<List<MedicinaNose2DTOs.Response>> obtenerTodos(@RequestParam(required = false) Boolean activos) {
+    public ResponseEntity<List<MedicinaNose2DTOs.Response>> obtenerTodos(@RequestParam(name = "activos", required = false) Boolean activos) {
         return ResponseEntity.ok(service.obtenerTodos(activos));
     }
 
     @GetMapping("/buscar")
-    public ResponseEntity<List<MedicinaNose2DTOs.Response>> buscarPorNombre(@RequestParam String nombre, @RequestParam(required = false) Boolean activos) {
+    public ResponseEntity<List<MedicinaNose2DTOs.Response>> buscarPorNombre(@RequestParam(name = "nombre") String nombre, @RequestParam(name = "activos", required = false) Boolean activos) {
         return ResponseEntity.ok(service.buscarPorNombre(nombre, activos));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<MedicinaNose2DTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<MedicinaNose2DTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MedicinaNose2DTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody MedicinaNose2DTOs.Request request) {
+    public ResponseEntity<MedicinaNose2DTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody MedicinaNose2DTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> actualizarEstado(@PathVariable Long id) {
+    public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }

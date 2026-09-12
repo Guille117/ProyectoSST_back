@@ -21,27 +21,27 @@ public class CamaController {
     }
 
     @GetMapping
-    public ResponseEntity<List<CamaDTOs.Response>> obtenerTodos(@RequestParam(required = false) Boolean activos) {
+    public ResponseEntity<List<CamaDTOs.Response>> obtenerTodos(@RequestParam(name = "activos", required = false) Boolean activos) {
         return ResponseEntity.ok(service.obtenerTodos(activos));
     }
 
     @GetMapping("/buscar")
-    public ResponseEntity<List<CamaDTOs.Response>> buscarPorNombre(@RequestParam String nombre, @RequestParam(required = false) Boolean activos) {
+    public ResponseEntity<List<CamaDTOs.Response>> buscarPorNombre(@RequestParam(name = "nombre") String nombre, @RequestParam(name = "activos", required = false) Boolean activos) {
         return ResponseEntity.ok(service.buscarPorNombre(nombre, activos));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CamaDTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<CamaDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CamaDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody CamaDTOs.Request request) {
+    public ResponseEntity<CamaDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody CamaDTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> actualizarEstado(@PathVariable Long id) {
+    public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }

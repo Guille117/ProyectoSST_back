@@ -33,19 +33,19 @@ public class RolController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<RolDTOs.Response> obtenerPorId(@PathVariable Long id) {
+    public ResponseEntity<RolDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));
     }
 
     @PutMapping("/{id}")
-        public ResponseEntity<RolDTOs.Response> actualizar(
-        @PathVariable("id") Long id, 
-        @Valid @RequestBody RolDTOs.Request request) {
-    return ResponseEntity.ok(service.actualizar(id, request));
-}
+    public ResponseEntity<RolDTOs.Response> actualizar(
+            @PathVariable("id") Long id, 
+            @Valid @RequestBody RolDTOs.Request request) {
+        return ResponseEntity.ok(service.actualizar(id, request));
+    }
 
     @PatchMapping("/{id}")
-    public ResponseEntity<Void> actualizarEstado(@PathVariable ("id") Long id) {
+    public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }
