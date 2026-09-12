@@ -2,6 +2,8 @@ package com.example.demo.modules.usuarios.usuarios;
 
 import com.example.demo.modules.usuarios.horarios.HorarioEntity;
 import com.example.demo.modules.usuarios.horarios.HorarioRepository;
+import com.example.demo.modules.usuarios.puesto.puestoEntity;
+import com.example.demo.modules.usuarios.puesto.puestoRepository;
 import com.example.demo.modules.usuarios.roles.RolEntity;
 import com.example.demo.modules.usuarios.roles.RolRepository;
 import org.junit.jupiter.api.Test;
@@ -29,7 +31,7 @@ class UsuarioServiceTest {
     private PersonaRepository personaRepository;
 
     @Mock
-    private PuestoRepository puestoRepository;
+    private puestoRepository puestoRepository;
 
     @Mock
     private HorarioRepository horarioRepository;
@@ -63,11 +65,19 @@ class UsuarioServiceTest {
         );
     }
 
+    private puestoEntity crearPuesto(Long id, String nombre) {
+        puestoEntity p = new puestoEntity();
+        p.setId(id);
+        p.setNombre(nombre);
+        p.setEstado(true);
+        return p;
+    }
+
     @Test
     void crear_Exitoso() {
         UsuarioDTOs.Request req = buildRequest();
 
-        PuestoEntity puesto = PuestoEntity.builder().id(1L).codigo("PUE-01").nombre("Director").build();
+        puestoEntity puesto = crearPuesto(1L, "Director");
         HorarioEntity horario = HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build();
         RolEntity rol = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build();
 
@@ -82,7 +92,7 @@ class UsuarioServiceTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
@@ -126,14 +136,14 @@ class UsuarioServiceTest {
     void obtenerPorId_Exitoso() {
         UsuarioEntity entity = UsuarioEntity.builder().id(1L).codigo("USR-01").username("jperez").estado(true).build();
         entity.setPersona(PersonaEntity.builder().cui("1234567890123").nombres("Juan").build());
-        entity.setPuesto(PuestoEntity.builder().codigo("PUE-01").nombre("Director").build());
+        entity.setPuesto(crearPuesto(1L, "Director"));
         entity.setHorario(HorarioEntity.builder().codigo("HOR-01").nombre("Diurno").build());
         entity.setRol(RolEntity.builder().codigo("ROL-01").nombre("Admin").build());
 
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), null, null,
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
@@ -159,7 +169,7 @@ class UsuarioServiceTest {
                 .id(1L).codigo("USR-01").username("jperez").password("old").estado(true).build();
         PersonaEntity persona = PersonaEntity.builder().id(10L).cui("1234567890123").nombres("Juan").apellidos("Perez").sexo(Sexo.MASCULINO).fechaNacimiento(LocalDate.of(1990, 1, 1)).build();
         existente.setPersona(persona);
-        existente.setPuesto(PuestoEntity.builder().id(1L).codigo("PUE-01").nombre("Director").build());
+        existente.setPuesto(crearPuesto(1L, "Director"));
         existente.setHorario(HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build());
         existente.setRol(RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build());
 
@@ -169,7 +179,7 @@ class UsuarioServiceTest {
             2L, 1L, 1L, "jperez2", "newpass123", "newpass123", true
         );
 
-        PuestoEntity nuevoPuesto = PuestoEntity.builder().id(2L).codigo("PUE-02").nombre("Doctor").build();
+        puestoEntity nuevoPuesto = crearPuesto(2L, "Doctor");
         HorarioEntity horario = HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build();
         RolEntity rol = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build();
 
@@ -180,7 +190,7 @@ class UsuarioServiceTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan Carlos", "Perez Lopez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "87654321", "juan2@test.com",
-                2L, "PUE-02", "Doctor",
+                2L, "Doctor",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez2", true

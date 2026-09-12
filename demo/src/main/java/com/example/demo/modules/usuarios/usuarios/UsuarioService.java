@@ -1,6 +1,8 @@
 package com.example.demo.modules.usuarios.usuarios;
 
 import com.example.demo.modules.usuarios.horarios.HorarioRepository;
+import com.example.demo.modules.usuarios.puesto.puestoEntity;
+import com.example.demo.modules.usuarios.puesto.puestoRepository;
 import com.example.demo.modules.usuarios.roles.RolRepository;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +21,7 @@ public class UsuarioService {
 
     private final UsuarioRepository repository;
     private final PersonaRepository personaRepository;
-    private final PuestoRepository puestoRepository;
+    private final puestoRepository puestoRepository;
     private final HorarioRepository horarioRepository;
     private final RolRepository rolRepository;
     private final UsuarioMapper mapper;
@@ -42,7 +44,7 @@ public class UsuarioService {
         validarNoDuplicado(null, cui, username);
 
         // Validar existen referencias
-        PuestoEntity puesto = puestoRepository.findById(req.puestoId())
+        puestoEntity puesto = puestoRepository.findById(req.puestoId())
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
         var horario = horarioRepository.findById(req.horarioId())
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
@@ -120,7 +122,7 @@ public class UsuarioService {
             existente.setPassword(passwordEncoder.encode(req.password()));
         }
 
-        PuestoEntity puesto = puestoRepository.findById(req.puestoId())
+        puestoEntity puesto = puestoRepository.findById(req.puestoId())
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
         var horario = horarioRepository.findById(req.horarioId())
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));

@@ -1,5 +1,6 @@
 package com.example.demo.modules.usuarios.usuarios;
 
+import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -20,7 +21,7 @@ public interface UsuarioMapper {
     default UsuarioDTOs.Response toDTO(UsuarioEntity entity) {
         if (entity == null) return null;
         PersonaEntity p = entity.getPersona();
-        PuestoEntity puesto = entity.getPuesto();
+        puestoEntity puesto = entity.getPuesto();
         return new UsuarioDTOs.Response(
                 entity.getId(),
                 entity.getCodigo(),
@@ -32,7 +33,6 @@ public interface UsuarioMapper {
                 p != null ? p.getTelefono() : null,
                 p != null ? p.getEmail() : null,
                 puesto != null ? puesto.getId() : null,
-                puesto != null ? puesto.getCodigo() : null,
                 puesto != null ? puesto.getNombre() : null,
                 entity.getHorario() != null ? entity.getHorario().getId() : null,
                 entity.getHorario() != null ? entity.getHorario().getCodigo() : null,

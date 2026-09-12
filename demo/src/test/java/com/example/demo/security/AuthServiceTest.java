@@ -1,6 +1,7 @@
 package com.example.demo.security;
 
 import com.example.demo.modules.usuarios.usuarios.*;
+import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.horarios.DiaSemana;
 import com.example.demo.modules.usuarios.horarios.HorarioEntity;
 import com.example.demo.modules.usuarios.horarios.HorarioSemanalDetalleEntity;
@@ -73,9 +74,12 @@ class AuthServiceTest {
                 .sexo(Sexo.MASCULINO).fechaNacimiento(LocalDate.of(1990,1,1))
                 .build();
 
-        PuestoEntity puestoDoctor = PuestoEntity.builder().id(1L).codigo("PUE-03").nombre("Doctor").estado(true).build();
-        PuestoEntity puestoAdmin = PuestoEntity.builder().id(5L).codigo("PUE-05").nombre("Administrador").estado(true).build();
-        PuestoEntity puestoDirector = PuestoEntity.builder().id(1L).codigo("PUE-01").nombre("Director").estado(true).build();
+        puestoEntity puestoDoctor = new puestoEntity();
+        puestoDoctor.setId(1L); puestoDoctor.setNombre("Doctor"); puestoDoctor.setEstado(true);
+        puestoEntity puestoAdmin = new puestoEntity();
+        puestoAdmin.setId(5L); puestoAdmin.setNombre("Administrador"); puestoAdmin.setEstado(true);
+        puestoEntity puestoDirector = new puestoEntity();
+        puestoDirector.setId(1L); puestoDirector.setNombre("Director"); puestoDirector.setEstado(true);
 
         ModuloEntity modulo = ModuloEntity.builder().id(1L).codigo("USUARIOS").nombre("Usuarios").estado(true).build();
         SubmoduloEntity sub = SubmoduloEntity.builder().id(1L).modulo(modulo).codigo("ROLES").nombre("Roles").estado(true).build();

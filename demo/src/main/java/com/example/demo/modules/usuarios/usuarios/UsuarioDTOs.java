@@ -82,7 +82,6 @@ public class UsuarioDTOs {
             String telefono,
             String email,
             Long puestoId,
-            String puestoCodigo,
             String puestoNombre,
             Long horarioId,
             String horarioCodigo,

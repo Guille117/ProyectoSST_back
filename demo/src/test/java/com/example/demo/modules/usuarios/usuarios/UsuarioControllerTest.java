@@ -1,5 +1,7 @@
 package com.example.demo.modules.usuarios.usuarios;
 
+import com.example.demo.modules.usuarios.puesto.puestoController;
+import com.example.demo.modules.usuarios.puesto.puestoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +18,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest({UsuarioController.class, PuestoController.class})
+@org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest({UsuarioController.class, puestoController.class})
 @org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc(addFilters = false)
 class UsuarioControllerTest {
 
@@ -29,13 +31,10 @@ class UsuarioControllerTest {
     private UsuarioService usuarioService;
 
     @MockitoBean
-    private PuestoService puestoService;
+    private puestoService puestoService;
 
     @MockitoBean
     private UsuarioMapper usuarioMapper;
-
-    @MockitoBean
-    private PuestoMapper puestoMapper;
 
     @MockitoBean
     private com.example.demo.security.JwtUtil jwtUtil;
@@ -57,7 +56,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
@@ -96,7 +95,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
@@ -121,7 +120,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan Carlos", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
@@ -147,7 +146,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
@@ -165,7 +164,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "PUE-01", "Director",
+                1L, "Director",
                 1L, "HOR-01", "Diurno",
                 1L, "ROL-01", "Admin",
                 "jperez", true
