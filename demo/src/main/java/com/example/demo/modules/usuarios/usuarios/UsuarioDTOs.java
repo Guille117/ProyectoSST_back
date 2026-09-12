@@ -23,14 +23,6 @@ public class UsuarioDTOs {
                         Boolean estado
         ) {}
 
-        // Respuesta de creación: incluye el PIN de un solo uso que el usuario debe usar
-        // junto con /api/v1/auth/establecer-credenciales para definir su contraseña.
-        public record CrearResponse(
-                Response usuario,
-                String pin,
-                java.time.LocalDateTime pinExpiracion
-        ) {}
-
         public record PersonaRequest(
             @NotBlank(message = "El CUI es obligatorio")
             @Pattern(regexp = "^[0-9]{13}$", message = "El CUI debe tener exactamente 13 dígitos numéricos")

@@ -223,7 +223,7 @@ class AuthServiceTest {
                 .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
                 .usado(false).intentos(0).build();
 
-        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123", "nuevaPass123");
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123");
 
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
@@ -245,7 +245,7 @@ class AuthServiceTest {
                 .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
                 .usado(false).intentos(0).build();
 
-        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "000000", "nuevaPass123", "nuevaPass123");
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "000000", "nuevaPass123");
 
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
@@ -261,7 +261,7 @@ class AuthServiceTest {
                 .fechaCreacion(LocalDateTime.now().minusHours(2)).fechaExpiracion(LocalDateTime.now().minusHours(1))
                 .usado(false).intentos(0).build();
 
-        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123", "nuevaPass123");
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123");
 
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));
@@ -277,7 +277,7 @@ class AuthServiceTest {
                 .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
                 .usado(false).intentos(3).build();
 
-        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123", "nuevaPass123");
+        AuthDTOs.EstablecerCredencialesRequest req = new AuthDTOs.EstablecerCredencialesRequest("jperez", "123456", "nuevaPass123");
 
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(1L)).thenReturn(Optional.of(pin));

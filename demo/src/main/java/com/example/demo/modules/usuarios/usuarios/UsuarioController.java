@@ -16,7 +16,7 @@ public class UsuarioController {
     private final UsuarioService service;
 
     @PostMapping
-    public ResponseEntity<UsuarioDTOs.CrearResponse> crear(@Valid @RequestBody UsuarioDTOs.Request request) {
+    public ResponseEntity<String> crear(@Valid @RequestBody UsuarioDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
 

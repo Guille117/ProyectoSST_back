@@ -23,10 +23,7 @@ public class AuthDTOs {
 
             @NotBlank(message = "La contraseña es obligatoria")
             @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
-            String password,
-
-            @NotBlank(message = "La confirmación de contraseña es obligatoria")
-            String confirmPassword
+            String password
     ) {}
 
     public record AuthResponse(

@@ -29,7 +29,7 @@ public class UsuarioService {
     private final UsuarioPinRepository pinRepository;
 
     @Transactional
-    public UsuarioDTOs.CrearResponse crear(UsuarioDTOs.Request req) {
+    public String crear(UsuarioDTOs.Request req) {
         if (req == null) {
             throw new IllegalArgumentException("La solicitud es obligatoria");
         }
@@ -75,7 +75,7 @@ public class UsuarioService {
         UsuarioEntity guardado = repository.save(entity);
         UsuarioPinEntity pin = generarPin(guardado);
 
-        return new UsuarioDTOs.CrearResponse(mapper.toDTO(guardado), pin.getCodigo(), pin.getFechaExpiracion());
+        return pin.getCodigo();
     }
 
     private UsuarioPinEntity generarPin(UsuarioEntity usuario) {

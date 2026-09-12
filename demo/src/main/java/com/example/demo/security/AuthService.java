@@ -80,12 +80,6 @@ public class AuthService {
             throw new IllegalArgumentException("PIN incorrecto");
         }
 
-        if (!request.password().equals(request.confirmPassword())) {
-            pin.setIntentos(pin.getIntentos() + 1);
-            pinRepository.save(pin);
-            throw new IllegalArgumentException("Las contraseñas no coinciden");
-        }
-
         usuario.setPassword(passwordEncoder.encode(request.password()));
         usuarioRepository.save(usuario);
 

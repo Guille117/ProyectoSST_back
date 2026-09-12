@@ -105,14 +105,12 @@ class UsuarioServiceTest {
         when(rolRepository.findById(1L)).thenReturn(Optional.of(rol));
         when(repository.count()).thenReturn(0L);
         when(repository.save(any(UsuarioEntity.class))).thenReturn(guardado);
-        when(mapper.toDTO(guardado)).thenReturn(response);
         when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UsuarioDTOs.CrearResponse resultado = service.crear(req);
+        String resultado = service.crear(req);
 
-        assertEquals(response, resultado.usuario());
-        assertNotNull(resultado.pin());
-        assertEquals(6, resultado.pin().length());
+        assertNotNull(resultado);
+        assertEquals(6, resultado.length());
         verify(repository).save(any(UsuarioEntity.class));
         verify(pinRepository).save(any(UsuarioPinEntity.class));
     }
