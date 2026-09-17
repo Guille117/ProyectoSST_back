@@ -1,6 +1,8 @@
 package com.example.demo.modules.farmacia.unidadMedida;
 
 import com.example.demo.modules.catalogo.entityBase;
+
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.Data;
@@ -11,4 +13,7 @@ import lombok.EqualsAndHashCode;
 @Data
 @EqualsAndHashCode(callSuper = true)
 public class unidadMedidaEntity extends entityBase {
+    @Column(nullable = false)
+    private String abreviatura;
+
 }

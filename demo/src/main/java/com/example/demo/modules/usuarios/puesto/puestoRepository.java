@@ -7,4 +7,5 @@ import java.util.Optional;
 @Repository
 public interface puestoRepository extends repositoryBase<puestoEntity> {
     Optional<puestoEntity> findByNombreIgnoreCase(String nombre);
+    Integer countByEstado(Boolean estado);
 }

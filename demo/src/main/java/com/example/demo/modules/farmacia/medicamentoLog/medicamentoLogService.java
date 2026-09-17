@@ -1,19 +1,21 @@
 package com.example.demo.modules.farmacia.medicamentoLog;
 
-import com.example.demo.modules.farmacia.marca.marcaEntity;
 import com.example.demo.modules.farmacia.marca.marcaRepository;
-import com.example.demo.modules.farmacia.presentacion.presentacionEntity;
 import com.example.demo.modules.farmacia.presentacion.presentacionRepository;
-import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaEntity;
 import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaRepository;
-import com.example.demo.modules.farmacia.viaAdmin.viaAdminEntity;
 import com.example.demo.modules.farmacia.viaAdmin.viaAdminRepository;
 import com.example.demo.utils.StringNormalizer;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.StoredProcedureQuery;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +25,23 @@ public class medicamentoLogService {
     private final marcaRepository marcaRepository;
     private final viaAdminRepository viaAdminRepository;
     private final presentacionRepository presentacionRepository;
+
+    @PersistenceContext 
+    private EntityManager entityManager; 
+
+    public Map<String, Long> obtenerConteoCatalogosFarmacia(){
+        Map<String, Long> conteo = new HashMap<>();
+
+        StoredProcedureQuery query = entityManager.createStoredProcedureQuery("catalogosFarmacia");
+        List<Object[]> resultados = query.getResultList();
+
+        for(Object[] fila: resultados){
+            String nombreTabla = (String) fila[0];
+            Long registros = ((Number) fila[1]).longValue();  
+            conteo.put(nombreTabla, registros);
+        }
+        return conteo;
+    }
 
     @Transactional
     public medicamentoLogDTOs.Response crear(medicamentoLogDTOs.Request request) {

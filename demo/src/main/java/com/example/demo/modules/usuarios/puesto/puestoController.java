@@ -1,6 +1,7 @@
 package com.example.demo.modules.usuarios.puesto;
 
 import com.example.demo.modules.catalogo.controllerBase;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -19,5 +20,10 @@ public class puestoController extends controllerBase<puestoEntity> {
         return puestoService;
     }
 
+    // Endpoint para contar los puestos
+    @GetMapping("/conteo")
+    public int contarPuestos() {
+        return getService().contarPuestos();
+    }
 }
 

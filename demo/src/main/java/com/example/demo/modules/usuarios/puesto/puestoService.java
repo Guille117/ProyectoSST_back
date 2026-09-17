@@ -2,6 +2,9 @@ package com.example.demo.modules.usuarios.puesto;
 
 import com.example.demo.modules.catalogo.repositoryBase;
 import com.example.demo.modules.catalogo.serviceBase;
+
+import jakarta.transaction.Transactional;
+
 import org.springframework.stereotype.Service;
 
 @Service
@@ -19,6 +22,11 @@ public class puestoService extends serviceBase<puestoEntity>{
     @Override
     protected repositoryBase<puestoEntity> getRepository() {
         return puestoRepository;
+    }
+
+    @Transactional 
+    public int contarPuestos() {
+        return (int) puestoRepository.countByEstado(true);
     }
     
 }

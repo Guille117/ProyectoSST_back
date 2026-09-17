@@ -7,12 +7,18 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/medicamentoLog")
 @RequiredArgsConstructor
 public class medicamentoLogController {
     private final medicamentoLogService service;
+
+    @GetMapping("/conteoCatalogosFarmacia")
+    public Map<String, Long> getConteosCatalogos(){
+        return service.obtenerConteoCatalogosFarmacia();
+    }
 
     @PostMapping
     public ResponseEntity<medicamentoLogDTOs.Response> crear(@Valid @RequestBody medicamentoLogDTOs.Request request) {
