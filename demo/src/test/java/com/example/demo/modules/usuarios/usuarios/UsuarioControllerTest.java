@@ -50,7 +50,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Request request = new UsuarioDTOs.Request(
                 new UsuarioDTOs.PersonaRequest("1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                         LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"),
-                1L, 1L, 1L, "jperez", true
+                1L, 1L, List.of(1L), "jperez", true
         );
 
         when(usuarioService.crear(any(UsuarioDTOs.Request.class))).thenReturn("123456");
@@ -67,7 +67,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.Request request = new UsuarioDTOs.Request(
                 new UsuarioDTOs.PersonaRequest("123", "Juan", "Perez", Sexo.MASCULINO,
                         LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"),
-                1L, 1L, 1L, "jperez", true
+                1L, 1L, List.of(1L), "jperez", true
         );
 
         mockMvc.perform(post("/api/v1/usuarios")
@@ -83,7 +83,7 @@ class UsuarioControllerTest {
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
                 1L, "Director",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez", true
         );
 
@@ -100,7 +100,7 @@ class UsuarioControllerTest {
         UsuarioDTOs.UpdateRequest request = new UsuarioDTOs.UpdateRequest(
                 new UsuarioDTOs.PersonaRequest("1234567890123", "Juan Carlos", "Perez", Sexo.MASCULINO,
                         LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"),
-                1L, 1L, 1L, "jperez", null, null, true
+                1L, 1L, List.of(1L), "jperez", null, null, true
         );
 
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
@@ -108,7 +108,7 @@ class UsuarioControllerTest {
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
                 1L, "Director",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez", true
         );
 
@@ -134,7 +134,7 @@ class UsuarioControllerTest {
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
                 1L, "Director",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez", true
         );
 
@@ -152,7 +152,7 @@ class UsuarioControllerTest {
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
                 1L, "Director",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez", true
         );
 

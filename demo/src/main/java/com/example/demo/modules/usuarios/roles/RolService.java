@@ -1,6 +1,7 @@
 package com.example.demo.modules.usuarios.roles;
 
 import com.example.demo.utils.StringNormalizer;
+import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,7 @@ public class RolService {
     private final RolMapper mapper;
     private final ModuloRepository moduloRepository;
     private final SubmoduloRepository submoduloRepository;
+    private final UsuarioRepository usuarioRepository;
 
     @Transactional
     public RolDTOs.Response crear(RolDTOs.Request req) {
@@ -70,7 +72,9 @@ public class RolService {
         validarNoDuplicado(id, nombre);
 
         existente.setNombre(nombre);
-        existente.setEstado(req.estado() != null ? req.estado() : existente.isEstado());
+        boolean nuevoEstado = req.estado() != null ? req.estado() : existente.isEstado();
+        validarDesactivacion(existente, nuevoEstado);
+        existente.setEstado(nuevoEstado);
 
         // --- GESTIÓN DE PERMISOS SIN CHOQUE DE CLAVE ÚNICA ---
         if (req.permisos() != null) {
@@ -176,8 +180,16 @@ public class RolService {
     public void cambiarEstado(Long id) {
         RolEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Rol no encontrado con el ID: " + id));
-        entity.setEstado(!entity.isEstado());
+        boolean nuevoEstado = !entity.isEstado();
+        validarDesactivacion(entity, nuevoEstado);
+        entity.setEstado(nuevoEstado);
         repository.save(entity);
+    }
+
+    private void validarDesactivacion(RolEntity rol, boolean nuevoEstado) {
+        if (rol.isEstado() && !nuevoEstado && usuarioRepository.existsByRoles_Id(rol.getId())) {
+            throw new IllegalArgumentException("No se puede desactivar el rol porque está asociado a uno o más usuarios");
+        }
     }
 
     @Transactional(readOnly = true)

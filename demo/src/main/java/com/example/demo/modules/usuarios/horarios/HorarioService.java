@@ -1,6 +1,7 @@
 package com.example.demo.modules.usuarios.horarios;
 
 import com.example.demo.utils.StringNormalizer;
+import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ public class HorarioService {
 
     private final HorarioRepository repository;
     private final HorarioMapper mapper;
+    private final UsuarioRepository usuarioRepository;
 
     @Transactional
     public HorarioDTOs.Response crear(HorarioDTOs.Request req) {
@@ -75,7 +77,9 @@ public class HorarioService {
 
         existente.setNombre(nombre);
         existente.setEsRotativo(esRotativo);
-        existente.setEstado(req.estado() != null ? req.estado() : existente.isEstado());
+        boolean nuevoEstado = req.estado() != null ? req.estado() : existente.isEstado();
+        validarDesactivacion(existente, nuevoEstado);
+        existente.setEstado(nuevoEstado);
 
         if (!esRotativo) {
             // limpiar turno previo
@@ -141,8 +145,16 @@ public class HorarioService {
     public void cambiarEstado(Long id) {
         HorarioEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + id));
-        entity.setEstado(!entity.isEstado());
+        boolean nuevoEstado = !entity.isEstado();
+        validarDesactivacion(entity, nuevoEstado);
+        entity.setEstado(nuevoEstado);
         repository.save(entity);
+    }
+
+    private void validarDesactivacion(HorarioEntity horario, boolean nuevoEstado) {
+        if (horario.isEstado() && !nuevoEstado && usuarioRepository.existsByHorario_Id(horario.getId())) {
+            throw new IllegalArgumentException("No se puede desactivar el horario porque está asociado a uno o más usuarios");
+        }
     }
 
     private void validarNoDuplicado(Long idActual, String nombre) {

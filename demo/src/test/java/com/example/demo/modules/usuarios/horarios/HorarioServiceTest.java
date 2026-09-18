@@ -1,5 +1,6 @@
 package com.example.demo.modules.usuarios.horarios;
 
+import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +23,9 @@ class HorarioServiceTest {
 
     @Mock
     private HorarioMapper mapper;
+
+        @Mock
+        private UsuarioRepository usuarioRepository;
 
     @InjectMocks
     private HorarioService service;
@@ -278,6 +282,7 @@ class HorarioServiceTest {
         HorarioEntity entity = HorarioEntity.builder().id(1L).nombre("Horario Diurno").estado(true).build();
 
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(usuarioRepository.existsByHorario_Id(1L)).thenReturn(false);
         when(repository.save(any(HorarioEntity.class))).thenReturn(entity);
 
         service.cambiarEstado(1L);
@@ -285,4 +290,17 @@ class HorarioServiceTest {
         assertFalse(entity.isEstado());
         verify(repository).save(entity);
     }
+
+        @Test
+        void cambiarEstado_LanzaExcepcion_CuandoHorarioEstaAsociadoAUsuario() {
+                HorarioEntity entity = HorarioEntity.builder().id(1L).nombre("Horario Diurno").estado(true).build();
+
+                when(repository.findById(1L)).thenReturn(Optional.of(entity));
+                when(usuarioRepository.existsByHorario_Id(1L)).thenReturn(true);
+
+                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.cambiarEstado(1L));
+
+                assertEquals("No se puede desactivar el horario porque está asociado a uno o más usuarios", exception.getMessage());
+                verify(repository, never()).save(any());
+        }
 }

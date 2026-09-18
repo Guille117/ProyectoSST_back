@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 import java.util.List;
 
@@ -16,6 +17,7 @@ public class HorarioController {
     private final HorarioService service;
 
     @PostMapping
+    @PreAuthorize("@permissionService.canCreate(authentication, 'HORARIOS')")
     public ResponseEntity<HorarioDTOs.Response> crear(@Valid @RequestBody HorarioDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
@@ -38,11 +40,13 @@ public class HorarioController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'HORARIOS')")
     public ResponseEntity<HorarioDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody HorarioDTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'HORARIOS')")
     public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();

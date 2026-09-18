@@ -34,7 +34,7 @@ public class AuthDTOs {
             String username,
             String nombreCompleto,
             String puesto,
-            String rol,
+            List<String> roles,
             boolean estado,
             List<PermisoDTO> permisos
     ) {}

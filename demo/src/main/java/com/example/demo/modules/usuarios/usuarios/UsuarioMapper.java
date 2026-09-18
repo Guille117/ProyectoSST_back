@@ -4,6 +4,8 @@ import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import java.util.List;
+
 @Mapper(componentModel = "spring")
 public interface UsuarioMapper {
 
@@ -13,7 +15,7 @@ public interface UsuarioMapper {
     @Mapping(target = "persona", ignore = true)
     @Mapping(target = "puesto", ignore = true)
     @Mapping(target = "horario", ignore = true)
-    @Mapping(target = "rol", ignore = true)
+    @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
     UsuarioEntity toEntity(UsuarioDTOs.Request request);
 
@@ -37,9 +39,9 @@ public interface UsuarioMapper {
                 entity.getHorario() != null ? entity.getHorario().getId() : null,
                 entity.getHorario() != null ? entity.getHorario().getCodigo() : null,
                 entity.getHorario() != null ? entity.getHorario().getNombre() : null,
-                entity.getRol() != null ? entity.getRol().getId() : null,
-                entity.getRol() != null ? entity.getRol().getCodigo() : null,
-                entity.getRol() != null ? entity.getRol().getNombre() : null,
+                entity.getRoles() == null ? List.of() : entity.getRoles().stream()
+                    .map(rol -> new UsuarioDTOs.RolResponse(rol.getId(), rol.getCodigo(), rol.getNombre()))
+                    .toList(),
                 entity.getUsername(),
                 entity.isEstado()
         );

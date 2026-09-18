@@ -19,4 +19,8 @@ public interface UsuarioRepository extends JpaRepository<UsuarioEntity, Long> {
 
     List<UsuarioEntity> findByUsernameContainingIgnoreCase(String username);
     List<UsuarioEntity> findByCodigoContainingIgnoreCase(String codigo);
+
+    boolean existsByRoles_Id(Long rolId);
+
+    boolean existsByHorario_Id(Long horarioId);
 }

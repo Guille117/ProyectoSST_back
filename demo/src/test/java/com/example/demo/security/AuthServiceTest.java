@@ -92,17 +92,17 @@ class AuthServiceTest {
 
         usuarioSemanal = UsuarioEntity.builder()
                 .id(1L).codigo("USR-01").username("jperez").password("encodedPass").estado(true)
-                .persona(persona).puesto(puestoDoctor).horario(horarioSemanal).rol(rolNormal)
+                .persona(persona).puesto(puestoDoctor).horario(horarioSemanal).roles(java.util.Set.of(rolNormal))
                 .build();
 
         usuarioRotativo = UsuarioEntity.builder()
                 .id(2L).codigo("USR-02").username("rotativo").password("encodedPass").estado(true)
-                .persona(persona).puesto(puestoDoctor).horario(horarioRotativo).rol(rolNormal)
+                .persona(persona).puesto(puestoDoctor).horario(horarioRotativo).roles(java.util.Set.of(rolNormal))
                 .build();
 
         usuarioAdmin = UsuarioEntity.builder()
                 .id(3L).codigo("USR-03").username("admin").password("encodedPass").estado(true)
-                .persona(persona).puesto(puestoAdmin).horario(horarioSemanal).rol(rolAdmin)
+                .persona(persona).puesto(puestoAdmin).horario(horarioSemanal).roles(java.util.Set.of(rolAdmin))
                 .build();
     }
 
@@ -140,22 +140,20 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_Rechazo_PorFueraDeHorario() {
+    void login_PermiteAcceso_PorFueraDeHorario() {
         AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("jperez", "password123");
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
 
-        // LUNES 20:00 fuera de rango, o MARTES (no configurado)
+        // El horario no se valida por ahora.
         LocalDate lunes = LocalDate.of(2026, 8, 24);
         LocalTime horaFuera = LocalTime.of(20, 0);
 
-        HorarioAccessException ex = assertThrows(HorarioAccessException.class, () -> authService.login(req, lunes, horaFuera));
-        assertEquals("Acceso denegado: Fuera del horario de trabajo asignado", ex.getMessage());
-        verify(jwtUtil, never()).generateToken(anyString(), any());
+        assertDoesNotThrow(() -> authService.login(req, lunes, horaFuera));
     }
 
     @Test
-    void login_Rechazo_PorDiaNoConfigurado() {
+    void login_PermiteAcceso_PorDiaNoConfigurado() {
         AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("jperez", "password123");
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
@@ -163,7 +161,7 @@ class AuthServiceTest {
         LocalDate martes = LocalDate.of(2026, 8, 25); // Martes no tiene detalle
         LocalTime hora = LocalTime.of(10, 0);
 
-        assertThrows(HorarioAccessException.class, () -> authService.login(req, martes, hora));
+        assertDoesNotThrow(() -> authService.login(req, martes, hora));
     }
 
     @Test
@@ -180,7 +178,7 @@ class AuthServiceTest {
         AuthDTOs.AuthResponse resp = authService.login(req, lunes, horaFuera);
 
         assertEquals("admin-token", resp.token());
-        assertEquals("ADMINISTRADOR", resp.rol());
+        assertEquals(List.of("ADMINISTRADOR"), resp.roles());
     }
 
     @Test

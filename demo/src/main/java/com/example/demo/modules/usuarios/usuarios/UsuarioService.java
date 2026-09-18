@@ -3,6 +3,7 @@ package com.example.demo.modules.usuarios.usuarios;
 import com.example.demo.modules.usuarios.horarios.HorarioRepository;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.puesto.puestoRepository;
+import com.example.demo.modules.usuarios.roles.RolEntity;
 import com.example.demo.modules.usuarios.roles.RolRepository;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -48,8 +51,7 @@ public class UsuarioService {
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
         var horario = horarioRepository.findById(req.horarioId())
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
-        var rol = rolRepository.findById(req.rolId())
-                .orElseThrow(() -> new RuntimeException("Rol no encontrado con el ID: " + req.rolId()));
+        Set<RolEntity> roles = cargarRoles(req.rolIds());
 
         PersonaEntity persona = PersonaEntity.builder()
                 .cui(cui)
@@ -67,7 +69,7 @@ public class UsuarioService {
                 .persona(persona)
                 .puesto(puesto)
                 .horario(horario)
-                .rol(rol)
+                .roles(roles)
                 .username(username)
                 .estado(req.estado() != null ? req.estado() : true)
                 .build();
@@ -126,8 +128,7 @@ public class UsuarioService {
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
         var horario = horarioRepository.findById(req.horarioId())
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
-        var rol = rolRepository.findById(req.rolId())
-                .orElseThrow(() -> new RuntimeException("Rol no encontrado con el ID: " + req.rolId()));
+        Set<RolEntity> roles = cargarRoles(req.rolIds());
 
         PersonaEntity persona = existente.getPersona();
         persona.setCui(cui);
@@ -140,7 +141,7 @@ public class UsuarioService {
 
         existente.setPuesto(puesto);
         existente.setHorario(horario);
-        existente.setRol(rol);
+        existente.setRoles(roles);
         existente.setUsername(username);
         existente.setEstado(req.estado() != null ? req.estado() : existente.isEstado());
 
@@ -234,6 +235,21 @@ public class UsuarioService {
             throw new IllegalArgumentException("Ya existe un usuario activo con el username: " + username);
         }
         throw new IllegalArgumentException("Ya existe un usuario con el username: " + username + " pero está inactivo. Actívalo primero o actualiza ese registro inactivo.");
+    }
+
+    private Set<RolEntity> cargarRoles(List<Long> rolIds) {
+        if (rolIds == null || rolIds.isEmpty()) {
+            throw new IllegalArgumentException("Debe seleccionar al menos un rol");
+        }
+        Set<Long> idsUnicos = new HashSet<>(rolIds);
+        if (idsUnicos.size() != rolIds.size()) {
+            throw new IllegalArgumentException("No se puede repetir un rol");
+        }
+        List<RolEntity> roles = rolRepository.findAllById(rolIds);
+        if (roles.size() != idsUnicos.size()) {
+            throw new RuntimeException("Uno o más roles no existen");
+        }
+        return new HashSet<>(roles);
     }
 
     private String generarCodigoUsuario() {

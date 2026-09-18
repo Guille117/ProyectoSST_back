@@ -6,6 +6,9 @@ import com.example.demo.modules.usuarios.roles.RolEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Entity
 @Table(name = "usuarios")
 @Getter
@@ -34,9 +37,14 @@ public class UsuarioEntity {
     @JoinColumn(name = "horario_id", nullable = false)
     private HorarioEntity horario;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "rol_id", nullable = false)
-    private RolEntity rol;
+        @ManyToMany(fetch = FetchType.EAGER)
+        @JoinTable(
+            name = "usuario_roles",
+            joinColumns = @JoinColumn(name = "usuario_id"),
+            inverseJoinColumns = @JoinColumn(name = "rol_id")
+        )
+        @Builder.Default
+        private Set<RolEntity> roles = new HashSet<>();
 
     @Column(nullable = false, unique = true, length = 50)
     private String username;

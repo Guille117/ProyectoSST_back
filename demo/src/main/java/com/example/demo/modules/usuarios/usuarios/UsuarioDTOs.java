@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public class UsuarioDTOs {
 
@@ -14,7 +15,7 @@ public class UsuarioDTOs {
 
                         @NotNull(message = "El horario es obligatorio") Long horarioId,
 
-                        @NotNull(message = "El rol es obligatorio") Long rolId,
+                        @NotEmpty(message = "Debe seleccionar al menos un rol") List<Long> rolIds,
 
                         @NotBlank(message = "El username es obligatorio")
                         @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
@@ -49,7 +50,7 @@ public class UsuarioDTOs {
 
             @NotNull(message = "El horario es obligatorio") Long horarioId,
 
-            @NotNull(message = "El rol es obligatorio") Long rolId,
+            @NotEmpty(message = "Debe seleccionar al menos un rol") List<Long> rolIds,
 
             @NotBlank(message = "El username es obligatorio")
             @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
@@ -78,10 +79,14 @@ public class UsuarioDTOs {
             Long horarioId,
             String horarioCodigo,
             String horarioNombre,
-            Long rolId,
-            String rolCodigo,
-            String rolNombre,
+            List<RolResponse> roles,
             String username,
             boolean estado
+    ) {}
+
+    public record RolResponse(
+            Long id,
+            String codigo,
+            String nombre
     ) {}
 }

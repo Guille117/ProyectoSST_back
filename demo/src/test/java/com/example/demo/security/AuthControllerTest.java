@@ -40,7 +40,7 @@ class AuthControllerTest {
         AuthDTOs.LoginRequest request = new AuthDTOs.LoginRequest("jperez", "password123");
         AuthDTOs.AuthResponse response = new AuthDTOs.AuthResponse(
                 "jwt-token", "Bearer", 1L, "USR-01", "jperez",
-                "Juan Perez", "Doctor", "Doctor", true,
+                "Juan Perez", "Doctor", List.of("Doctor"), true,
                 List.of(new AuthDTOs.PermisoDTO(1L, "ROLES", "Roles", "USUARIOS", "Usuarios", true, true, false, false))
         );
 

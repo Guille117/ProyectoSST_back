@@ -1,5 +1,6 @@
 package com.example.demo.modules.usuarios.roles;
 
+import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -29,6 +30,9 @@ class RolServiceTest {
 
     @Mock
     private SubmoduloRepository submoduloRepository;
+
+    @Mock
+    private UsuarioRepository usuarioRepository;
 
     @InjectMocks
     private RolService service;
@@ -189,12 +193,26 @@ class RolServiceTest {
         RolEntity entity = RolEntity.builder().id(1L).nombre("Administrador").estado(true).build();
 
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(usuarioRepository.existsByRoles_Id(1L)).thenReturn(false);
         when(repository.save(any(RolEntity.class))).thenReturn(entity);
 
         service.cambiarEstado(1L);
 
         assertFalse(entity.isEstado());
         verify(repository).save(entity);
+    }
+
+    @Test
+    void cambiarEstado_LanzaExcepcion_CuandoRolEstaAsociadoAUsuario() {
+        RolEntity entity = RolEntity.builder().id(1L).nombre("Administrador").estado(true).build();
+
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(usuarioRepository.existsByRoles_Id(1L)).thenReturn(true);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.cambiarEstado(1L));
+
+        assertEquals("No se puede desactivar el rol porque está asociado a uno o más usuarios", exception.getMessage());
+        verify(repository, never()).save(any());
     }
 
     @Test

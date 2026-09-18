@@ -6,6 +6,7 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioPinEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioPinRepository;
 import com.example.demo.modules.usuarios.horarios.DiaSemana;
 import com.example.demo.modules.usuarios.horarios.HorarioSemanalDetalleEntity;
+import com.example.demo.modules.usuarios.roles.RolEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,9 +47,6 @@ public class AuthService {
         if (!usuario.isEstado()) {
             throw new BadCredentialsException("Usuario inactivo");
         }
-
-        // Validación de horario laboral
-        validarHorarioLaboral(usuario, fechaActual, horaActual);
 
         return construirAuthResponse(usuario);
     }
@@ -95,7 +93,8 @@ public class AuthService {
 
         String nombreCompleto = usuario.getPersona().getNombres() + " " + usuario.getPersona().getApellidos();
 
-        List<AuthDTOs.PermisoDTO> permisos = usuario.getRol().getPermisos().stream()
+        List<AuthDTOs.PermisoDTO> permisos = usuario.getRoles().stream()
+            .flatMap(rol -> rol.getPermisos().stream())
                 .map(p -> new AuthDTOs.PermisoDTO(
                         p.getSubmodulo().getId(),
                         p.getSubmodulo().getCodigo(),
@@ -117,7 +116,7 @@ public class AuthService {
                 usuario.getUsername(),
                 nombreCompleto,
                 usuario.getPuesto().getNombre(),
-                usuario.getRol().getNombre(),
+                usuario.getRoles().stream().map(RolEntity::getNombre).toList(),
                 usuario.isEstado(),
                 permisos
         );
@@ -125,10 +124,11 @@ public class AuthService {
 
     private void validarHorarioLaboral(UsuarioEntity usuario, LocalDate fechaActual, LocalTime horaActual) {
         // Bypass para ADMINISTRADOR o puesto Administrador / Director
-        String rolNombre = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        boolean esAdministrador = usuario.getRoles() != null && usuario.getRoles().stream()
+            .anyMatch(rol -> rol.getNombre() != null && rol.getNombre().equalsIgnoreCase("ADMINISTRADOR"));
         String puestoNombre = usuario.getPuesto() != null ? usuario.getPuesto().getNombre() : "";
 
-        if (rolNombre != null && rolNombre.equalsIgnoreCase("ADMINISTRADOR")) {
+        if (esAdministrador) {
             return;
         }
         if (puestoNombre != null && (puestoNombre.equalsIgnoreCase("Administrador") || puestoNombre.equalsIgnoreCase("Director"))) {

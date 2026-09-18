@@ -16,8 +16,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -59,7 +61,7 @@ class UsuarioServiceTest {
             ),
                 1L,
                 1L,
-                1L,
+                List.of(1L, 2L),
                 "jperez",
                 true
         );
@@ -80,6 +82,7 @@ class UsuarioServiceTest {
         puestoEntity puesto = crearPuesto(1L, "Director");
         HorarioEntity horario = HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build();
         RolEntity rol = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build();
+        RolEntity segundoRol = RolEntity.builder().id(2L).codigo("ROL-02").nombre("Auditor").build();
 
         UsuarioEntity guardado = UsuarioEntity.builder()
                 .id(1L).codigo("USR-01").username("jperez").estado(true).build();
@@ -87,14 +90,14 @@ class UsuarioServiceTest {
         guardado.setPersona(persona);
         guardado.setPuesto(puesto);
         guardado.setHorario(horario);
-        guardado.setRol(rol);
+        guardado.setRoles(Set.of(rol));
 
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
                 1L, "Director",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez", true
         );
 
@@ -102,7 +105,7 @@ class UsuarioServiceTest {
         when(repository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.empty());
         when(puestoRepository.findById(1L)).thenReturn(Optional.of(puesto));
         when(horarioRepository.findById(1L)).thenReturn(Optional.of(horario));
-        when(rolRepository.findById(1L)).thenReturn(Optional.of(rol));
+        when(rolRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(rol, segundoRol));
         when(repository.count()).thenReturn(0L);
         when(repository.save(any(UsuarioEntity.class))).thenReturn(guardado);
         when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -111,7 +114,9 @@ class UsuarioServiceTest {
 
         assertNotNull(resultado);
         assertEquals(6, resultado.length());
-        verify(repository).save(any(UsuarioEntity.class));
+        ArgumentCaptor<UsuarioEntity> usuarioCaptor = ArgumentCaptor.forClass(UsuarioEntity.class);
+        verify(repository).save(usuarioCaptor.capture());
+        assertEquals(2, usuarioCaptor.getValue().getRoles().size());
         verify(pinRepository).save(any(UsuarioPinEntity.class));
     }
 
@@ -136,14 +141,14 @@ class UsuarioServiceTest {
         entity.setPersona(PersonaEntity.builder().cui("1234567890123").nombres("Juan").build());
         entity.setPuesto(crearPuesto(1L, "Director"));
         entity.setHorario(HorarioEntity.builder().codigo("HOR-01").nombre("Diurno").build());
-        entity.setRol(RolEntity.builder().codigo("ROL-01").nombre("Admin").build());
+        entity.setRoles(Set.of(RolEntity.builder().codigo("ROL-01").nombre("Admin").build()));
 
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), null, null,
                 1L, "Director",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez", true
         );
 
@@ -169,12 +174,12 @@ class UsuarioServiceTest {
         existente.setPersona(persona);
         existente.setPuesto(crearPuesto(1L, "Director"));
         existente.setHorario(HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build());
-        existente.setRol(RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build());
+        existente.setRoles(Set.of(RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build()));
 
         UsuarioDTOs.UpdateRequest req = new UsuarioDTOs.UpdateRequest(
             new UsuarioDTOs.PersonaRequest("1234567890123", "Juan Carlos", "Perez Lopez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "87654321", "juan2@test.com"),
-            2L, 1L, 1L, "jperez2", "newpass123", "newpass123", true
+            2L, 1L, List.of(1L), "jperez2", "newpass123", "newpass123", true
         );
 
         puestoEntity nuevoPuesto = crearPuesto(2L, "Doctor");
@@ -190,7 +195,7 @@ class UsuarioServiceTest {
                 LocalDate.of(1990, 1, 1), "87654321", "juan2@test.com",
                 2L, "Doctor",
                 1L, "HOR-01", "Diurno",
-                1L, "ROL-01", "Admin",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez2", true
         );
 
@@ -201,7 +206,7 @@ class UsuarioServiceTest {
         when(repository.findByUsernameIgnoreCase("jperez2")).thenReturn(Optional.empty());
         when(puestoRepository.findById(2L)).thenReturn(Optional.of(nuevoPuesto));
         when(horarioRepository.findById(1L)).thenReturn(Optional.of(horario));
-        when(rolRepository.findById(1L)).thenReturn(Optional.of(rol));
+        when(rolRepository.findAllById(List.of(1L))).thenReturn(List.of(rol));
         when(passwordEncoder.encode("newpass123")).thenReturn("encodedNew");
         when(repository.save(any(UsuarioEntity.class))).thenReturn(actualizado);
         when(mapper.toDTO(actualizado)).thenReturn(response);
