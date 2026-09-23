@@ -67,26 +67,65 @@ public class UsuarioDTOs {
     public record Response(
             Long id,
             String codigo,
-            String cui,
+                        String username,
             String nombres,
             String apellidos,
+                        String cui,
             Sexo sexo,
             LocalDate fechaNacimiento,
             String telefono,
             String email,
-            Long puestoId,
-            String puestoNombre,
-            Long horarioId,
-            String horarioCodigo,
-            String horarioNombre,
-            List<RolResponse> roles,
-            String username,
-            boolean estado
-    ) {}
+                        PuestoResponse puesto,
+                        HorarioResponse horario,
+                        List<Long> rolIds,
+                        List<String> roles,
+                        boolean estado
+    ) {
+                // Compatibilidad interna con los constructores usados por código existente.
+        public Response(
+                Long id,
+                String codigo,
+                String cui,
+                String nombres,
+                String apellidos,
+                Sexo sexo,
+                LocalDate fechaNacimiento,
+                String telefono,
+                String email,
+                Long puestoId,
+                String puestoNombre,
+                Long horarioId,
+                String horarioCodigo,
+                String horarioNombre,
+                List<RolResponse> roles,
+                String username,
+                boolean estado
+        ) {
+                        this(id, codigo, username, nombres, apellidos, cui, sexo, fechaNacimiento, telefono, email,
+                                        new PuestoResponse(puestoId, puestoNombre),
+                                        new HorarioResponse(horarioId, horarioNombre),
+                                        roles == null ? List.of() : roles.stream().map(RolResponse::id).toList(),
+                                        roles == null ? List.of() : roles.stream().map(RolResponse::nombre).toList(),
+                                        estado);
+        }
+    }
 
     public record RolResponse(
             Long id,
             String codigo,
             String nombre
+    ) {}
+
+        public record PuestoResponse(Long id, String nombre) {}
+
+        public record HorarioResponse(Long id, String nombre) {}
+
+    public record ListResponse(
+            Long id,
+            String codigo,
+            String nombreCompleto,
+            String telefono,
+            List<String> roles,
+            boolean estado
     ) {}
 }

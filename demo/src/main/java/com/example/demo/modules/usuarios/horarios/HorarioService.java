@@ -71,13 +71,24 @@ public class HorarioService {
 
         validarNoDuplicado(id, nombre);
 
+        boolean asociadoAUsuario = usuarioRepository.existsByHorario_Id(id);
+        if (asociadoAUsuario && detallesCambian(existente, req)) {
+            throw new IllegalArgumentException("No se pueden modificar los detalles de un horario asociado a usuarios; solo se permite cambiar el nombre");
+        }
+        boolean nuevoEstado = req.estado() != null ? req.estado() : existente.isEstado();
+        if (asociadoAUsuario && nuevoEstado != existente.isEstado()) {
+            throw new IllegalArgumentException("No se puede modificar el estado de un horario asociado a usuarios; solo se permite cambiar el nombre");
+        }
+        if (asociadoAUsuario && req.esRotativo() != null && req.esRotativo() != existente.isEsRotativo()) {
+            throw new IllegalArgumentException("No se puede modificar el tipo de un horario asociado a usuarios; solo se permite cambiar el nombre");
+        }
+
         boolean esRotativo = req.esRotativo() != null ? req.esRotativo() : existente.isEsRotativo();
 
         validarDetallesPorTipo(esRotativo, req);
 
         existente.setNombre(nombre);
         existente.setEsRotativo(esRotativo);
-        boolean nuevoEstado = req.estado() != null ? req.estado() : existente.isEstado();
         validarDesactivacion(existente, nuevoEstado);
         existente.setEstado(nuevoEstado);
 
@@ -105,6 +116,32 @@ public class HorarioService {
         HorarioEntity actualizado = repository.save(existente);
         return mapper.toDTO(actualizado);
     }
+
+    private boolean detallesCambian(HorarioEntity existente, HorarioDTOs.Request request) {
+        if (existente.isEsRotativo()) {
+            if (request.turnoDetalle() == null) {
+                return false;
+            }
+            HorarioTurnoDetalleEntity turno = existente.getTurnoDetalle();
+            return turno == null
+                    || !java.util.Objects.equals(turno.getHorasTrabajo(), request.turnoDetalle().horasTrabajo())
+                    || !java.util.Objects.equals(turno.getHorasDescanso(), request.turnoDetalle().horasDescanso());
+        }
+        if (request.semanalDetalles() == null) {
+            return false;
+        }
+        List<DetalleClave> actuales = existente.getSemanalDetalles().stream()
+                .map(d -> new DetalleClave(d.getDiaSemana(), d.getHoraEntrada(), d.getHoraSalida(), d.isActivo()))
+                .sorted(java.util.Comparator.comparing(DetalleClave::diaSemana))
+                .toList();
+        List<DetalleClave> nuevos = request.semanalDetalles().stream()
+                .map(d -> new DetalleClave(d.diaSemana(), d.horaEntrada(), d.horaSalida(), Boolean.TRUE.equals(d.activo())))
+                .sorted(java.util.Comparator.comparing(DetalleClave::diaSemana))
+                .toList();
+        return !actuales.equals(nuevos);
+    }
+
+    private record DetalleClave(DiaSemana diaSemana, LocalTime horaEntrada, LocalTime horaSalida, boolean activo) {}
 
     @Transactional(readOnly = true)
     public HorarioDTOs.Response obtenerPorId(Long id) {

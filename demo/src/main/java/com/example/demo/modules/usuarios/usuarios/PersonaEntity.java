@@ -21,11 +21,26 @@ public class PersonaEntity {
     @Column(nullable = false, unique = true, length = 13)
     private String cui;
 
-    @Column(nullable = false, length = 100)
+    @Transient
     private String nombres;
 
-    @Column(nullable = false, length = 100)
+    @Transient
     private String apellidos;
+
+    @Column(name = "primer_nombre", length = 100)
+    private String primerNombre;
+
+    @Column(name = "segundo_nombre", length = 100)
+    private String segundoNombre;
+
+    @Column(name = "otros_nombres", length = 150)
+    private String otrosNombres;
+
+    @Column(name = "primer_apellido", length = 100)
+    private String primerApellido;
+
+    @Column(name = "segundo_apellido", length = 100)
+    private String segundoApellido;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

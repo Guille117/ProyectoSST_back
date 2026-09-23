@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class RolController {
     private final RolService service;
 
     @PostMapping
+    @PreAuthorize("@permissionService.canCreate(authentication, 'ROLES')")
     public ResponseEntity<RolDTOs.Response> crear(@Valid @RequestBody RolDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
@@ -38,6 +40,7 @@ public class RolController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'ROLES')")
     public ResponseEntity<RolDTOs.Response> actualizar(
             @PathVariable("id") Long id, 
             @Valid @RequestBody RolDTOs.Request request) {
@@ -45,6 +48,7 @@ public class RolController {
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'ROLES')")
     public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();

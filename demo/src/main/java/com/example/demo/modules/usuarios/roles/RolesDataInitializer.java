@@ -27,12 +27,20 @@ public class RolesDataInitializer implements CommandLineRunner {
         crearSubmodulo(farmacia, "COMPRAS", "Compras");
         crearSubmodulo(farmacia, "SALIDAS", "Salidas");
         crearSubmodulo(farmacia, "DEVOLUCIONES", "Devoluciones");
+        crearSubmodulo(farmacia, "UNIDADMEDIDA", "Unidades de medida");
 
         // Usuarios - usuarios, roles, horarios
         ModuloEntity usuarios = crearModulo("USUARIOS", "Usuarios");
         crearSubmodulo(usuarios, "USUARIOS", "Usuarios");
         crearSubmodulo(usuarios, "ROLES", "Roles");
         crearSubmodulo(usuarios, "HORARIOS", "Horarios");
+
+        // Pacientes - catálogos de tipo de cama y área
+        ModuloEntity pacientes = crearModulo("PACIENTES", "Pacientes");
+        crearSubmodulo(pacientes, "TIPOS-CAMA", "Tipos de cama");
+        crearSubmodulo(pacientes, "AREAS", "Áreas");
+        crearSubmodulo(pacientes, "HABITACIONES", "Habitaciones");
+        crearSubmodulo(pacientes, "CAMAS", "Camas");
 
         crearOActualizarRolSuperUsuario();
     }
@@ -49,29 +57,33 @@ public class RolesDataInitializer implements CommandLineRunner {
             return rolRepository.save(nuevo);
         });
 
-        Set<Long> submodulosConPermiso = rol.getPermisos().stream()
-                .map(p -> p.getSubmodulo().getId())
-                .collect(Collectors.toSet());
-
         for (SubmoduloEntity sub : submoduloRepository.findAll()) {
-            if (submodulosConPermiso.contains(sub.getId())) {
-                continue;
-            }
-            rol.getPermisos().add(RolPermisoEntity.builder()
+            RolPermisoEntity permiso = rol.getPermisos().stream()
+                .filter(p -> p.getSubmodulo() != null && p.getSubmodulo().getId().equals(sub.getId()))
+                .findFirst()
+                .orElseGet(() -> {
+                RolPermisoEntity nuevo = RolPermisoEntity.builder()
                     .rol(rol)
                     .submodulo(sub)
-                    .puedeLeer(true)
-                    .puedeCrear(true)
-                    .puedeEditar(true)
-                    .puedeEliminar(true)
-                    .build());
+                    .build();
+                rol.getPermisos().add(nuevo);
+                return nuevo;
+                });
+            permiso.setPuedeLeer(true);
+            permiso.setPuedeCrear(true);
+            permiso.setPuedeEditar(true);
+            permiso.setPuedeEliminar(true);
         }
         rolRepository.save(rol);
     }
 
     private String generarCodigoRol() {
-        long total = rolRepository.count();
-        return String.format("ROL-%02d", total + 1);
+        long siguiente = rolRepository.count() + 1;
+        String codigo;
+        do {
+            codigo = String.format("ROL-%02d", siguiente++);
+        } while (rolRepository.existsByCodigo(codigo));
+        return codigo;
     }
 
 

@@ -8,5 +8,6 @@ import java.util.Optional;
 @NoRepositoryBean 
 public interface repositoryBase <T extends entityBase> extends JpaRepository<T, Long>{
     List<T> findByEstado(boolean estado);
+    long countByEstado(boolean estado);
     Optional<T> findByNombreIgnoreCase(String nombre);
 }

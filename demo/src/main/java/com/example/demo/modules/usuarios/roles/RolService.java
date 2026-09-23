@@ -71,8 +71,16 @@ public class RolService {
 
         validarNoDuplicado(id, nombre);
 
-        existente.setNombre(nombre);
+        boolean asociadoAUsuario = usuarioRepository.existsByRoles_Id(id);
+        if (asociadoAUsuario && permisosCambian(existente, req.permisos())) {
+            throw new IllegalArgumentException("No se pueden modificar los permisos de un rol asociado a usuarios; solo se permite cambiar el nombre");
+        }
         boolean nuevoEstado = req.estado() != null ? req.estado() : existente.isEstado();
+        if (asociadoAUsuario && nuevoEstado != existente.isEstado()) {
+            throw new IllegalArgumentException("No se puede modificar el estado de un rol asociado a usuarios; solo se permite cambiar el nombre");
+        }
+
+        existente.setNombre(nombre);
         validarDesactivacion(existente, nuevoEstado);
         existente.setEstado(nuevoEstado);
 
@@ -126,6 +134,28 @@ public class RolService {
         RolEntity actualizado = repository.save(existente);
         return mapper.toDTO(actualizado);
     }
+
+    private boolean permisosCambian(RolEntity rol, List<RolDTOs.PermisoRequest> requests) {
+        if (requests == null) {
+            return false;
+        }
+        Set<PermisoClave> actuales = rol.getPermisos().stream()
+                .map(p -> new PermisoClave(p.getSubmodulo().getId(), p.isPuedeLeer(), p.isPuedeCrear(), p.isPuedeEditar(), p.isPuedeEliminar()))
+                .collect(Collectors.toSet());
+        Set<PermisoClave> nuevos = requests.stream()
+                .filter(request -> request != null && request.submoduloId() != null)
+                .map(request -> new PermisoClave(
+                        request.submoduloId(),
+                        Boolean.TRUE.equals(request.puedeLeer()),
+                        Boolean.TRUE.equals(request.puedeCrear()),
+                        Boolean.TRUE.equals(request.puedeEditar()),
+                        Boolean.TRUE.equals(request.puedeEliminar())))
+                .collect(Collectors.toSet());
+        return !actuales.equals(nuevos);
+    }
+
+    private record PermisoClave(Long submoduloId, boolean puedeLeer, boolean puedeCrear,
+                                boolean puedeEditar, boolean puedeEliminar) {}
     @Transactional(readOnly = true)
     public RolDTOs.Response obtenerPorId(Long id) {
         RolEntity entity = repository.findById(id)

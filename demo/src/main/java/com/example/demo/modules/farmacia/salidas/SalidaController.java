@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class SalidaController {
     private final SalidaService service;
 
     @PostMapping
+    @PreAuthorize("@permissionService.canCreate(authentication, 'SALIDAS')")
     public ResponseEntity<SalidaDTOs.Response> crear(@Valid @RequestBody SalidaDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
@@ -36,11 +38,13 @@ public class SalidaController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'SALIDAS')")
     public ResponseEntity<SalidaDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody SalidaDTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'SALIDAS')")
     public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();

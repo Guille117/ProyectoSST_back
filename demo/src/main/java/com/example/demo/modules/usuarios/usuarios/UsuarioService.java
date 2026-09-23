@@ -43,6 +43,7 @@ public class UsuarioService {
         String username = StringNormalizer.normalizarTexto(req.username());
         String telefono = StringNormalizer.normalizarNullable(req.persona().telefono());
         String email = StringNormalizer.normalizarNullable(req.persona().email());
+        NombrePersonaParser.PartesNombre partesNombre = NombrePersonaParser.separar(nombres, apellidos);
 
         validarNoDuplicado(null, cui, username);
 
@@ -57,6 +58,11 @@ public class UsuarioService {
                 .cui(cui)
                 .nombres(nombres)
                 .apellidos(apellidos)
+                .primerNombre(partesNombre.primerNombre())
+                .segundoNombre(partesNombre.segundoNombre())
+                .otrosNombres(partesNombre.otrosNombres())
+                .primerApellido(partesNombre.primerApellido())
+                .segundoApellido(partesNombre.segundoApellido())
                 .sexo(req.persona().sexo())
                 .fechaNacimiento(req.persona().fechaNacimiento())
                 .telefono(telefono)
@@ -113,6 +119,7 @@ public class UsuarioService {
         String username = StringNormalizer.normalizarTexto(req.username());
         String telefono = StringNormalizer.normalizarNullable(req.persona().telefono());
         String email = StringNormalizer.normalizarNullable(req.persona().email());
+        NombrePersonaParser.PartesNombre partesNombre = NombrePersonaParser.separar(nombres, apellidos);
 
         validarNoDuplicado(id, cui, username);
 
@@ -134,6 +141,11 @@ public class UsuarioService {
         persona.setCui(cui);
         persona.setNombres(nombres);
         persona.setApellidos(apellidos);
+        persona.setPrimerNombre(partesNombre.primerNombre());
+        persona.setSegundoNombre(partesNombre.segundoNombre());
+        persona.setOtrosNombres(partesNombre.otrosNombres());
+        persona.setPrimerApellido(partesNombre.primerApellido());
+        persona.setSegundoApellido(partesNombre.segundoApellido());
         persona.setSexo(req.persona().sexo());
         persona.setFechaNacimiento(req.persona().fechaNacimiento());
         persona.setTelefono(telefono);
@@ -157,14 +169,14 @@ public class UsuarioService {
     }
 
     @Transactional(readOnly = true)
-    public List<UsuarioDTOs.Response> obtenerTodos(Boolean activos) {
+    public List<UsuarioDTOs.ListResponse> obtenerTodos(Boolean activos) {
         if (activos == null) {
             return repository.findAll().stream()
-                    .map(mapper::toDTO)
+                    .map(mapper::toListDTO)
                     .toList();
         }
         return repository.findByEstado(activos).stream()
-                .map(mapper::toDTO)
+                .map(mapper::toListDTO)
                 .toList();
     }
 

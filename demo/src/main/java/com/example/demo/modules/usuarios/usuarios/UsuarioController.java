@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,12 +17,13 @@ public class UsuarioController {
     private final UsuarioService service;
 
     @PostMapping
+    @PreAuthorize("@permissionService.canCreate(authentication, 'USUARIOS')")
     public ResponseEntity<String> crear(@Valid @RequestBody UsuarioDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
 
     @GetMapping
-    public ResponseEntity<List<UsuarioDTOs.Response>> obtenerTodos(@RequestParam(required = false, name = "activos") Boolean activos) {
+    public ResponseEntity<List<UsuarioDTOs.ListResponse>> obtenerTodos(@RequestParam(required = false, name = "activos") Boolean activos) {
         return ResponseEntity.ok(service.obtenerTodos(activos));
     }
 
@@ -38,11 +40,13 @@ public class UsuarioController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'USUARIOS')")
     public ResponseEntity<UsuarioDTOs.Response> actualizar(@PathVariable(name = "id") Long id, @Valid @RequestBody UsuarioDTOs.UpdateRequest request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
+    @PreAuthorize("@permissionService.canEdit(authentication, 'USUARIOS')")
     public ResponseEntity<Void> actualizarEstado(@PathVariable(name = "id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();

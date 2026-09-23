@@ -81,10 +81,8 @@ class UsuarioControllerTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "Director",
-                1L, "HOR-01", "Diurno",
-                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
-                "jperez", true
+                1L, "Director", 1L, "HOR-01", "Diurno",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")), "jperez", true
         );
 
         when(usuarioService.obtenerPorId(1L)).thenReturn(response);
@@ -129,20 +127,17 @@ class UsuarioControllerTest {
 
     @Test
     void obtenerTodos_DeberiaRetornarOk() throws Exception {
-        UsuarioDTOs.Response response = new UsuarioDTOs.Response(
-                1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
-                LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "Director",
-                1L, "HOR-01", "Diurno",
-                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
-                "jperez", true
+        UsuarioDTOs.ListResponse response = new UsuarioDTOs.ListResponse(
+                1L, "USR-01", "Juan Perez", "12345678", List.of("Admin"), true
         );
 
         when(usuarioService.obtenerTodos(null)).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/usuarios"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].codigo").value("USR-01"));
+                .andExpect(jsonPath("$[0].codigo").value("USR-01"))
+                .andExpect(jsonPath("$[0].nombreCompleto").value("Juan Perez"))
+                .andExpect(jsonPath("$[0].roles[0]").value("Admin"));
     }
 
     @Test

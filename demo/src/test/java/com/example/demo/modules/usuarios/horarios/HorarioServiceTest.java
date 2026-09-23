@@ -278,6 +278,31 @@ class HorarioServiceTest {
     }
 
     @Test
+    void actualizar_LanzaExcepcion_CuandoHorarioAsociadoCambiaDetalles() {
+        HorarioEntity existente = HorarioEntity.builder()
+                .id(1L).nombre("Horario Antiguo").esRotativo(false).estado(true).build();
+        existente.setSemanalDetalles(new java.util.ArrayList<>(List.of(
+                HorarioSemanalDetalleEntity.builder()
+                        .id(1L).horario(existente).diaSemana(DiaSemana.LUNES)
+                        .horaEntrada(LocalTime.of(8, 0)).horaSalida(LocalTime.of(17, 0)).activo(true).build()
+        )));
+        HorarioDTOs.Request request = new HorarioDTOs.Request(
+                "Horario Actualizado", false, true,
+                List.of(new HorarioDTOs.DetalleSemanalRequest(DiaSemana.LUNES, LocalTime.of(9, 0), LocalTime.of(18, 0), true)),
+                null
+        );
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(repository.findByNombreIgnoreCase("Horario Actualizado")).thenReturn(Optional.empty());
+        when(usuarioRepository.existsByHorario_Id(1L)).thenReturn(true);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.actualizar(1L, request));
+
+        assertEquals("No se pueden modificar los detalles de un horario asociado a usuarios; solo se permite cambiar el nombre", exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void cambiarEstado_Exitoso() {
         HorarioEntity entity = HorarioEntity.builder().id(1L).nombre("Horario Diurno").estado(true).build();
 

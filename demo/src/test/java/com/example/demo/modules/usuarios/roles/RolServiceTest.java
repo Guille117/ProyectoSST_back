@@ -189,6 +189,28 @@ class RolServiceTest {
     }
 
     @Test
+    void actualizar_LanzaExcepcion_CuandoRolAsociadoCambiaPermisos() {
+        SubmoduloEntity submodulo = SubmoduloEntity.builder().id(1L).codigo("HORARIOS").nombre("Horarios").build();
+        RolEntity existente = RolEntity.builder().id(1L).nombre("Rol Antiguo").estado(true).build();
+        existente.setPermisos(new ArrayList<>(List.of(
+                RolPermisoEntity.builder().submodulo(submodulo).puedeLeer(true).puedeCrear(false).puedeEditar(false).puedeEliminar(false).build()
+        )));
+        RolDTOs.Request request = new RolDTOs.Request(
+                "Rol Actualizado", true,
+                List.of(new RolDTOs.PermisoRequest(1L, true, true, false, false))
+        );
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(repository.findByNombreIgnoreCase("Rol Actualizado")).thenReturn(Optional.empty());
+        when(usuarioRepository.existsByRoles_Id(1L)).thenReturn(true);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.actualizar(1L, request));
+
+        assertEquals("No se pueden modificar los permisos de un rol asociado a usuarios; solo se permite cambiar el nombre", exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void cambiarEstado_Exitoso() {
         RolEntity entity = RolEntity.builder().id(1L).nombre("Administrador").estado(true).build();
 

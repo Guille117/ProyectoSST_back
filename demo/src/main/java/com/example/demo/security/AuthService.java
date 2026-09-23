@@ -4,6 +4,7 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioPinEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioPinRepository;
+import com.example.demo.modules.usuarios.usuarios.NombrePersonaParser;
 import com.example.demo.modules.usuarios.horarios.DiaSemana;
 import com.example.demo.modules.usuarios.horarios.HorarioSemanalDetalleEntity;
 import com.example.demo.modules.usuarios.roles.RolEntity;
@@ -91,7 +92,18 @@ public class AuthService {
     private AuthDTOs.AuthResponse construirAuthResponse(UsuarioEntity usuario) {
         String token = jwtUtil.generateToken(usuario.getUsername(), usuario.getId());
 
-        String nombreCompleto = usuario.getPersona().getNombres() + " " + usuario.getPersona().getApellidos();
+        String primerNombre = usuario.getPersona().getPrimerNombre();
+        String primerApellido = usuario.getPersona().getPrimerApellido();
+        if (primerNombre == null || primerNombre.isBlank() || primerApellido == null || primerApellido.isBlank()) {
+            NombrePersonaParser.PartesNombre partes = NombrePersonaParser.separar(
+                    usuario.getPersona().getNombres(), usuario.getPersona().getApellidos());
+            if (primerNombre == null || primerNombre.isBlank()) {
+                primerNombre = partes.primerNombre();
+            }
+            if (primerApellido == null || primerApellido.isBlank()) {
+                primerApellido = partes.primerApellido();
+            }
+        }
 
         List<AuthDTOs.PermisoDTO> permisos = usuario.getRoles().stream()
             .flatMap(rol -> rol.getPermisos().stream())
@@ -114,7 +126,9 @@ public class AuthService {
                 usuario.getId(),
                 usuario.getCodigo(),
                 usuario.getUsername(),
-                nombreCompleto,
+            String.join(" ", java.util.stream.Stream.of(primerNombre, primerApellido)
+                .filter(valor -> valor != null && !valor.isBlank())
+                .toList()),
                 usuario.getPuesto().getNombre(),
                 usuario.getRoles().stream().map(RolEntity::getNombre).toList(),
                 usuario.isEstado(),
