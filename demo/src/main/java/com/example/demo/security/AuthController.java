@@ -18,6 +18,12 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/solicitar-cambio-credenciales")
+    public ResponseEntity<AuthDTOs.CambioCredencialesPinResponse> solicitarCambioCredenciales(
+            @Valid @RequestBody AuthDTOs.SolicitudCambioCredencialesRequest request) {
+        return ResponseEntity.ok(authService.solicitarCambioCredenciales(request));
+    }
+
     @PostMapping("/establecer-credenciales")
     public ResponseEntity<AuthDTOs.AuthResponse> establecerCredenciales(@Valid @RequestBody AuthDTOs.EstablecerCredencialesRequest request) {
         return ResponseEntity.ok(authService.establecerCredenciales(request));

@@ -179,6 +179,17 @@ class HorarioServiceTest {
         verify(repository, never()).save(any());
     }
 
+        @Test
+        void crear_LanzaExcepcion_CuandoNombreEsParecidoAlHorarioDelSistema() {
+                HorarioDTOs.Request req = new HorarioDTOs.Request(
+                                "Turno Sin Límte", false, true, List.of(), null);
+
+                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
+
+                assertEquals("El horario 'Sin limite' es un elemento del sistema y no se puede agregar, editar, desactivar ni eliminar.", exception.getMessage());
+                verify(repository, never()).save(any());
+        }
+
     @Test
     void crear_LanzaExcepcion_CuandoEsRotativoFalseSinDetalles() {
         HorarioDTOs.Request req = new HorarioDTOs.Request(
@@ -277,6 +288,20 @@ class HorarioServiceTest {
         verify(repository).save(any(HorarioEntity.class));
     }
 
+        @Test
+        void actualizar_LanzaExcepcion_CuandoHorarioEsDelSistema() {
+                HorarioEntity sinLimite = HorarioEntity.builder()
+                                .id(3L).nombre("Sin límite").estado(true).build();
+                HorarioDTOs.Request req = new HorarioDTOs.Request("Horario cambiado", false, true, List.of(), null);
+                when(repository.findById(3L)).thenReturn(Optional.of(sinLimite));
+
+                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                                () -> service.actualizar(3L, req));
+
+                assertEquals("El horario 'Sin limite' es un elemento del sistema y no se puede agregar, editar, desactivar ni eliminar.", exception.getMessage());
+                verify(repository, never()).save(any());
+        }
+
     @Test
     void actualizar_LanzaExcepcion_CuandoHorarioAsociadoCambiaDetalles() {
         HorarioEntity existente = HorarioEntity.builder()
@@ -315,6 +340,19 @@ class HorarioServiceTest {
         assertFalse(entity.isEstado());
         verify(repository).save(entity);
     }
+
+        @Test
+        void cambiarEstado_LanzaExcepcion_CuandoHorarioEsDelSistema() {
+                HorarioEntity sinLimite = HorarioEntity.builder()
+                                .id(4L).nombre("Sin limite").estado(true).build();
+                when(repository.findById(4L)).thenReturn(Optional.of(sinLimite));
+
+                IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                                () -> service.cambiarEstado(4L));
+
+                assertEquals("El horario 'Sin limite' es un elemento del sistema y no se puede agregar, editar, desactivar ni eliminar.", exception.getMessage());
+                verify(repository, never()).save(any());
+        }
 
         @Test
         void cambiarEstado_LanzaExcepcion_CuandoHorarioEstaAsociadoAUsuario() {

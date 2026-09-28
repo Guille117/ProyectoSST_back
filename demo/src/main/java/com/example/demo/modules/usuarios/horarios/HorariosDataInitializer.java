@@ -2,6 +2,7 @@ package com.example.demo.modules.usuarios.horarios;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +12,7 @@ import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
+@Order(3)
 public class HorariosDataInitializer implements CommandLineRunner {
 
     private static final String NOMBRE_SIN_LIMITE = "Sin limite";
@@ -32,8 +34,10 @@ public class HorariosDataInitializer implements CommandLineRunner {
         horario.setNombre(NOMBRE_SIN_LIMITE);
         horario.setEsRotativo(false);
 
-        LocalTime entrada = LocalTime.of(0, 0, 0);
-        LocalTime salida = LocalTime.of(23, 59, 59);
+        horario.setEstado(true);
+
+        LocalTime entrada = LocalTime.MIN;
+        LocalTime salida = LocalTime.MAX;
 
         if (horario.getSemanalDetalles() == null) {
             horario.setSemanalDetalles(new ArrayList<>());

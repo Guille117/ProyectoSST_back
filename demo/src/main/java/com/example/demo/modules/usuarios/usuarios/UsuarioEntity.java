@@ -1,6 +1,7 @@
 package com.example.demo.modules.usuarios.usuarios;
 
 import com.example.demo.modules.usuarios.horarios.HorarioEntity;
+import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.roles.RolEntity;
 import jakarta.persistence.*;
@@ -32,6 +33,10 @@ public class UsuarioEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "puesto_id", nullable = false)
     private puestoEntity puesto;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "especialidad_id")
+    private especialidadEntity especialidad;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "horario_id", nullable = false)

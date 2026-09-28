@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.security.access.prepost.PreAuthorize;
 
 public abstract class controllerBase<T extends entityBase> {
 
@@ -34,7 +33,6 @@ public abstract class controllerBase<T extends entityBase> {
     }
 
     @PostMapping
-    @PreAuthorize("@permissionService.canCreateCatalog(authentication)")
     public ResponseEntity<T> crear(@RequestBody T entidad) {
         entidad.setId(null);
         entidad.setEstado(true);
@@ -42,7 +40,6 @@ public abstract class controllerBase<T extends entityBase> {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canEditCatalog(authentication)")
     public ResponseEntity<T> actualizar(@PathVariable("id") Long id, @RequestBody T entidadDetalles) {
         return getService().actualizar(id, entidadDetalles.getNombre())
                 .map(ResponseEntity::ok)
@@ -50,7 +47,6 @@ public abstract class controllerBase<T extends entityBase> {
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("@permissionService.canEditCatalog(authentication)")
     public ResponseEntity<T> cambiarEstado(@PathVariable("id") Long id) {
         return getService().cambiarEstado(id)
                 .map(ResponseEntity::ok)

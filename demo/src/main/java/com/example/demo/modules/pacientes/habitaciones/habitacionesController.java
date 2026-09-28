@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,7 +16,6 @@ public class habitacionesController {
     private final habitacionesService service;
 
     @PostMapping
-    @PreAuthorize("@permissionService.canCreate(authentication, 'HABITACIONES') or @permissionService.canCreateCatalog(authentication)")
     public ResponseEntity<habitacionesEntity> crear(@Valid @RequestBody habitacionesEntity request) {
         request.setId(null);
         request.setEstado(true);
@@ -40,13 +38,11 @@ public class habitacionesController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'HABITACIONES') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<habitacionesEntity> actualizar(@PathVariable("id") Long id, @RequestBody habitacionesEntity request) {
         return ResponseEntity.ok(service.actualizarConDescripcion(id, request));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'HABITACIONES') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<habitacionesEntity> cambiarEstado(@PathVariable("id") Long id) {
         return service.cambiarEstado(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }

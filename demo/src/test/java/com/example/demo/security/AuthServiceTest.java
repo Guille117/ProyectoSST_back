@@ -214,6 +214,40 @@ class AuthServiceTest {
     }
 
     @Test
+    void solicitarCambioCredenciales_generaPinParaElUsuarioObjetivoTrasAutenticarAlActor() {
+        AuthDTOs.SolicitudCambioCredencialesRequest request =
+                new AuthDTOs.SolicitudCambioCredencialesRequest(1L, 3L, "password123");
+        UsuarioPinEntity pinActivoAnterior = UsuarioPinEntity.builder()
+                .id(10L).usuario(usuarioSemanal).codigo("111111")
+                .fechaCreacion(LocalDateTime.now().minusMinutes(1))
+                .fechaExpiracion(LocalDateTime.now().plusMinutes(59)).usado(false).intentos(0).build();
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuarioAdmin));
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuarioSemanal));
+        when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
+        when(pinRepository.findByUsuarioIdAndUsadoFalse(1L)).thenReturn(List.of(pinActivoAnterior));
+        when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        AuthDTOs.CambioCredencialesPinResponse response = authService.solicitarCambioCredenciales(request);
+
+        assertEquals(1L, response.usuarioId());
+        assertEquals("jperez", response.username());
+        assertTrue(response.pin().matches("^[0-9]{6}$"));
+        assertTrue(pinActivoAnterior.isUsado());
+        verify(pinRepository, times(2)).save(any(UsuarioPinEntity.class));
+    }
+
+    @Test
+    void solicitarCambioCredenciales_rechazaAlActorConContrasenaIncorrecta() {
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuarioAdmin));
+        when(passwordEncoder.matches("wrong", "encodedPass")).thenReturn(false);
+
+        assertThrows(BadCredentialsException.class, () -> authService.solicitarCambioCredenciales(
+                new AuthDTOs.SolicitudCambioCredencialesRequest(1L, 3L, "wrong")));
+        verify(usuarioRepository, never()).findById(1L);
+        verifyNoInteractions(pinRepository);
+    }
+
+    @Test
     void establecerCredenciales_Exitoso() {
         usuarioSemanal.setPassword(null);
         UsuarioPinEntity pin = UsuarioPinEntity.builder()

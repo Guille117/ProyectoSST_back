@@ -1,6 +1,8 @@
 package com.example.demo.modules.usuarios.usuarios;
 
 import com.example.demo.modules.usuarios.horarios.HorarioRepository;
+import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
+import com.example.demo.modules.usuarios.especialidad.especialidadRepository;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.puesto.puestoRepository;
 import com.example.demo.modules.usuarios.roles.RolEntity;
@@ -22,9 +24,12 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class UsuarioService {
 
+    private static final String USUARIO_SISTEMA = "guille117";
+
     private final UsuarioRepository repository;
     private final PersonaRepository personaRepository;
     private final puestoRepository puestoRepository;
+    private final especialidadRepository especialidadRepository;
     private final HorarioRepository horarioRepository;
     private final RolRepository rolRepository;
     private final UsuarioMapper mapper;
@@ -43,37 +48,32 @@ public class UsuarioService {
         String username = StringNormalizer.normalizarTexto(req.username());
         String telefono = StringNormalizer.normalizarNullable(req.persona().telefono());
         String email = StringNormalizer.normalizarNullable(req.persona().email());
-        NombrePersonaParser.PartesNombre partesNombre = NombrePersonaParser.separar(nombres, apellidos);
 
         validarNoDuplicado(null, cui, username);
 
         // Validar existen referencias
         puestoEntity puesto = puestoRepository.findById(req.puestoId())
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
+        especialidadEntity especialidad = cargarEspecialidad(req.especialidadId());
         var horario = horarioRepository.findById(req.horarioId())
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
         Set<RolEntity> roles = cargarRoles(req.rolIds());
 
         PersonaEntity persona = PersonaEntity.builder()
                 .cui(cui)
-                .nombres(nombres)
-                .apellidos(apellidos)
-                .primerNombre(partesNombre.primerNombre())
-                .segundoNombre(partesNombre.segundoNombre())
-                .otrosNombres(partesNombre.otrosNombres())
-                .primerApellido(partesNombre.primerApellido())
-                .segundoApellido(partesNombre.segundoApellido())
                 .sexo(req.persona().sexo())
                 .fechaNacimiento(req.persona().fechaNacimiento())
                 .telefono(telefono)
                 .email(email)
                 .build();
+        persona.asignarNombres(nombres, apellidos);
 
         // Sin password: se define luego mediante el PIN de un solo uso (ver establecerCredenciales).
         UsuarioEntity entity = UsuarioEntity.builder()
                 .codigo(generarCodigoUsuario())
                 .persona(persona)
                 .puesto(puesto)
+                .especialidad(especialidad)
                 .horario(horario)
                 .roles(roles)
                 .username(username)
@@ -112,6 +112,7 @@ public class UsuarioService {
 
         UsuarioEntity existente = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+        validarUsuarioNoEditable(existente);
 
         String cui = StringNormalizer.normalizarTexto(req.persona().cui());
         String nombres = StringNormalizer.normalizarTexto(req.persona().nombres());
@@ -119,7 +120,6 @@ public class UsuarioService {
         String username = StringNormalizer.normalizarTexto(req.username());
         String telefono = StringNormalizer.normalizarNullable(req.persona().telefono());
         String email = StringNormalizer.normalizarNullable(req.persona().email());
-        NombrePersonaParser.PartesNombre partesNombre = NombrePersonaParser.separar(nombres, apellidos);
 
         validarNoDuplicado(id, cui, username);
 
@@ -133,25 +133,21 @@ public class UsuarioService {
 
         puestoEntity puesto = puestoRepository.findById(req.puestoId())
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
+        especialidadEntity especialidad = cargarEspecialidad(req.especialidadId());
         var horario = horarioRepository.findById(req.horarioId())
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
         Set<RolEntity> roles = cargarRoles(req.rolIds());
 
         PersonaEntity persona = existente.getPersona();
         persona.setCui(cui);
-        persona.setNombres(nombres);
-        persona.setApellidos(apellidos);
-        persona.setPrimerNombre(partesNombre.primerNombre());
-        persona.setSegundoNombre(partesNombre.segundoNombre());
-        persona.setOtrosNombres(partesNombre.otrosNombres());
-        persona.setPrimerApellido(partesNombre.primerApellido());
-        persona.setSegundoApellido(partesNombre.segundoApellido());
+        persona.asignarNombres(nombres, apellidos);
         persona.setSexo(req.persona().sexo());
         persona.setFechaNacimiento(req.persona().fechaNacimiento());
         persona.setTelefono(telefono);
         persona.setEmail(email);
 
         existente.setPuesto(puesto);
+        existente.setEspecialidad(especialidad);
         existente.setHorario(horario);
         existente.setRoles(roles);
         existente.setUsername(username);
@@ -177,6 +173,15 @@ public class UsuarioService {
         }
         return repository.findByEstado(activos).stream()
                 .map(mapper::toListDTO)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioDTOs.MedicoResponse> obtenerMedicosActivos() {
+        return repository.findMedicosActivos(List.of("doctor", "doctora", "medico", "m\u00e9dico"))
+                .stream()
+                .map(mapper::toListDTO)
+                .map(usuario -> new UsuarioDTOs.MedicoResponse(usuario.id(), usuario.nombreCompleto()))
                 .toList();
     }
 
@@ -218,8 +223,23 @@ public class UsuarioService {
     public void cambiarEstado(Long id) {
         UsuarioEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con el ID: " + id));
+        validarUsuarioNoEditable(entity);
         entity.setEstado(!entity.isEstado());
         repository.save(entity);
+    }
+
+    private void validarUsuarioNoEditable(UsuarioEntity usuario) {
+        if (USUARIO_SISTEMA.equalsIgnoreCase(usuario.getUsername())) {
+            throw new IllegalArgumentException("El usuario del sistema no se puede editar, desactivar ni eliminar.");
+        }
+    }
+
+    private especialidadEntity cargarEspecialidad(Long especialidadId) {
+        if (especialidadId == null) {
+            return null;
+        }
+        return especialidadRepository.findById(especialidadId)
+                .orElseThrow(() -> new IllegalArgumentException("Especialidad no encontrada con el ID: " + especialidadId));
     }
 
     private void validarNoDuplicado(Long idActual, String cui, String username) {
@@ -228,7 +248,9 @@ public class UsuarioService {
         if (personaDup.isPresent()) {
             // buscar usuario que posee esa persona
             Optional<UsuarioEntity> usuarioConCui = repository.findAll().stream()
-                    .filter(u -> u.getPersona() != null && u.getPersona().getCui().equals(cui))
+                    .filter(u -> u.getPersona() != null
+                        && u.getPersona().getCui() != null
+                        && u.getPersona().getCui().equals(cui))
                     .findFirst();
             if (usuarioConCui.isPresent() && !usuarioConCui.get().getId().equals(idActual)) {
                 if (usuarioConCui.get().isEstado()) {

@@ -1,5 +1,6 @@
 package com.example.demo.modules.usuarios.usuarios;
 
+import com.example.demo.utils.StringNormalizer;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,7 +19,7 @@ public class PersonaEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 13)
+    @Column(unique = true, length = 13)
     private String cui;
 
     @Transient
@@ -43,10 +44,10 @@ public class PersonaEntity {
     private String segundoApellido;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
+    @Column(length = 20)
     private Sexo sexo;
 
-    @Column(name = "fecha_nacimiento", nullable = false)
+    @Column(name = "fecha_nacimiento")
     private LocalDate fechaNacimiento;
 
     @Column(length = 15)
@@ -54,4 +55,16 @@ public class PersonaEntity {
 
     @Column(length = 100)
     private String email;
+
+    public void asignarNombres(String nombres, String apellidos) {
+        this.nombres = StringNormalizer.normalizarTexto(nombres);
+        this.apellidos = StringNormalizer.normalizarTexto(apellidos);
+
+        NombrePersonaParser.PartesNombre partes = NombrePersonaParser.separar(this.nombres, this.apellidos);
+        this.primerNombre = partes.primerNombre();
+        this.segundoNombre = partes.segundoNombre();
+        this.otrosNombres = partes.otrosNombres();
+        this.primerApellido = partes.primerApellido();
+        this.segundoApellido = partes.segundoApellido();
+    }
 }

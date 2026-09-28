@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,7 +15,6 @@ public class insumosLogController {
     private final insumosLogService service;
 
     @PostMapping
-    @PreAuthorize("@permissionService.canCreate(authentication, 'INSUMOSLOG')")
     public ResponseEntity<insumosLogDTOs.Response> crear(@Valid @RequestBody insumosLogDTOs.Request request) { return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED); }
 
     @GetMapping
@@ -29,6 +27,5 @@ public class insumosLogController {
     public ResponseEntity<insumosLogDTOs.Response> obtenerPorId(@PathVariable Long id) { return ResponseEntity.ok(service.obtenerPorId(id)); }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'INSUMOSLOG')")
     public ResponseEntity<insumosLogDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody insumosLogDTOs.Request request) { return ResponseEntity.ok(service.actualizar(id, request)); }
 }

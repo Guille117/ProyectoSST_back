@@ -1,5 +1,6 @@
 package com.example.demo.modules.usuarios.usuarios;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.*;
 import jakarta.validation.Valid;
 
@@ -21,8 +22,15 @@ public class UsuarioDTOs {
                         @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
                         String username,
 
+                        @JsonAlias({"especialidad", "especialidad_id"}) Long especialidadId,
+
                         Boolean estado
-        ) {}
+        ) {
+                public Request(PersonaRequest persona, Long puestoId, Long horarioId, List<Long> rolIds,
+                               String username, Boolean estado) {
+                        this(persona, puestoId, horarioId, rolIds, username, null, estado);
+                }
+        }
 
         public record PersonaRequest(
             @NotBlank(message = "El CUI es obligatorio")
@@ -61,8 +69,15 @@ public class UsuarioDTOs {
 
             String confirmPassword,
 
+            @JsonAlias({"especialidad", "especialidad_id"}) Long especialidadId,
+
             Boolean estado
-    ) {}
+    ) {
+            public UpdateRequest(PersonaRequest persona, Long puestoId, Long horarioId, List<Long> rolIds,
+                                 String username, String password, String confirmPassword, Boolean estado) {
+                    this(persona, puestoId, horarioId, rolIds, username, password, confirmPassword, null, estado);
+            }
+    }
 
     public record Response(
             Long id,
@@ -79,7 +94,8 @@ public class UsuarioDTOs {
                         HorarioResponse horario,
                         List<Long> rolIds,
                         List<String> roles,
-                        boolean estado
+                        boolean estado,
+                        EspecialidadResponse especialidad
     ) {
                 // Compatibilidad interna con los constructores usados por código existente.
         public Response(
@@ -106,7 +122,7 @@ public class UsuarioDTOs {
                                         new HorarioResponse(horarioId, horarioNombre),
                                         roles == null ? List.of() : roles.stream().map(RolResponse::id).toList(),
                                         roles == null ? List.of() : roles.stream().map(RolResponse::nombre).toList(),
-                                        estado);
+                                        estado, null);
         }
     }
 
@@ -115,6 +131,8 @@ public class UsuarioDTOs {
             String codigo,
             String nombre
     ) {}
+
+        public record EspecialidadResponse(Long id, String nombre) {}
 
         public record PuestoResponse(Long id, String nombre) {}
 
@@ -126,6 +144,14 @@ public class UsuarioDTOs {
             String nombreCompleto,
             String telefono,
             List<String> roles,
-            boolean estado
-    ) {}
+            boolean estado,
+            EspecialidadResponse especialidad
+    ) {
+            public ListResponse(Long id, String codigo, String nombreCompleto, String telefono,
+                                List<String> roles, boolean estado) {
+                    this(id, codigo, nombreCompleto, telefono, roles, estado, null);
+            }
+    }
+
+        public record MedicoResponse(Long id, String nombreCompleto) {}
 }

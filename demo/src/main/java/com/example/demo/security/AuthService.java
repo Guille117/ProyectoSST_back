@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.SecureRandom;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +24,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+    private static final SecureRandom PIN_RANDOM = new SecureRandom();
 
     private final UsuarioRepository usuarioRepository;
     private final UsuarioPinRepository pinRepository;
@@ -53,6 +56,42 @@ public class AuthService {
     }
 
     private static final int MAX_INTENTOS_PIN = 3;
+
+        @Transactional
+        public AuthDTOs.CambioCredencialesPinResponse solicitarCambioCredenciales(
+            AuthDTOs.SolicitudCambioCredencialesRequest request) {
+        UsuarioEntity actor = usuarioRepository.findById(request.usuarioActualId())
+            .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
+
+        if (!actor.isEstado() || actor.getPassword() == null
+            || !passwordEncoder.matches(request.passwordActual(), actor.getPassword())) {
+            throw new BadCredentialsException("Credenciales inválidas");
+        }
+
+        UsuarioEntity objetivo = usuarioRepository.findById(request.usuarioId())
+            .orElseThrow(() -> new IllegalArgumentException("Usuario objetivo no encontrado"));
+
+        for (UsuarioPinEntity pinAnterior : pinRepository.findByUsuarioIdAndUsadoFalse(objetivo.getId())) {
+            pinAnterior.setUsado(true);
+            pinRepository.save(pinAnterior);
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        LocalDateTime expiracion = ahora.plusHours(1);
+        String codigo = String.format("%06d", PIN_RANDOM.nextInt(1_000_000));
+        UsuarioPinEntity pin = UsuarioPinEntity.builder()
+            .usuario(objetivo)
+            .codigo(codigo)
+            .fechaCreacion(ahora)
+            .fechaExpiracion(expiracion)
+            .usado(false)
+            .intentos(0)
+            .build();
+        pinRepository.save(pin);
+
+        return new AuthDTOs.CambioCredencialesPinResponse(
+            objetivo.getId(), objetivo.getUsername(), codigo, expiracion);
+        }
 
     // Primer ingreso o restablecimiento de credenciales usando el PIN de un solo uso.
     @Transactional

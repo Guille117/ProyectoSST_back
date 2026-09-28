@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,7 +15,6 @@ public class camasController {
     private final camasService service;
 
     @PostMapping
-    @PreAuthorize("@permissionService.canCreate(authentication, 'CAMAS') or @permissionService.canCreateCatalog(authentication)")
     public ResponseEntity<camasDTOs.Response> crear(@Valid @RequestBody camasDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);
     }
@@ -45,20 +43,17 @@ public class camasController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'CAMAS') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<camasDTOs.Response> actualizar(@PathVariable("id") Long id,
                                                           @Valid @RequestBody camasDTOs.Request request) {
         return ResponseEntity.ok(service.actualizar(id, request));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'CAMAS') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<camasDTOs.Response> cambiarEstado(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.cambiarEstado(id));
     }
 
     @PatchMapping("/{id}/estado")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'CAMAS') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<Void> cambiarEstadoCama(@PathVariable("id") Long id, @RequestParam("estado") EstadoCama estado) {
         service.cambiarEstadoCama(id, estado);
         return ResponseEntity.ok().build();

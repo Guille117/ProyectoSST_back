@@ -40,6 +40,30 @@ public class DatabaseSchemaMigration {
         }
     }
 
+    @PostConstruct
+    public void permitirDatosPersonalesOpcionales() {
+        if (!existeTabla("personas")) {
+            return;
+        }
+
+        hacerColumnaNullable("cui", "VARCHAR(13)");
+        hacerColumnaNullable("sexo", "VARCHAR(20)");
+        hacerColumnaNullable("fecha_nacimiento", "DATE");
+    }
+
+    private void hacerColumnaNullable(String columna, String tipoSql) {
+        String nulable = jdbcTemplate.queryForObject("""
+                SELECT IS_NULLABLE
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'personas'
+                  AND COLUMN_NAME = ?
+                """, String.class, columna);
+        if ("NO".equalsIgnoreCase(nulable)) {
+            jdbcTemplate.execute("ALTER TABLE personas MODIFY COLUMN " + columna + " " + tipoSql + " NULL");
+        }
+    }
+
     private boolean existeTabla(String nombre) {
         Integer cantidad = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)

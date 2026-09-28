@@ -1,8 +1,11 @@
 package com.example.demo.security;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public class AuthDTOs {
@@ -10,6 +13,19 @@ public class AuthDTOs {
     public record LoginRequest(
             @NotBlank(message = "El username es obligatorio") String username,
             @NotBlank(message = "La contraseña es obligatoria") String password
+    ) {}
+
+    public record SolicitudCambioCredencialesRequest(
+            @NotNull(message = "El ID del usuario objetivo es obligatorio") @Positive Long usuarioId,
+            @NotNull(message = "El ID del usuario que realiza el cambio es obligatorio") @Positive Long usuarioActualId,
+            @NotBlank(message = "La contraseña actual es obligatoria") String passwordActual
+    ) {}
+
+    public record CambioCredencialesPinResponse(
+            Long usuarioId,
+            String username,
+            String pin,
+            LocalDateTime fechaExpiracion
     ) {}
 
     // Primer ingreso o restablecimiento de credenciales: requiere el PIN de un solo uso

@@ -6,7 +6,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,7 +22,6 @@ public class areaController {
     public record ConteoCatalogoResponse(String tabla, long total) {}
 
     @PostMapping
-    @PreAuthorize("@permissionService.canCreate(authentication, 'AREAS') or @permissionService.canCreateCatalog(authentication)")
     public ResponseEntity<areaEntity> crear(@Valid @RequestBody areaEntity request) {
         request.setId(null);
         request.setEstado(true);
@@ -46,13 +44,11 @@ public class areaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'AREAS') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<areaEntity> actualizar(@PathVariable("id") Long id, @RequestBody areaEntity request) {
         return ResponseEntity.ok(service.actualizarConDescripcion(id, request));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'AREAS') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<areaEntity> cambiarEstado(@PathVariable("id") Long id) {
         return service.cambiarEstado(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }

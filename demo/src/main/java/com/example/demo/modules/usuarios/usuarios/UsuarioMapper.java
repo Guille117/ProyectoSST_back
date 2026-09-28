@@ -1,6 +1,7 @@
 package com.example.demo.modules.usuarios.usuarios;
 
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
+import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -14,6 +15,7 @@ public interface UsuarioMapper {
     @Mapping(target = "estado", expression = "java(request.estado() != null ? request.estado() : true)")
     @Mapping(target = "persona", ignore = true)
     @Mapping(target = "puesto", ignore = true)
+    @Mapping(target = "especialidad", ignore = true)
     @Mapping(target = "horario", ignore = true)
     @Mapping(target = "roles", ignore = true)
     @Mapping(target = "password", ignore = true)
@@ -24,6 +26,7 @@ public interface UsuarioMapper {
         if (entity == null) return null;
         PersonaEntity p = entity.getPersona();
         puestoEntity puesto = entity.getPuesto();
+        especialidadEntity especialidad = entity.getEspecialidad();
         String nombres = unirNoVacios(
             p != null ? p.getPrimerNombre() : null,
             p != null ? p.getSegundoNombre() : null,
@@ -61,7 +64,8 @@ public interface UsuarioMapper {
                 entity.getHorario().getId(), entity.getHorario().getNombre()),
             rolIds,
             roles,
-            entity.isEstado()
+            entity.isEstado(),
+            especialidad == null ? null : new UsuarioDTOs.EspecialidadResponse(especialidad.getId(), especialidad.getNombre())
         );
     }
 
@@ -97,7 +101,9 @@ public interface UsuarioMapper {
                 entity.getRoles() == null ? List.of() : entity.getRoles().stream()
                         .map(rol -> rol.getNombre())
                         .toList(),
-                entity.isEstado()
+                entity.isEstado(),
+                entity.getEspecialidad() == null ? null : new UsuarioDTOs.EspecialidadResponse(
+                    entity.getEspecialidad().getId(), entity.getEspecialidad().getNombre())
         );
     }
 

@@ -78,4 +78,26 @@ class AuthControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Acceso denegado: Fuera del horario de trabajo asignado"));
     }
+
+            @Test
+            void solicitarCambioCredenciales_DevuelvePinParaElUsuarioObjetivo() throws Exception {
+            AuthDTOs.CambioCredencialesPinResponse response = new AuthDTOs.CambioCredencialesPinResponse(
+                7L, "objetivo", "123456", java.time.LocalDateTime.now().plusHours(1));
+            when(authService.solicitarCambioCredenciales(any(AuthDTOs.SolicitudCambioCredencialesRequest.class)))
+                .thenReturn(response);
+
+            mockMvc.perform(post("/api/v1/auth/solicitar-cambio-credenciales")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                        {
+                          "usuarioId": 7,
+                          "usuarioActualId": 3,
+                          "passwordActual": "password123"
+                        }
+                        """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.usuarioId").value(7))
+                .andExpect(jsonPath("$.username").value("objetivo"))
+                .andExpect(jsonPath("$.pin").value("123456"));
+            }
 }

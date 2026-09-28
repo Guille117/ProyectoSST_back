@@ -4,7 +4,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,7 +16,6 @@ public class tipoCamaController {
     private final tipoCamaService service;
 
     @PostMapping
-    @PreAuthorize("@permissionService.canCreate(authentication, 'TIPOS-CAMA') or @permissionService.canCreateCatalog(authentication)")
     public ResponseEntity<tipoCamaEntity> crear(@Valid @RequestBody tipoCamaEntity request) {
         request.setId(null);
         request.setEstado(true);
@@ -40,13 +38,11 @@ public class tipoCamaController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'TIPOS-CAMA') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<tipoCamaEntity> actualizar(@PathVariable("id") Long id, @RequestBody tipoCamaEntity request) {
         return ResponseEntity.ok(service.actualizarConDescripcion(id, request));
     }
 
     @PatchMapping("/{id}")
-    @PreAuthorize("@permissionService.canEdit(authentication, 'TIPOS-CAMA') or @permissionService.canEditCatalog(authentication)")
     public ResponseEntity<tipoCamaEntity> cambiarEstado(@PathVariable("id") Long id) {
         return service.cambiarEstado(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }

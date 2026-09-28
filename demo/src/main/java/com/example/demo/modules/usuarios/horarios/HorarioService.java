@@ -6,9 +6,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -30,6 +32,7 @@ public class HorarioService {
             throw new IllegalArgumentException("El nombre es obligatorio");
         }
 
+        validarNombreNoReservado(nombre);
         validarNoDuplicado(null, nombre);
 
         boolean esRotativo = req.esRotativo() != null ? req.esRotativo() : false;
@@ -63,12 +66,14 @@ public class HorarioService {
 
         HorarioEntity existente = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado"));
+        validarHorarioNoProtegido(existente);
 
         String nombre = StringNormalizer.normalizarTexto(req.nombre());
         if (nombre.isBlank()) {
             throw new IllegalArgumentException("El nombre es obligatorio");
         }
 
+        validarNombreNoReservado(nombre);
         validarNoDuplicado(id, nombre);
 
         boolean asociadoAUsuario = usuarioRepository.existsByHorario_Id(id);
@@ -182,10 +187,65 @@ public class HorarioService {
     public void cambiarEstado(Long id) {
         HorarioEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + id));
+        validarHorarioNoProtegido(entity);
         boolean nuevoEstado = !entity.isEstado();
         validarDesactivacion(entity, nuevoEstado);
         entity.setEstado(nuevoEstado);
         repository.save(entity);
+    }
+
+    private void validarHorarioNoProtegido(HorarioEntity horario) {
+        if (esNombreSinLimite(horario.getNombre())) {
+            lanzarHorarioDelSistema();
+        }
+    }
+
+    private void validarNombreNoReservado(String nombre) {
+        if (esNombreSinLimite(nombre)) {
+            lanzarHorarioDelSistema();
+        }
+    }
+
+    private boolean esNombreSinLimite(String nombre) {
+        String normalizado = Normalizer.normalize(nombre == null ? "" : nombre, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}+", "")
+                .toLowerCase(Locale.ROOT);
+        String compacto = normalizado.replaceAll("[^a-z0-9]", "");
+        if (compacto.contains("sinlimite") || compacto.contains("horariolibre")) {
+            return true;
+        }
+
+        String[] palabras = normalizado.split("[^a-z0-9]+");
+        for (int indice = 0; indice + 1 < palabras.length; indice++) {
+            if (palabras[indice].equals("sin") && distancia(palabras[indice + 1], "limite") <= 1) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int distancia(String primero, String segundo) {
+        int[] anterior = new int[segundo.length() + 1];
+        for (int indice = 0; indice <= segundo.length(); indice++) {
+            anterior[indice] = indice;
+        }
+        for (int fila = 1; fila <= primero.length(); fila++) {
+            int[] actual = new int[segundo.length() + 1];
+            actual[0] = fila;
+            for (int columna = 1; columna <= segundo.length(); columna++) {
+                int costo = primero.charAt(fila - 1) == segundo.charAt(columna - 1) ? 0 : 1;
+                actual[columna] = Math.min(
+                        Math.min(actual[columna - 1] + 1, anterior[columna] + 1),
+                        anterior[columna - 1] + costo);
+            }
+            anterior = actual;
+        }
+        return anterior[segundo.length()];
+    }
+
+    private void lanzarHorarioDelSistema() {
+        throw new IllegalArgumentException(
+                "El horario 'Sin limite' es un elemento del sistema y no se puede agregar, editar, desactivar ni eliminar.");
     }
 
     private void validarDesactivacion(HorarioEntity horario, boolean nuevoEstado) {
