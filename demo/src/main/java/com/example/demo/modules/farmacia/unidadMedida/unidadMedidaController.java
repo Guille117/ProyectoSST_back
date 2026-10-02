@@ -28,7 +28,9 @@ public class unidadMedidaController extends controllerBase<unidadMedidaEntity> {
 
     @Override
     public ResponseEntity<unidadMedidaEntity> actualizar(@PathVariable("id") Long id, @RequestBody unidadMedidaEntity entidadDetalles) {
-        return super.actualizar(id, entidadDetalles);
+        return unidadMedidaService.actualizar(id, entidadDetalles)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @Override

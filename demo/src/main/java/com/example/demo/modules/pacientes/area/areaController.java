@@ -1,6 +1,8 @@
 package com.example.demo.modules.pacientes.area;
 
 import com.example.demo.modules.pacientes.habitaciones.habitacionesService;
+import com.example.demo.modules.pacientes.institucion.institucionService;
+import com.example.demo.modules.pacientes.parentesco.parentescoService;
 import com.example.demo.modules.pacientes.tipoCama.tipoCamaService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +19,8 @@ public class areaController {
 
     private final areaService service;
     private final habitacionesService habitacionesService;
+    private final institucionService institucionService;
+    private final parentescoService parentescoService;
     private final tipoCamaService tipoCamaService;
 
     public record ConteoCatalogoResponse(String tabla, long total) {}
@@ -56,9 +60,10 @@ public class areaController {
     @GetMapping("/conteo-catalogos")
     public ResponseEntity<List<ConteoCatalogoResponse>> contarCatalogosActivos() {
         return ResponseEntity.ok(List.of(
-                new ConteoCatalogoResponse("areas", service.contarActivos()),
+            new ConteoCatalogoResponse("instituciones", institucionService.contarActivas()),
                 new ConteoCatalogoResponse("habitaciones", habitacionesService.contarActivos()),
-                new ConteoCatalogoResponse("tipos_cama", tipoCamaService.contarActivos())
+            new ConteoCatalogoResponse("tipos_cama", tipoCamaService.contarActivos()),
+            new ConteoCatalogoResponse("parentescos", parentescoService.contarActivos())
         ));
     }
 }

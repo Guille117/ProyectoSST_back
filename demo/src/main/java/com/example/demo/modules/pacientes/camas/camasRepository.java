@@ -11,6 +11,9 @@ import java.util.List;
 public interface camasRepository extends JpaRepository<camasEntity, Long> {
     boolean existsByCodigo(String codigo);
     List<camasEntity> findByActivo(boolean activo);
+    boolean existsByArea_Id(Long areaId);
+    boolean existsByHabitacion_Id(Long habitacionId);
+    boolean existsByTipo_Id(Long tipoId);
 
         @Query("""
                         SELECT c FROM camasEntity c

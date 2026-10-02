@@ -153,5 +153,9 @@ public class UsuarioDTOs {
             }
     }
 
-        public record MedicoResponse(Long id, String nombreCompleto) {}
+        public record MedicoResponse(Long id, String nombreCompleto, String especialidad) {
+                public MedicoResponse(Long id, String nombreCompleto) {
+                        this(id, nombreCompleto, null);
+                }
+        }
 }

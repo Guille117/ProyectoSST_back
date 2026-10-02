@@ -186,13 +186,14 @@ class UsuarioControllerTest {
 
     @Test
     void obtenerMedicosActivos_DeberiaRetornarOk() throws Exception {
-        UsuarioDTOs.MedicoResponse response = new UsuarioDTOs.MedicoResponse(5L, "Ana Lopez");
+        UsuarioDTOs.MedicoResponse response = new UsuarioDTOs.MedicoResponse(5L, "Ana Lopez", "Cardiología");
         when(usuarioService.obtenerMedicosActivos()).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/usuarios/medicos"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(5))
                 .andExpect(jsonPath("$[0].nombreCompleto").value("Ana Lopez"))
+                .andExpect(jsonPath("$[0].especialidad").value("Cardiología"))
                 .andExpect(jsonPath("$[0].codigo").doesNotExist())
                 .andExpect(jsonPath("$[0].telefono").doesNotExist())
                 .andExpect(jsonPath("$[0].roles").doesNotExist())

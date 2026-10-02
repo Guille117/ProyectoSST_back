@@ -29,4 +29,8 @@ public interface UsuarioRepository extends JpaRepository<UsuarioEntity, Long> {
     boolean existsByRoles_Id(Long rolId);
 
     boolean existsByHorario_Id(Long horarioId);
+
+    boolean existsByPuesto_Id(Long puestoId);
+
+    boolean existsByEspecialidad_Id(Long especialidadId);
 }

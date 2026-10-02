@@ -2,6 +2,7 @@ package com.example.demo.modules.pacientes.habitaciones;
 
 import com.example.demo.modules.catalogo.repositoryBase;
 import com.example.demo.modules.catalogo.serviceBase;
+import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.utils.StringNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,14 +13,21 @@ import java.util.List;
 public class habitacionesService extends serviceBase<habitacionesEntity> {
 
     private final habitacionesRepository repository;
+    private final camasRepository camasRepository;
 
-    public habitacionesService(habitacionesRepository repository) {
+    public habitacionesService(habitacionesRepository repository, camasRepository camasRepository) {
         this.repository = repository;
+        this.camasRepository = camasRepository;
     }
 
     @Override
     protected repositoryBase<habitacionesEntity> getRepository() {
         return repository;
+    }
+
+    @Override
+    protected boolean estaRelacionado(habitacionesEntity entidad) {
+        return camasRepository.existsByHabitacion_Id(entidad.getId());
     }
 
     @Override

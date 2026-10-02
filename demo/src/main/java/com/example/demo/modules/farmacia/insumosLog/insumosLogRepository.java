@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface insumosLogRepository extends JpaRepository<insumosLogEntity, Long> {
     Optional<insumosLogEntity> findByNombreIgnoreCase(String nombre);
     List<insumosLogEntity> findByNombreContainingIgnoreCase(String nombre);
+    boolean existsByMarca_Id(Long marcaId);
 }

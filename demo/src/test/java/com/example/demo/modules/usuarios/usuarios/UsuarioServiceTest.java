@@ -208,8 +208,9 @@ class UsuarioServiceTest {
     void obtenerMedicosActivos_DevuelveSoloElListadoDePuestosMedicos() {
         UsuarioEntity medico = UsuarioEntity.builder().id(5L).estado(true).build();
         UsuarioDTOs.ListResponse listado = new UsuarioDTOs.ListResponse(
-                5L, "USR-05", "Ana Lopez", "12345678", List.of("Doctor"), true);
-        UsuarioDTOs.MedicoResponse response = new UsuarioDTOs.MedicoResponse(5L, "Ana Lopez");
+            5L, "USR-05", "Ana Lopez", "12345678", List.of("Doctor"), true,
+            new UsuarioDTOs.EspecialidadResponse(7L, "Cardiología"));
+        UsuarioDTOs.MedicoResponse response = new UsuarioDTOs.MedicoResponse(5L, "Ana Lopez", "Cardiología");
         when(repository.findMedicosActivos(List.of("doctor", "doctora", "medico", "m\u00e9dico")))
                 .thenReturn(List.of(medico));
         when(mapper.toListDTO(medico)).thenReturn(listado);

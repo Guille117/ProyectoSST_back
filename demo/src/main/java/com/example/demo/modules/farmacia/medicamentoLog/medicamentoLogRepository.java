@@ -10,4 +10,8 @@ import java.util.Optional;
 public interface medicamentoLogRepository extends JpaRepository<medicamentoLogEntity, Long> {
     Optional<medicamentoLogEntity> findByNombreIgnoreCase(String nombre);
     List<medicamentoLogEntity> findByNombreContainingIgnoreCase(String nombre);
+    boolean existsByMarca_Id(Long marcaId);
+    boolean existsByPresentacion_Id(Long presentacionId);
+    boolean existsByUnidadMedida_Id(Long unidadMedidaId);
+    boolean existsByViaAdmin_Id(Long viaAdminId);
 }

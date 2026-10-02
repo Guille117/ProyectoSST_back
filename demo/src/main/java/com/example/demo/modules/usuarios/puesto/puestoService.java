@@ -2,6 +2,7 @@ package com.example.demo.modules.usuarios.puesto;
 
 import com.example.demo.modules.catalogo.repositoryBase;
 import com.example.demo.modules.catalogo.serviceBase;
+import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 
 import jakarta.transaction.Transactional;
 
@@ -22,16 +23,28 @@ public class puestoService extends serviceBase<puestoEntity>{
 
     // crea una variable inmutable
     private final puestoRepository puestoRepository;
+    private final UsuarioRepository usuarioRepository;
 
     // Constructor para inicializar el repositorio
-    public puestoService(puestoRepository puestoRepository) {
+    public puestoService(puestoRepository puestoRepository, UsuarioRepository usuarioRepository) {
         this.puestoRepository = puestoRepository;
+        this.usuarioRepository = usuarioRepository;
     }
 
     // indica el repositorio con que va a trabajar
     @Override
     protected repositoryBase<puestoEntity> getRepository() {
         return puestoRepository;
+    }
+
+    @Override
+    protected boolean estaRelacionado(puestoEntity entidad) {
+        return usuarioRepository.existsByPuesto_Id(entidad.getId());
+    }
+
+    @Override
+    protected void validarPropiedadDelSistema(puestoEntity entidad) {
+        validarPuestoNoProtegido(entidad);
     }
 
     @Transactional 

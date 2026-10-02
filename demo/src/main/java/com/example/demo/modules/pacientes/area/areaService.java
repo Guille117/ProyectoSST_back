@@ -2,6 +2,7 @@ package com.example.demo.modules.pacientes.area;
 
 import com.example.demo.modules.catalogo.repositoryBase;
 import com.example.demo.modules.catalogo.serviceBase;
+import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.utils.StringNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,14 +13,21 @@ import java.util.List;
 public class areaService extends serviceBase<areaEntity> {
 
     private final areaRepository repository;
+    private final camasRepository camasRepository;
 
-    public areaService(areaRepository repository) {
+    public areaService(areaRepository repository, camasRepository camasRepository) {
         this.repository = repository;
+        this.camasRepository = camasRepository;
     }
 
     @Override
     protected repositoryBase<areaEntity> getRepository() {
         return repository;
+    }
+
+    @Override
+    protected boolean estaRelacionado(areaEntity entidad) {
+        return camasRepository.existsByArea_Id(entidad.getId());
     }
 
     @Override

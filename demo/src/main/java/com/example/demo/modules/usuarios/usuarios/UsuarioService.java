@@ -181,7 +181,10 @@ public class UsuarioService {
         return repository.findMedicosActivos(List.of("doctor", "doctora", "medico", "m\u00e9dico"))
                 .stream()
                 .map(mapper::toListDTO)
-                .map(usuario -> new UsuarioDTOs.MedicoResponse(usuario.id(), usuario.nombreCompleto()))
+                .map(usuario -> new UsuarioDTOs.MedicoResponse(
+                    usuario.id(),
+                    usuario.nombreCompleto(),
+                    usuario.especialidad() == null ? null : usuario.especialidad().nombre()))
                 .toList();
     }
 

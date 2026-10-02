@@ -45,6 +45,7 @@ public class RolesDataInitializer implements CommandLineRunner {
         crearSubmodulo(pacientes, "AREAS", "Áreas");
         crearSubmodulo(pacientes, "HABITACIONES", "Habitaciones");
         crearSubmodulo(pacientes, "CAMAS", "Camas");
+        crearSubmodulo(pacientes, "INSTITUCIONES", "Instituciones");
 
         crearRolesDelSistema();
     }
