@@ -127,8 +127,8 @@ public class ProveedorService {
         }
 
         if (nit != null) {
-            if (!nit.equalsIgnoreCase("CF") && !nit.matches("^[0-9]{7}-[0-9Kk]$")) {
-                throw new IllegalArgumentException("NIT inválido. Formatos aceptados: 1234567-8, 1234567-K o CF");
+            if (!nit.equalsIgnoreCase("CF") && !nit.matches("^[0-9]{7,8}-[0-9Kk]$")) {
+                throw new IllegalArgumentException("NIT inválido. Use 7 u 8 dígitos, guion y verificador numérico/K, o CF");
             }
             validacionDeUnicidadPorCampo(idActual, nit, repository::findByNitIgnoreCase, "NIT");
         }
