@@ -2,6 +2,7 @@ package com.example.demo.modules.pacientes.parentesco;
 
 import com.example.demo.modules.catalogo.repositoryBase;
 import com.example.demo.modules.catalogo.serviceBase;
+import com.example.demo.modules.pacientes.paciente.PersonaResponsableRepository;
 import com.example.demo.utils.StringNormalizer;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -14,10 +15,16 @@ public class parentescoService extends serviceBase<parentescoEntity> {
 
     private final parentescoRepository repository;
     private final parentescoMapper mapper;
+    private final PersonaResponsableRepository responsableRepository;
 
     @Override
     protected repositoryBase<parentescoEntity> getRepository() {
         return repository;
+    }
+
+    @Override
+    protected boolean estaRelacionado(parentescoEntity entidad) {
+        return responsableRepository.existsByParentesco_Id(entidad.getId());
     }
 
     @Transactional

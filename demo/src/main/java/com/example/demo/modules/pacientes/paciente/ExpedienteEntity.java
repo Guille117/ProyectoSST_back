@@ -16,6 +16,9 @@ public class ExpedienteEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(unique = true, length = 20)
+    private String codigo;
+
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "paciente_id", nullable = false, unique = true)
     private PacienteEntity paciente;
@@ -23,4 +26,10 @@ public class ExpedienteEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;
+
+    public void actualizarCodigo() {
+        if (id != null) {
+            codigo = "EXP-" + id;
+        }
+    }
 }

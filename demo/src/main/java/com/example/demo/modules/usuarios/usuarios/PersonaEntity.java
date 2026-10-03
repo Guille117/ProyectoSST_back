@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Entity
 @Table(name = "personas")
@@ -66,5 +68,12 @@ public class PersonaEntity {
         this.otrosNombres = partes.otrosNombres();
         this.primerApellido = partes.primerApellido();
         this.segundoApellido = partes.segundoApellido();
+    }
+
+    public String getNombreCompleto() {
+        return Stream.of(primerNombre, segundoNombre, otrosNombres, primerApellido, segundoApellido)
+                .filter(nombre -> nombre != null && !nombre.isBlank())
+                .map(String::trim)
+                .collect(Collectors.joining(" "));
     }
 }

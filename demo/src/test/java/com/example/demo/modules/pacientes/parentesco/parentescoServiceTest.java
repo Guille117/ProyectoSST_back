@@ -2,6 +2,7 @@ package com.example.demo.modules.pacientes.parentesco;
 
 import java.util.List;
 import java.util.Optional;
+import com.example.demo.modules.pacientes.paciente.PersonaResponsableRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,6 +24,9 @@ class parentescoServiceTest {
 
     @Mock
     private parentescoMapper mapper;
+
+    @Mock
+    private PersonaResponsableRepository responsableRepository;
 
     @InjectMocks
     private parentescoService service;
@@ -126,6 +130,16 @@ class parentescoServiceTest {
 
         assertEquals(false, service.alternarEstado(1L).orElseThrow().estado());
         verify(repository).save(entity);
+    }
+
+    @Test
+    void cambiarEstado_debeRechazarParentescoRelacionadoConResponsable() {
+        parentescoEntity entity = crearEntidad(1L, "Madre");
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(responsableRepository.existsByParentesco_Id(1L)).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.alternarEstado(1L));
+        verify(repository, never()).save(entity);
     }
 
     private parentescoEntity crearEntidad(Long id, String nombre) {

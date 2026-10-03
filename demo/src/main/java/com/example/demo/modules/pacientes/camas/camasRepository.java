@@ -14,6 +14,7 @@ public interface camasRepository extends JpaRepository<camasEntity, Long> {
     boolean existsByArea_Id(Long areaId);
     boolean existsByHabitacion_Id(Long habitacionId);
     boolean existsByTipo_Id(Long tipoId);
+    List<camasEntity> findByEstadoAndActivoTrueAndPacienteIsNotNullOrderByCodigoAsc(EstadoCama estado);
 
         @Query("""
                         SELECT c FROM camasEntity c

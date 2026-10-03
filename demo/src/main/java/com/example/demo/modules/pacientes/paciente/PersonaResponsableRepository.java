@@ -5,4 +5,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PersonaResponsableRepository extends JpaRepository<PersonaResponsableEntity, Long> {
+	boolean existsByParentesco_Id(Long parentescoId);
 }

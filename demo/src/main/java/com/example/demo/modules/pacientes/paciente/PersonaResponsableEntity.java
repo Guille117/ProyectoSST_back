@@ -1,5 +1,6 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import com.example.demo.modules.pacientes.parentesco.parentescoEntity;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -21,8 +22,9 @@ public class PersonaResponsableEntity {
     @JoinColumn(name = "persona_id", nullable = false)
     private PersonaEntity persona;
 
-    @Column(nullable = false, length = 50)
-    private String parentesco;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "parentesco_id", nullable = false)
+    private parentescoEntity parentesco;
 
     @Column(length = 255)
     private String direccion;

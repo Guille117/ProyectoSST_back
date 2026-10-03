@@ -31,5 +31,9 @@ public final class camasDTOs {
                                String nombreTipoCama, boolean activo) {
     }
 
+    public record OcupadaResponse(Long idCama, String codigo, String nombrePaciente,
+                                  String nombreHabitacion, String nombreArea, String nombreTipoCama) {
+    }
+
 
 }

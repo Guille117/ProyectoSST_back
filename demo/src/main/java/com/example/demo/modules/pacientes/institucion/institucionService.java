@@ -2,6 +2,7 @@ package com.example.demo.modules.pacientes.institucion;
 
 import com.example.demo.modules.catalogo.repositoryBase;
 import com.example.demo.modules.catalogo.serviceBase;
+import com.example.demo.modules.pacientes.paciente.ReferenciaRepository;
 import com.example.demo.utils.StringNormalizer;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,14 +13,21 @@ import java.util.List;
 public class institucionService extends serviceBase<institucionEntity> {
 
     private final institucionRepository repository;
+    private final ReferenciaRepository referenciaRepository;
 
-    public institucionService(institucionRepository repository) {
+    public institucionService(institucionRepository repository, ReferenciaRepository referenciaRepository) {
         this.repository = repository;
+        this.referenciaRepository = referenciaRepository;
     }
 
     @Override
     protected repositoryBase<institucionEntity> getRepository() {
         return repository;
+    }
+
+    @Override
+    protected boolean estaRelacionado(institucionEntity entidad) {
+        return referenciaRepository.existsByInstitucion_Id(entidad.getId());
     }
 
     @Override

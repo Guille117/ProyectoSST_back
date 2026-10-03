@@ -32,6 +32,11 @@ public class camasController {
         return ResponseEntity.ok(service.buscar(texto, activos));
     }
 
+    @GetMapping("/ocupadas")
+    public ResponseEntity<List<camasDTOs.OcupadaResponse>> obtenerOcupadas() {
+        return ResponseEntity.ok(service.obtenerOcupadas());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<camasDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));

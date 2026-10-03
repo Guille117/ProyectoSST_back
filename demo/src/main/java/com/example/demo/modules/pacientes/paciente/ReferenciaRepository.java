@@ -5,4 +5,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ReferenciaRepository extends JpaRepository<ReferenciaEntity, Long> {
+	boolean existsByInstitucion_Id(Long institucionId);
 }

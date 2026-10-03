@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.demo.modules.pacientes.paciente.ReferenciaRepository;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,9 @@ class institucionServiceTest {
 
     @Mock
     private institucionRepository repository;
+
+    @Mock
+    private ReferenciaRepository referenciaRepository;
 
     @InjectMocks
     private institucionService service;
@@ -65,5 +69,18 @@ class institucionServiceTest {
         when(repository.countByEstado(true)).thenReturn(4L);
 
         assertEquals(4L, service.contarActivas());
+    }
+
+    @Test
+    void cambiarEstado_rechazaDesactivarInstitucionUsadaEnReferencia() {
+        institucionEntity institucion = new institucionEntity();
+        institucion.setId(8L);
+        institucion.setNombre("Centro de salud");
+        institucion.setEstado(true);
+        when(repository.findById(8L)).thenReturn(Optional.of(institucion));
+        when(referenciaRepository.existsByInstitucion_Id(8L)).thenReturn(true);
+
+        assertThrows(IllegalArgumentException.class, () -> service.cambiarEstado(8L));
+        verify(repository, never()).save(institucion);
     }
 }

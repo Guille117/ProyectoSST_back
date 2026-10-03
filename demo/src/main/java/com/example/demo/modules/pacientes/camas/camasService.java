@@ -26,6 +26,9 @@ public class camasService {
     @Transactional
     public camasDTOs.Response crear(camasDTOs.Request request) {
         camasEntity cama = construirEntidad(request, null);
+        if (cama.getEstado() == EstadoCama.OCUPADA) {
+            throw new IllegalArgumentException("Una cama solo puede ocuparse al asignarla a un paciente");
+        }
         cama.setCodigo(generarCodigo());
         return toResponse(repository.save(cama));
     }
@@ -34,6 +37,16 @@ public class camasService {
     public List<camasDTOs.ListResponse> obtenerTodos(Boolean activos) {
         List<camasEntity> camas = activos == null ? repository.findAll() : repository.findByActivo(activos);
         return camas.stream().map(this::toListResponse).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<camasDTOs.OcupadaResponse> obtenerOcupadas() {
+        return repository.findByEstadoAndActivoTrueAndPacienteIsNotNullOrderByCodigoAsc(EstadoCama.OCUPADA)
+                .stream()
+                .map(cama -> new camasDTOs.OcupadaResponse(
+                        cama.getId(), cama.getCodigo(), cama.getPaciente().getPersona().getNombreCompleto(),
+                        cama.getHabitacion().getNombre(), cama.getArea().getNombre(), cama.getTipo().getNombre()))
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -80,7 +93,14 @@ public class camasService {
         existente.setTipo(actualizada.getTipo());
         existente.setArea(actualizada.getArea());
         // el estado solo se cambia si el request lo trae explícito; si no, se conserva el actual
-        existente.setEstado(request.estado() != null ? request.estado() : existente.getEstado());
+        EstadoCama nuevoEstado = request.estado() != null ? request.estado() : existente.getEstado();
+        if (nuevoEstado == EstadoCama.OCUPADA && existente.getPaciente() == null) {
+            throw new IllegalArgumentException("Una cama solo puede ocuparse al asignarla a un paciente");
+        }
+        if (nuevoEstado != EstadoCama.OCUPADA) {
+            existente.setPaciente(null);
+        }
+        existente.setEstado(nuevoEstado);
         existente.setActivo(actualizada.isActivo());
         return toResponse(repository.save(existente));
     }
@@ -98,6 +118,12 @@ public class camasService {
     public void cambiarEstadoCama(Long id, EstadoCama nuevoEstado) {
         camasEntity cama = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Cama no encontrada con el ID: " + id));
+        if (nuevoEstado == EstadoCama.OCUPADA && cama.getPaciente() == null) {
+            throw new IllegalArgumentException("Una cama solo puede ocuparse al asignarla a un paciente");
+        }
+        if (nuevoEstado != EstadoCama.OCUPADA) {
+            cama.setPaciente(null);
+        }
         cama.setEstado(nuevoEstado);
         repository.save(cama);
     }

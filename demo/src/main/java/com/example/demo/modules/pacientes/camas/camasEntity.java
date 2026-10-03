@@ -2,6 +2,7 @@ package com.example.demo.modules.pacientes.camas;
 
 import com.example.demo.modules.pacientes.area.areaEntity;
 import com.example.demo.modules.pacientes.habitaciones.habitacionesEntity;
+import com.example.demo.modules.pacientes.paciente.PacienteEntity;
 import com.example.demo.modules.pacientes.tipoCama.tipoCamaEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -32,6 +33,10 @@ public class camasEntity {
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "area_id", nullable = false)
     private areaEntity area;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "paciente_id", unique = true)
+    private PacienteEntity paciente;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

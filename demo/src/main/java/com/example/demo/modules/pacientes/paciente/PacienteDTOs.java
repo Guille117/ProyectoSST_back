@@ -9,7 +9,7 @@ import java.time.LocalDate;
 public class PacienteDTOs {
 
     public record PersonaRequest(
-            @NotBlank @Pattern(regexp = "[0-9]{13}") String cui,
+            @Pattern(regexp = "(|[0-9]{13})", message = "El CUI debe tener exactamente 13 dígitos") String cui,
             @NotBlank String nombres,
             @NotBlank String apellidos,
             @NotNull @PastOrPresent LocalDate fechaNacimiento,
@@ -22,19 +22,19 @@ public class PacienteDTOs {
             @NotNull @Valid PersonaRequest persona,
             EstadoCivil estadoCivil,
             @Size(max = 255) String direccion,
-            @Size(max = 100) String ocupacion
+            @Size(max = 100) String ocupacion,
+            @Positive Long camaId
     ) {}
 
     public record ResponsableRequest(
             @NotNull @Valid PersonaRequest persona,
-            @NotBlank @Size(max = 50) String parentesco,
+            @NotNull @Positive Long parentescoId,
             @Size(max = 255) String direccion
     ) {}
 
     public record ReferenciaRequest(
-            @NotBlank @Size(max = 150) String nombreInstitucion,
-            @NotBlank @Size(max = 1000) String motivoReferencia,
-            @Size(max = 2048) String urlDocumento
+            @NotNull @Positive Long institucionId,
+            @NotBlank @Size(max = 1000) String motivoReferencia
     ) {}
 
     public record EpisodioRequest(
@@ -57,5 +57,13 @@ public class PacienteDTOs {
             Long responsableId,
             Long referenciaId,
             boolean pacienteExistente
+    ) {}
+
+    public record ListadoResponse(
+            String codigoExpediente,
+            String nombreCompleto,
+            String telefono,
+            TipoAtencion tipoTratamiento,
+            boolean estado
     ) {}
 }
