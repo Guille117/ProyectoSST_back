@@ -26,14 +26,41 @@ public class medicamentoLogController {
     }
 
     @GetMapping
-    public ResponseEntity<List<medicamentoLogDTOs.Response>> obtenerTodos() { return ResponseEntity.ok(service.obtenerTodos()); }
+    public ResponseEntity<List<medicamentoLogDTOs.MedicamentoLogResponse>> obtenerTodos(
+            @RequestParam(name = "activo", defaultValue = "true") boolean activo) {
+        return ResponseEntity.ok(service.obtenerTodos(activo));
+    }
 
     @GetMapping("/buscar")
-    public ResponseEntity<List<medicamentoLogDTOs.Response>> buscar(@RequestParam String nombre) { return ResponseEntity.ok(service.buscarPorNombre(nombre)); }
+    public ResponseEntity<List<medicamentoLogDTOs.MedicamentoLogResponse>> buscar(
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "marcaId", required = false) Long marcaId,
+            @RequestParam(name = "presentacionId", required = false) Long presentacionId,
+            @RequestParam(name = "viaAdminId", required = false) Long viaAdminId,
+            @RequestParam(name = "activo", defaultValue = "true") boolean activo) {
+        return ResponseEntity.ok(service.buscar(nombre, marcaId, presentacionId, viaAdminId, activo));
+    }
+
+    @GetMapping("/buscar/{id}")
+    public ResponseEntity<medicamentoLogDTOs.MedicamentoLogBusquedaResponse> buscar(
+            @PathVariable("id") Long id,
+            @RequestParam(name = "activo", defaultValue = "true") boolean activo) {
+        return ResponseEntity.ok(service.buscarPorId(id, activo));
+    }
 
     @GetMapping("/{id}")
-    public ResponseEntity<medicamentoLogDTOs.Response> obtenerPorId(@PathVariable Long id) { return ResponseEntity.ok(service.obtenerPorId(id)); }
+    public ResponseEntity<medicamentoLogDTOs.Response> obtenerPorId(
+            @PathVariable("id") Long id,
+            @RequestParam(name = "activo", defaultValue = "true") boolean activo) {
+        return ResponseEntity.ok(service.obtenerPorId(id, activo));
+    }
 
     @PutMapping("/{id}")
-    public ResponseEntity<medicamentoLogDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody medicamentoLogDTOs.Request request) { return ResponseEntity.ok(service.actualizar(id, request)); }
+    public ResponseEntity<medicamentoLogDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody medicamentoLogDTOs.Request request) { return ResponseEntity.ok(service.actualizar(id, request)); }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<Void> cambiarEstado(@PathVariable("id") Long id) {
+        service.cambiarEstado(id);
+        return ResponseEntity.ok().build();
+    }
 }

@@ -1,5 +1,6 @@
 package com.example.demo.modules.farmacia.medicamentoLog;
 
+import java.math.BigDecimal;
 import com.example.demo.modules.farmacia.marca.marcaEntity;
 import com.example.demo.modules.farmacia.presentacion.presentacionEntity;
 import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaEntity;
@@ -8,7 +9,10 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "medicamentos_log", uniqueConstraints = @UniqueConstraint(name = "uk_medicamento_log_nombre", columnNames = "nombre"))
+@Table(name = "medicamentos_log", uniqueConstraints = @UniqueConstraint(
+    name = "uk_medicamento_log_identidad",
+    columnNames = {"nombre", "dosis", "unidad_medida_id", "marca_id", "via_admin_id", "presentacion_id"}
+))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -23,8 +27,12 @@ public class medicamentoLogEntity {
     @Column(nullable = false, length = 150)
     private String nombre;
 
-    @Column(nullable = false, length = 100)
-    private String dosis;
+    @Column(nullable = false)
+    private BigDecimal dosis;
+
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    @Builder.Default
+    private boolean estado = true;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "unidad_medida_id", nullable = false)

@@ -19,6 +19,10 @@ public class insumosLogEntity {
     @Column(nullable = false, length = 150)
     private String nombre;
 
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
+    @Builder.Default
+    private boolean estado = true;
+
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "marca_id", nullable = false)
     private marcaEntity marca;

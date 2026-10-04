@@ -43,12 +43,33 @@ public class insumosLogService {
     }
 
     @Transactional(readOnly = true)
-    public List<insumosLogDTOs.Response> obtenerTodos() { return repository.findAll().stream().map(this::toResponse).toList(); }
+    public List<insumosLogDTOs.ListadoResponse> obtenerTodos(boolean activo) {
+        return repository.findByEstado(activo).stream().map(this::toListadoResponse).toList();
+    }
 
     @Transactional(readOnly = true)
-    public List<insumosLogDTOs.Response> buscarPorNombre(String nombre) {
-        if (nombre == null || nombre.isBlank()) return List.of();
-        return repository.findByNombreContainingIgnoreCase(nombre.trim()).stream().map(this::toResponse).toList();
+    public List<insumosLogDTOs.ListadoResponse> buscar(String nombre, Long marcaId, boolean activo) {
+        String nombreNormalizado = StringNormalizer.normalizarNullable(nombre);
+        if (nombreNormalizado == null && marcaId == null) return List.of();
+
+        List<insumosLogEntity> resultados;
+        if (nombreNormalizado != null && marcaId != null) {
+            resultados = repository.findByNombreContainingIgnoreCaseAndMarca_IdAndEstado(
+                    nombreNormalizado, marcaId, activo);
+        } else if (nombreNormalizado != null) {
+            resultados = repository.findByNombreContainingIgnoreCaseAndEstado(nombreNormalizado, activo);
+        } else {
+            resultados = repository.findByMarca_IdAndEstado(marcaId, activo);
+        }
+        return resultados.stream().map(this::toListadoResponse).toList();
+    }
+
+    @Transactional
+    public void cambiarEstado(Long id) {
+        insumosLogEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Insumo no encontrado con el ID: " + id));
+        entity.setEstado(!entity.isEstado());
+        repository.save(entity);
     }
 
     private void asignarMarca(insumosLogEntity entity, Long marcaId) {
@@ -66,5 +87,13 @@ public class insumosLogService {
 
     private insumosLogDTOs.Response toResponse(insumosLogEntity entity) {
         return new insumosLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getMarca().getId(), entity.getMarca().getNombre());
+    }
+
+    private insumosLogDTOs.ListadoResponse toListadoResponse(insumosLogEntity entity) {
+        return new insumosLogDTOs.ListadoResponse(
+                entity.getId(),
+                entity.getNombre(),
+                new insumosLogDTOs.MarcaResponse(entity.getMarca().getNombre(), entity.getMarca().getId()),
+                entity.isEstado());
     }
 }

@@ -10,4 +10,8 @@ public class insumosLogDTOs {
     ) {}
 
     public record Response(Long id, String nombre, Long marcaId, String marca) {}
+
+    public record MarcaResponse(String nombreMarca, Long idMarca) {}
+
+    public record ListadoResponse(Long id, String nombre, MarcaResponse marca, boolean estado) {}
 }

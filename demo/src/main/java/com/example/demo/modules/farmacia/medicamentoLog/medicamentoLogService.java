@@ -6,6 +6,7 @@ import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaRepository;
 import com.example.demo.modules.farmacia.viaAdmin.viaAdminRepository;
 import com.example.demo.utils.StringNormalizer;
 
+import java.math.BigDecimal;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.StoredProcedureQuery;
@@ -47,9 +48,9 @@ public class medicamentoLogService {
     public medicamentoLogDTOs.Response crear(medicamentoLogDTOs.Request request) {
         if (request == null) throw new IllegalArgumentException("La solicitud es obligatoria");
         String nombre = StringNormalizer.normalizarTexto(request.nombre());
-        String dosis = StringNormalizer.normalizarTexto(request.dosis());
-        validarNombreUnico(null, nombre);
+        BigDecimal dosis = request.dosis();
         medicamentoLogEntity entity = construir(request, nombre, dosis);
+        validarNoDuplicado(null, entity);
         return toResponse(repository.save(entity));
     }
 
@@ -59,32 +60,51 @@ public class medicamentoLogService {
         medicamentoLogEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
         String nombre = StringNormalizer.normalizarTexto(request.nombre());
-        String dosis = StringNormalizer.normalizarTexto(request.dosis());
-        validarNombreUnico(id, nombre);
+        BigDecimal dosis = request.dosis();
         entity.setNombre(nombre);
         entity.setDosis(dosis);
         asignarRelaciones(entity, request);
+        validarNoDuplicado(id, entity);
         return toResponse(repository.save(entity));
     }
 
     @Transactional(readOnly = true)
-    public medicamentoLogDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
+    public medicamentoLogDTOs.Response obtenerPorId(Long id, boolean activo) {
+        return repository.findByIdAndEstado(id, activo).map(this::toResponse)
                 .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
     }
 
     @Transactional(readOnly = true)
-    public List<medicamentoLogDTOs.Response> obtenerTodos() {
-        return repository.findAll().stream().map(this::toResponse).toList();
+    public List<medicamentoLogDTOs.MedicamentoLogResponse> obtenerTodos(boolean activo) {
+        return repository.findByEstado(activo).stream().map(this::toListadoResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<medicamentoLogDTOs.Response> buscarPorNombre(String nombre) {
-        if (nombre == null || nombre.isBlank()) return List.of();
-        return repository.findByNombreContainingIgnoreCase(nombre.trim()).stream().map(this::toResponse).toList();
+    public medicamentoLogDTOs.MedicamentoLogBusquedaResponse buscarPorId(Long id, boolean activo) {
+        return repository.findByIdAndEstado(id, activo).map(this::toBusquedaResponse)
+                .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
     }
 
-    private medicamentoLogEntity construir(medicamentoLogDTOs.Request request, String nombre, String dosis) {
+    @Transactional(readOnly = true)
+    public List<medicamentoLogDTOs.MedicamentoLogResponse> buscar(
+            String nombre, Long marcaId, Long presentacionId, Long viaAdminId, boolean activo) {
+        String nombreNormalizado = StringNormalizer.normalizarNullable(nombre);
+        if (nombreNormalizado == null && marcaId == null && presentacionId == null && viaAdminId == null) {
+            return List.of();
+        }
+        return repository.buscar(nombreNormalizado, marcaId, presentacionId, viaAdminId, activo)
+                .stream().map(this::toListadoResponse).toList();
+    }
+
+    @Transactional
+    public void cambiarEstado(Long id) {
+        medicamentoLogEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
+        entity.setEstado(!entity.isEstado());
+        repository.save(entity);
+    }
+
+    private medicamentoLogEntity construir(medicamentoLogDTOs.Request request, String nombre, BigDecimal dosis) {
         medicamentoLogEntity entity = medicamentoLogEntity.builder().nombre(nombre).dosis(dosis).build();
         asignarRelaciones(entity, request);
         return entity;
@@ -101,10 +121,17 @@ public class medicamentoLogService {
                 .orElseThrow(() -> new IllegalArgumentException("Presentación no encontrada con el ID: " + request.presentacionId())));
     }
 
-    private void validarNombreUnico(Long idActual, String nombre) {
-        repository.findByNombreIgnoreCase(nombre).ifPresent(existente -> {
+    private void validarNoDuplicado(Long idActual, medicamentoLogEntity medicamento) {
+        repository.findByIdentidad(
+                medicamento.getNombre(),
+                medicamento.getDosis(),
+                medicamento.getUnidadMedida().getId(),
+                medicamento.getMarca().getId(),
+                medicamento.getViaAdmin().getId(),
+                medicamento.getPresentacion().getId()
+        ).ifPresent(existente -> {
             if (!existente.getId().equals(idActual)) {
-                throw new IllegalArgumentException("Ya existe un medicamento con el nombre: " + nombre);
+                throw new IllegalArgumentException("Ya existe un medicamento con los mismos datos");
             }
         });
     }
@@ -115,4 +142,17 @@ public class medicamentoLogService {
                 entity.getMarca().getNombre(), entity.getViaAdmin().getId(), entity.getViaAdmin().getNombre(),
                 entity.getPresentacion().getId(), entity.getPresentacion().getNombre());
     }
+
+    private medicamentoLogDTOs.MedicamentoLogResponse toListadoResponse(medicamentoLogEntity entity) {
+        return new medicamentoLogDTOs.MedicamentoLogResponse(entity.getId(), entity.getNombre(), entity.getDosis(),
+                entity.getMarca().getNombre(), entity.getPresentacion().getNombre(),
+            entity.getViaAdmin().getNombre(), entity.getUnidadMedida().getAbreviatura(), entity.isEstado());
+    }
+
+    private medicamentoLogDTOs.MedicamentoLogBusquedaResponse toBusquedaResponse(medicamentoLogEntity entity) {
+        return new medicamentoLogDTOs.MedicamentoLogBusquedaResponse(entity.getNombre(), entity.getDosis(),
+                entity.getUnidadMedida().getId(), entity.getViaAdmin().getId(),
+                entity.getPresentacion().getId(), entity.getMarca().getId());
+    }
+
 }
