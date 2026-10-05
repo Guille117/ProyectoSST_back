@@ -19,6 +19,9 @@ public class insumosLogEntity {
     @Column(nullable = false, length = 150)
     private String nombre;
 
+    @Column(columnDefinition = "TEXT")
+    private String detalle;
+
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT TRUE")
     @Builder.Default
     private boolean estado = true;

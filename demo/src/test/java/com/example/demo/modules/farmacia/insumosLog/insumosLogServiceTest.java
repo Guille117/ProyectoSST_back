@@ -39,6 +39,7 @@ class insumosLogServiceTest {
         assertEquals(1, resultado.size());
         assertEquals(10L, resultado.get(0).id());
         assertEquals("Guantes", resultado.get(0).nombre());
+        assertEquals("Uso médico", resultado.get(0).detalle());
         assertEquals("Marca A", resultado.get(0).marca().nombreMarca());
         assertEquals(4L, resultado.get(0).marca().idMarca());
         assertEquals(true, resultado.get(0).estado());
@@ -53,6 +54,7 @@ class insumosLogServiceTest {
         List<insumosLogDTOs.ListadoResponse> resultado = service.buscar(" guan ", 4L, true);
 
         assertEquals(1, resultado.size());
+        assertEquals("Uso médico", resultado.get(0).detalle());
         assertEquals("Marca A", resultado.get(0).marca().nombreMarca());
         assertEquals(4L, resultado.get(0).marca().idMarca());
     }
@@ -81,6 +83,7 @@ class insumosLogServiceTest {
         return insumosLogEntity.builder()
                 .id(id)
                 .nombre(nombre)
+                .detalle("Uso médico")
                 .marca(marca)
                 .estado(estado)
                 .build();

@@ -19,7 +19,10 @@ public class insumosLogService {
         if (request == null) throw new IllegalArgumentException("La solicitud es obligatoria");
         String nombre = StringNormalizer.normalizarTexto(request.nombre());
         validarNombreUnico(null, nombre);
-        insumosLogEntity entity = insumosLogEntity.builder().nombre(nombre).build();
+        insumosLogEntity entity = insumosLogEntity.builder()
+            .nombre(nombre)
+            .detalle(StringNormalizer.normalizarNullable(request.detalle()))
+            .build();
         asignarMarca(entity, request.marcaId());
         return toResponse(repository.save(entity));
     }
@@ -32,6 +35,7 @@ public class insumosLogService {
         String nombre = StringNormalizer.normalizarTexto(request.nombre());
         validarNombreUnico(id, nombre);
         entity.setNombre(nombre);
+        entity.setDetalle(StringNormalizer.normalizarNullable(request.detalle()));
         asignarMarca(entity, request.marcaId());
         return toResponse(repository.save(entity));
     }
@@ -86,13 +90,15 @@ public class insumosLogService {
     }
 
     private insumosLogDTOs.Response toResponse(insumosLogEntity entity) {
-        return new insumosLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getMarca().getId(), entity.getMarca().getNombre());
+        return new insumosLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getDetalle(),
+            entity.getMarca().getId(), entity.getMarca().getNombre());
     }
 
     private insumosLogDTOs.ListadoResponse toListadoResponse(insumosLogEntity entity) {
         return new insumosLogDTOs.ListadoResponse(
                 entity.getId(),
                 entity.getNombre(),
+                entity.getDetalle(),
                 new insumosLogDTOs.MarcaResponse(entity.getMarca().getNombre(), entity.getMarca().getId()),
                 entity.isEstado());
     }

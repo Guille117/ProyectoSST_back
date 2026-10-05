@@ -32,10 +32,10 @@ public class insumosLogController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<insumosLogDTOs.Response> obtenerPorId(@PathVariable Long id) { return ResponseEntity.ok(service.obtenerPorId(id)); }
+    public ResponseEntity<insumosLogDTOs.Response> obtenerPorId(@PathVariable("id") Long id) { return ResponseEntity.ok(service.obtenerPorId(id)); }
 
     @PutMapping("/{id}")
-    public ResponseEntity<insumosLogDTOs.Response> actualizar(@PathVariable Long id, @Valid @RequestBody insumosLogDTOs.Request request) { return ResponseEntity.ok(service.actualizar(id, request)); }
+    public ResponseEntity<insumosLogDTOs.Response> actualizar(@PathVariable("id") Long id, @Valid @RequestBody insumosLogDTOs.Request request) { return ResponseEntity.ok(service.actualizar(id, request)); }
 
     @PatchMapping("/{id}")
     public ResponseEntity<Void> cambiarEstado(@PathVariable("id") Long id) {

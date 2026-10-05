@@ -9,8 +9,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -25,15 +28,28 @@ class insumosLogControllerTest {
     private insumosLogService service;
 
     @Test
+    void crear_debeAceptarDetalleOpcionalYDevolverlo() throws Exception {
+        when(service.crear(any())).thenReturn(
+                new insumosLogDTOs.Response(10L, "Guantes", "Uso médico", 4L, "Marca A"));
+
+        mockMvc.perform(post("/api/v1/insumosLog")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"nombre\":\"Guantes\",\"marcaId\":4,\"detalle\":\"Uso médico\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.detalle").value("Uso médico"));
+    }
+
+    @Test
     void obtenerTodos_debeFiltrarActivosPorDefectoYDevolverMarcaAnidada() throws Exception {
         when(service.obtenerTodos(true)).thenReturn(List.of(
-                new insumosLogDTOs.ListadoResponse(10L, "Guantes",
+                new insumosLogDTOs.ListadoResponse(10L, "Guantes", "Uso médico",
                         new insumosLogDTOs.MarcaResponse("Marca A", 4L), true)));
 
         mockMvc.perform(get("/api/v1/insumosLog"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(10))
                 .andExpect(jsonPath("$[0].nombre").value("Guantes"))
+                .andExpect(jsonPath("$[0].detalle").value("Uso médico"))
                 .andExpect(jsonPath("$[0].marca.nombreMarca").value("Marca A"))
                 .andExpect(jsonPath("$[0].marca.idMarca").value(4))
                 .andExpect(jsonPath("$[0].estado").value(true));
@@ -42,13 +58,14 @@ class insumosLogControllerTest {
     @Test
     void buscar_debeAceptarNombreYMarcaId() throws Exception {
         when(service.buscar("guan", 4L, true)).thenReturn(List.of(
-                new insumosLogDTOs.ListadoResponse(10L, "Guantes",
+                new insumosLogDTOs.ListadoResponse(10L, "Guantes", "Uso médico",
                         new insumosLogDTOs.MarcaResponse("Marca A", 4L), true)));
 
         mockMvc.perform(get("/api/v1/insumosLog/buscar")
                         .param("nombre", "guan")
                         .param("marcaId", "4"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].detalle").value("Uso médico"))
                 .andExpect(jsonPath("$[0].marca.idMarca").value(4));
     }
 
