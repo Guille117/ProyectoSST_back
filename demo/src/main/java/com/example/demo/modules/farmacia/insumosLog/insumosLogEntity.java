@@ -19,6 +19,9 @@ public class insumosLogEntity {
     @Column(nullable = false, length = 150)
     private String nombre;
 
+    @Column(name = "codigo", nullable = false, unique = true, length = 32)
+    private String codigo;
+
     @Column(columnDefinition = "TEXT")
     private String detalle;
 

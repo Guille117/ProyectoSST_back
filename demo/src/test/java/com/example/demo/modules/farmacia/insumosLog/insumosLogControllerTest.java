@@ -30,7 +30,7 @@ class insumosLogControllerTest {
     @Test
     void crear_debeAceptarDetalleOpcionalYDevolverlo() throws Exception {
         when(service.crear(any())).thenReturn(
-                new insumosLogDTOs.Response(10L, "Guantes", "Uso médico", 4L, "Marca A"));
+                new insumosLogDTOs.Response(10L, "Guantes", "INS-10", "Uso médico", 4L, "Marca A"));
 
         mockMvc.perform(post("/api/v1/insumosLog")
                         .contentType(APPLICATION_JSON)
@@ -42,7 +42,7 @@ class insumosLogControllerTest {
     @Test
     void obtenerTodos_debeFiltrarActivosPorDefectoYDevolverMarcaAnidada() throws Exception {
         when(service.obtenerTodos(true)).thenReturn(List.of(
-                new insumosLogDTOs.ListadoResponse(10L, "Guantes", "Uso médico",
+                new insumosLogDTOs.ListadoResponse(10L, "Guantes", "INS-10", "Uso médico",
                         new insumosLogDTOs.MarcaResponse("Marca A", 4L), true)));
 
         mockMvc.perform(get("/api/v1/insumosLog"))
@@ -58,7 +58,7 @@ class insumosLogControllerTest {
     @Test
     void buscar_debeAceptarNombreYMarcaId() throws Exception {
         when(service.buscar("guan", 4L, true)).thenReturn(List.of(
-                new insumosLogDTOs.ListadoResponse(10L, "Guantes", "Uso médico",
+                new insumosLogDTOs.ListadoResponse(10L, "Guantes", "INS-10", "Uso médico",
                         new insumosLogDTOs.MarcaResponse("Marca A", 4L), true)));
 
         mockMvc.perform(get("/api/v1/insumosLog/buscar")

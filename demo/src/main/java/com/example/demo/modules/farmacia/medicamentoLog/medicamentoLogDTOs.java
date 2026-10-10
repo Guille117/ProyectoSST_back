@@ -20,6 +20,7 @@ public class medicamentoLogDTOs {
     public record Response(
             Long id,
             String nombre,
+            String codigo,
             BigDecimal dosis,
             Long unidadMedidaId,
             String unidadMedida,
@@ -34,6 +35,7 @@ public class medicamentoLogDTOs {
     public record MedicamentoLogResponse(
             Long id,
             String nombre,
+            String codigo,
             BigDecimal dosis,
             String marca,
             String presentacion,

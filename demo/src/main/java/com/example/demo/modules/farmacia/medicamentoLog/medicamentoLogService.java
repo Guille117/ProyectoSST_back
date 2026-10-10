@@ -105,9 +105,22 @@ public class medicamentoLogService {
     }
 
     private medicamentoLogEntity construir(medicamentoLogDTOs.Request request, String nombre, BigDecimal dosis) {
-        medicamentoLogEntity entity = medicamentoLogEntity.builder().nombre(nombre).dosis(dosis).build();
+        medicamentoLogEntity entity = medicamentoLogEntity.builder()
+                .nombre(nombre)
+                .codigo(generarCodigo())
+                .dosis(dosis).build();
         asignarRelaciones(entity, request);
         return entity;
+    }
+
+    private String generarCodigo() {
+        long numero = repository.count() + 1;
+        String codigo = String.format("MED-%d", numero);
+        while (repository.existsByCodigo(codigo)) {
+            numero++;
+            codigo = String.format("MED-%d", numero);
+        }
+        return codigo;
     }
 
     private void asignarRelaciones(medicamentoLogEntity entity, medicamentoLogDTOs.Request request) {
@@ -137,14 +150,14 @@ public class medicamentoLogService {
     }
 
     private medicamentoLogDTOs.Response toResponse(medicamentoLogEntity entity) {
-        return new medicamentoLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getDosis(),
+        return new medicamentoLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getCodigo(), entity.getDosis(),
                 entity.getUnidadMedida().getId(), entity.getUnidadMedida().getNombre(), entity.getMarca().getId(),
                 entity.getMarca().getNombre(), entity.getViaAdmin().getId(), entity.getViaAdmin().getNombre(),
                 entity.getPresentacion().getId(), entity.getPresentacion().getNombre());
     }
 
     private medicamentoLogDTOs.MedicamentoLogResponse toListadoResponse(medicamentoLogEntity entity) {
-        return new medicamentoLogDTOs.MedicamentoLogResponse(entity.getId(), entity.getNombre(), entity.getDosis(),
+        return new medicamentoLogDTOs.MedicamentoLogResponse(entity.getId(), entity.getNombre(), entity.getCodigo(), entity.getDosis(),
                 entity.getMarca().getNombre(), entity.getPresentacion().getNombre(),
             entity.getViaAdmin().getNombre(), entity.getUnidadMedida().getAbreviatura(), entity.isEstado());
     }

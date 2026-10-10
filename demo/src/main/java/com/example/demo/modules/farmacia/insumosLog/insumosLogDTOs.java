@@ -10,9 +10,9 @@ public class insumosLogDTOs {
             String detalle
     ) {}
 
-        public record Response(Long id, String nombre, String detalle, Long marcaId, String marca) {}
+        public record Response(Long id, String nombre, String codigo, String detalle, Long marcaId, String marca) {}
 
     public record MarcaResponse(String nombreMarca, Long idMarca) {}
 
-    public record ListadoResponse(Long id, String nombre, String detalle, MarcaResponse marca, boolean estado) {}
+    public record ListadoResponse(Long id, String nombre, String codigo, String detalle, MarcaResponse marca, boolean estado) {}
 }

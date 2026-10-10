@@ -49,4 +49,6 @@ public interface medicamentoLogRepository extends JpaRepository<medicamentoLogEn
     boolean existsByPresentacion_Id(Long presentacionId);
     boolean existsByUnidadMedida_Id(Long unidadMedidaId);
     boolean existsByViaAdmin_Id(Long viaAdminId);
+
+    boolean existsByCodigo(String codigo);
 }

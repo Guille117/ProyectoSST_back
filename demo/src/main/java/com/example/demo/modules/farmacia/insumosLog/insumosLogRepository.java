@@ -16,4 +16,6 @@ public interface insumosLogRepository extends JpaRepository<insumosLogEntity, Lo
     List<insumosLogEntity> findByNombreContainingIgnoreCaseAndMarca_IdAndEstado(
             String nombre, Long marcaId, boolean estado);
     boolean existsByMarca_Id(Long marcaId);
+
+    boolean existsByCodigo(String codigo);
 }

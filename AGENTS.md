@@ -37,6 +37,12 @@ Cada tabla/funcionalidad `[Entidad]` bajo `com.example.demo.modules.[modulo].[su
 
 Implementación de referencia: `demo/src/main/java/com/example/demo/modules/farmacia/proveedores/` (proveedores es el ejemplo canónico).
 
+### Scripts SQL
+- **Carpeta única para todo código SQL:** `demo/src/main/resources/db/`. Todo script SQL nuevo (migraciones, constraints, stored procedures, datos iniciales) se guarda ahí, nunca en otra ruta.
+- **Obligatorio comentar cada archivo SQL** con un encabezado que explique: `Propósito` (qué hace el script), `Uso` (cuándo/por qué se ejecuta, y qué componente del backend lo consume si aplica) y nota de ejecución (ej. "ejecutar UNA sola vez"). Ejemplos canónicos: `db/lotes_check.sql`, `db/medicamentoLog_migracion_identidad.sql`, `db/catalogosFarmacia.sql`.
+- `ddl-auto=update` crea/modifica tablas pero NO genera constraints CHECK ni elimina columnas — esas operaciones van en un script SQL comentado en `db/` para ejecución manual en MySQL.
+- Convención de nombres para scripts nuevos: `[submodulo]_[tipo].sql`, donde tipo ∈ `check`, `migracion`, `sp`, `data` (los archivos existentes anteriores conservan su nombre).
+
 ### Otras convenciones
 - `StringNormalizer` (`demo/src/main/java/com/example/demo/utils/StringNormalizer.java:8`): `normalizarTexto` (null→"" y trim), `normalizarNullable` (blank→null). El Service normaliza cada campo antes de validar/persistir; `nit` además hace `toUpperCase(ROOT)`.
 - Validación de duplicados distingue activos vs inactivos con mensajes distintos: `"Ya existe un proveedor activo con..."` vs `"...pero está inactivo. Actívalo primero..."` (`ProveedorService.java:124`).

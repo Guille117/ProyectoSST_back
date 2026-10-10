@@ -33,7 +33,7 @@ class medicamentoLogControllerTest {
         medicamentoLogDTOs.Request request = new medicamentoLogDTOs.Request(
                 "Paracetamol", new BigDecimal("500.5"), 1L, 1L, 1L, 1L);
         medicamentoLogDTOs.Response response = new medicamentoLogDTOs.Response(
-                1L, "Paracetamol", new BigDecimal("500.5"), 1L, "mg", 1L,
+                1L, "Paracetamol", "MED-1", new BigDecimal("500.5"), 1L, "mg", 1L,
                 "Generica", 1L, "Oral", 1L, "Tableta");
         when(service.crear(any())).thenReturn(response);
 
@@ -57,7 +57,7 @@ class medicamentoLogControllerTest {
     void obtenerTodos_debeRetornarFormatoDeListadoSolicitado() throws Exception {
         when(service.obtenerTodos(true)).thenReturn(java.util.List.of(
                 new medicamentoLogDTOs.MedicamentoLogResponse(
-                        1L, "Amoxicilina", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", true)));
+                        1L, "Amoxicilina", "MED-1", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", true)));
 
         mockMvc.perform(get("/api/v1/medicamentoLog"))
                 .andExpect(status().isOk())
@@ -92,7 +92,7 @@ class medicamentoLogControllerTest {
     void buscar_debeAceptarFiltrosDeNombreYCatalogos() throws Exception {
         when(service.buscar("amox", 2L, 3L, 4L, true)).thenReturn(java.util.List.of(
                 new medicamentoLogDTOs.MedicamentoLogResponse(
-                        7L, "Amoxicilina", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", true)));
+                        7L, "Amoxicilina", "MED-7", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", true)));
 
         mockMvc.perform(get("/api/v1/medicamentoLog/buscar")
                         .param("nombre", "amox")
@@ -113,7 +113,7 @@ class medicamentoLogControllerTest {
     @Test
     void obtenerPorId_debeUsarActivoTruePorDefecto() throws Exception {
         when(service.obtenerPorId(7L, true)).thenReturn(new medicamentoLogDTOs.Response(
-                7L, "Amoxicilina", new BigDecimal("500"), 3L, "mg", 6L,
+                7L, "Amoxicilina", "MED-7", new BigDecimal("500"), 3L, "mg", 6L,
                 "Marca A", 4L, "Oral", 5L, "Tableta"));
 
         mockMvc.perform(get("/api/v1/medicamentoLog/7"))

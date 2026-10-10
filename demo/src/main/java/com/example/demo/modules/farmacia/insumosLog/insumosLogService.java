@@ -21,6 +21,7 @@ public class insumosLogService {
         validarNombreUnico(null, nombre);
         insumosLogEntity entity = insumosLogEntity.builder()
             .nombre(nombre)
+            .codigo(generarCodigo())
             .detalle(StringNormalizer.normalizarNullable(request.detalle()))
             .build();
         asignarMarca(entity, request.marcaId());
@@ -90,7 +91,7 @@ public class insumosLogService {
     }
 
     private insumosLogDTOs.Response toResponse(insumosLogEntity entity) {
-        return new insumosLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getDetalle(),
+        return new insumosLogDTOs.Response(entity.getId(), entity.getNombre(), entity.getCodigo(), entity.getDetalle(),
             entity.getMarca().getId(), entity.getMarca().getNombre());
     }
 
@@ -98,8 +99,19 @@ public class insumosLogService {
         return new insumosLogDTOs.ListadoResponse(
                 entity.getId(),
                 entity.getNombre(),
+                entity.getCodigo(),
                 entity.getDetalle(),
                 new insumosLogDTOs.MarcaResponse(entity.getMarca().getNombre(), entity.getMarca().getId()),
                 entity.isEstado());
+    }
+
+    private String generarCodigo() {
+        long numero = repository.count() + 1;
+        String codigo = String.format("INS-%d", numero);
+        while (repository.existsByCodigo(codigo)) {
+            numero++;
+            codigo = String.format("INS-%d", numero);
+        }
+        return codigo;
     }
 }

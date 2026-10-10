@@ -27,6 +27,9 @@ public class medicamentoLogEntity {
     @Column(nullable = false, length = 150)
     private String nombre;
 
+    @Column(name = "codigo", nullable = false, unique = true, length = 32)
+    private String codigo;
+
     @Column(nullable = false)
     private BigDecimal dosis;
 
