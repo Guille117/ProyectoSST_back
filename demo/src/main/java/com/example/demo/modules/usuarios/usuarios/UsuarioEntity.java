@@ -1,12 +1,10 @@
 package com.example.demo.modules.usuarios.usuarios;
-
 import com.example.demo.modules.usuarios.horarios.HorarioEntity;
 import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.roles.RolEntity;
 import jakarta.persistence.*;
 import lombok.*;
-
 import java.util.HashSet;
 import java.util.Set;
 
