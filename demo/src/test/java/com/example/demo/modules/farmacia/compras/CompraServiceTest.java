@@ -417,11 +417,89 @@ class CompraServiceTest {
         CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
                 .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
 
         service.cambiarEstado(1L);
 
         assertThat(entity.isEstado()).isFalse();
         verify(repository).save(entity);
+    }
+
+    @Test
+    void cambiarEstado_debeRechazarCompraConLotesUsados() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(loteRepository.findByCompra_Id(1L))
+                .thenReturn(List.of(loteUsado(entity, 1L, "LOTE-A", 10, 5)));
+
+        assertThatThrownBy(() -> service.cambiarEstado(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya se han usado productos");
+
+        assertThat(entity.isEstado()).isTrue();
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void eliminar_debeEliminarCompraSinUso() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .comprobante("uploads/comprobantes/compra-1-abc.pdf")
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        LoteEntity lote = loteMedicamentoDeCompra(entity, 1L, "LOTE-A", 10);
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of(lote));
+
+        service.eliminar(1L);
+
+        verify(comprobanteStorage).eliminar("uploads/comprobantes/compra-1-abc.pdf");
+        verify(loteRepository).deleteAll(List.of(lote));
+        verify(repository).delete(entity);
+    }
+
+    @Test
+    void eliminar_debeRechazarCompraConLotesUsados() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(loteRepository.findByCompra_Id(1L))
+                .thenReturn(List.of(loteUsado(entity, 1L, "LOTE-A", 10, 4)));
+
+        assertThatThrownBy(() -> service.eliminar(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya se han usado productos");
+
+        verify(repository, never()).delete(any());
+        verify(comprobanteStorage, never()).eliminar(any());
+    }
+
+    @Test
+    void actualizar_debeActualizarCrearYEliminarLotesSegunSolicitud() {
+        ProveedorEntity proveedor = proveedorActivo();
+        CompraEntity existente = CompraEntity.builder()
+                .id(1L).codigo("COM-1").total(BigDecimal.ZERO).estado(true)
+                .fecha(LocalDateTime.now()).proveedor(proveedor).build();
+        List<LoteEntity> actuales = List.of(
+                loteMedicamentoDeCompra(existente, 10L, "LOTE-A", 10),
+                loteInsumoDeCompra(existente, 12L, "LOTE-C", 5));
+        CompraDTOs.Request req = requestConLotes(List.of(
+                loteMedicamento(3L, "LOTE-A"),
+                loteInsumo(7L, "LOTE-B")));
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(proveedorRepository.findById(1L)).thenReturn(Optional.of(proveedor));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(actuales, List.of());
+        when(repository.save(any())).thenReturn(existente);
+        when(mapper.toDTO(existente)).thenReturn(new CompraDTOs.Response(
+                1L, "COM-1", BigDecimal.ZERO, null, true, 1L, "Proveedor SA", existente.getFecha(), null));
+        when(loteService.actualizar(eq(10L), any())).thenReturn(respuestaLoteMock("LOTE-A"));
+        when(loteService.crear(any())).thenReturn(respuestaLoteMock("LOTE-B"));
+
+        service.actualizar(1L, null, req);
+
+        verify(loteService).actualizar(eq(10L), argThat(r -> r.codigoLote().equals("LOTE-A")));
+        verify(loteService).crear(argThat(r -> r.codigoLote().equals("LOTE-B")));
+        verify(loteService).eliminar(12L);
     }
 
     @Test
@@ -482,6 +560,14 @@ class CompraServiceTest {
         return presentacion;
     }
 
+    private LoteEntity loteUsado(CompraEntity compra, Long id, String codigoLote, int cantidad, int disponible) {
+        return LoteEntity.builder()
+                .id(id).codigoLote(codigoLote).cantidad(cantidad).disponible(disponible).estado(true)
+                .precioCompra(BigDecimal.TEN).precioVenta(BigDecimal.valueOf(15))
+                .total(BigDecimal.TEN.multiply(BigDecimal.valueOf(cantidad)))
+                .compra(compra).build();
+    }
+
     private LoteEntity loteMedicamentoDeCompra(CompraEntity compra, Long id, String codigoLote, int cantidad) {
         medicamentoLogEntity medicamento = medicamentoLogEntity.builder()
                 .id(3L)
@@ -538,6 +624,46 @@ class CompraServiceTest {
         assertThat(resumen.get(0).cantidadProductos()).isEqualTo(15);
         assertThat(resumen.get(0).total()).isEqualByComparingTo(BigDecimal.valueOf(150));
         assertThat(resumen.get(1).cantidadProductos()).isEqualTo(7);
+    }
+
+    @Test
+    void buscarResumen_debeFiltrarPorCodigoProveedorYFecha() {
+        CompraEntity coincide = compraDe("COM-1", BigDecimal.TEN, 1L);
+        coincide.setFecha(LocalDateTime.of(2026, 10, 16, 10, 30));
+        CompraEntity otroCodigo = compraDe("COM-2", BigDecimal.ONE, 2L);
+        otroCodigo.setFecha(LocalDateTime.of(2026, 10, 16, 11, 0));
+        CompraEntity otraFecha = compraDe("COM-1B", BigDecimal.ONE, 3L);
+        otraFecha.setFecha(LocalDateTime.of(2026, 10, 17, 10, 0));
+        ProveedorEntity otroProveedor = ProveedorEntity.builder()
+                .id(2L).codigo("PROV-02").nombre("Otro proveedor").estado(true).build();
+        CompraEntity otroProv = CompraEntity.builder()
+                .id(4L).codigo("COM-1C").total(BigDecimal.ONE).estado(true)
+                .fecha(LocalDateTime.of(2026, 10, 16, 9, 0)).proveedor(otroProveedor).build();
+
+        when(repository.findAll()).thenReturn(List.of(coincide, otroCodigo, otraFecha, otroProv));
+        when(loteRepository.findByCompra_IdIn(List.of(1L))).thenReturn(List.of());
+
+        List<CompraDTOs.ResumenResponse> resumen = service.buscarResumen(
+                "com-1", 1L, LocalDate.of(2026, 10, 16), null);
+
+        assertThat(resumen).hasSize(1);
+        assertThat(resumen.get(0).id()).isEqualTo(1L);
+        assertThat(resumen.get(0).codigo()).isEqualTo("COM-1");
+        assertThat(resumen.get(0).proveedor()).isEqualTo("Proveedor SA");
+    }
+
+    @Test
+    void buscarResumen_debeFiltrarPorEstadoCuandoSeEnviaActivos() {
+        CompraEntity compra = compraDe("COM-1", BigDecimal.TEN, 1L);
+        compra.setFecha(LocalDateTime.of(2026, 10, 16, 8, 0));
+        when(repository.findByEstado(true)).thenReturn(List.of(compra));
+        when(loteRepository.findByCompra_IdIn(List.of(1L))).thenReturn(List.of());
+
+        List<CompraDTOs.ResumenResponse> resumen = service.buscarResumen(
+                null, null, LocalDate.of(2026, 10, 16), true);
+
+        assertThat(resumen).hasSize(1);
+        verify(repository, never()).findAll();
     }
 
     @Test

@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -93,6 +94,9 @@ public class CompraService {
         if (req != null && req.proveedorId() != null) {
             existente.setProveedor(validarProveedorActivo(req.proveedorId()));
         }
+        if (req != null && req.lotes() != null) {
+            actualizarLotes(existente.getId(), req.lotes());
+        }
 
         AtomicReference<String> rutaNueva = new AtomicReference<>();
         try {
@@ -155,15 +159,51 @@ public class CompraService {
     public void cambiarEstado(Long id) {
         CompraEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
+        validarCompraSinUso(entity, "cambiar el estado de");
         entity.setEstado(!entity.isEstado());
         repository.save(entity);
     }
 
+    @Transactional
+    public void eliminar(Long id) {
+        CompraEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
+        validarCompraSinUso(entity, "eliminar");
+        comprobanteStorage.eliminar(entity.getComprobante());
+        loteRepository.deleteAll(loteRepository.findByCompra_Id(id));
+        repository.delete(entity);
+    }
+
     @Transactional(readOnly = true)
     public List<CompraDTOs.ResumenResponse> obtenerResumen(Boolean activos) {
-        List<CompraEntity> compras = activos == null
-                ? repository.findAll()
-                : repository.findByEstado(activos);
+        return toResumen(comprasSegunEstado(activos));
+    }
+
+    /**
+     * Busca compras y devuelve su resumen. Todos los filtros son opcionales y se combinan entre sí:
+     * código (contiene, sin distinguir mayúsculas), proveedor y fecha (día exacto).
+     */
+    @Transactional(readOnly = true)
+    public List<CompraDTOs.ResumenResponse> buscarResumen(
+            String codigo, Long proveedorId, LocalDate fecha, Boolean activos) {
+        String codigoNormalizado = codigo == null ? null : codigo.trim().toLowerCase(Locale.ROOT);
+        List<CompraEntity> compras = comprasSegunEstado(activos).stream()
+                .filter(compra -> codigoNormalizado == null || codigoNormalizado.isBlank()
+                        || (compra.getCodigo() != null
+                                && compra.getCodigo().toLowerCase(Locale.ROOT).contains(codigoNormalizado)))
+                .filter(compra -> proveedorId == null
+                        || (compra.getProveedor() != null && proveedorId.equals(compra.getProveedor().getId())))
+                .filter(compra -> fecha == null
+                        || (compra.getFecha() != null && fecha.equals(compra.getFecha().toLocalDate())))
+                .toList();
+        return toResumen(compras);
+    }
+
+    private List<CompraEntity> comprasSegunEstado(Boolean activos) {
+        return activos == null ? repository.findAll() : repository.findByEstado(activos);
+    }
+
+    private List<CompraDTOs.ResumenResponse> toResumen(List<CompraEntity> compras) {
         Map<Long, Integer> cantidades = cantidadesPorCompra(compras);
         return compras.stream()
                 .map(compra -> new CompraDTOs.ResumenResponse(
@@ -334,6 +374,47 @@ public class CompraService {
             throw new IllegalArgumentException("El proveedor está inactivo. Actívalo primero para asociarlo a una compra");
         }
         return proveedor;
+    }
+
+    /** Sincroniza los lotes enviados con los almacenados: crea, actualiza y elimina los faltantes. */
+    private void actualizarLotes(Long compraId, List<CompraDTOs.LoteEntrada> entradas) {
+        validarLotes(entradas);
+        List<LoteEntity> existentes = loteRepository.findByCompra_Id(compraId);
+        Map<String, LoteEntity> porCodigo = existentes.stream()
+                .collect(Collectors.toMap(
+                        lote -> lote.getCodigoLote().toUpperCase(Locale.ROOT),
+                        lote -> lote,
+                        (primero, segundo) -> primero));
+
+        Set<String> codigosRecibidos = new HashSet<>();
+        for (CompraDTOs.LoteEntrada entrada : entradas) {
+            String codigo = StringNormalizer.normalizarTexto(entrada.codigoLote()).toUpperCase(Locale.ROOT);
+            codigosRecibidos.add(codigo);
+            LoteEntity existente = porCodigo.get(codigo);
+            if (existente == null) {
+                loteService.crear(convertirLote(entrada, compraId));
+            } else {
+                loteService.actualizar(existente.getId(), convertirLote(entrada, compraId));
+            }
+        }
+
+        for (LoteEntity lote : existentes) {
+            if (!codigosRecibidos.contains(lote.getCodigoLote().toUpperCase(Locale.ROOT))) {
+                loteService.eliminar(lote.getId());
+            }
+        }
+    }
+
+    /** Bloquea eliminar o cambiar el estado de una compra cuyos lotes ya registran unidades usadas. */
+    private void validarCompraSinUso(CompraEntity compra, String accion) {
+        boolean tieneUso = loteRepository.findByCompra_Id(compra.getId()).stream()
+                .anyMatch(lote -> lote.getDisponible() != null
+                        && lote.getCantidad() != null
+                        && lote.getDisponible() < lote.getCantidad());
+        if (tieneUso) {
+            throw new IllegalArgumentException(
+                    "No se puede " + accion + " la compra porque ya se han usado productos de sus lotes");
+        }
     }
 
     private void validarLotes(List<CompraDTOs.LoteEntrada> lotes) {

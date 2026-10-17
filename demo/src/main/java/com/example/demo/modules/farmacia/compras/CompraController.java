@@ -2,6 +2,7 @@ package com.example.demo.modules.farmacia.compras;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -44,6 +46,17 @@ public class CompraController {
         return ResponseEntity.ok(service.obtenerResumen(activos));
     }
 
+    /** Busca compras por código, proveedor y/o fecha devolviendo el resumen de cada una. */
+    @GetMapping("/resumen/buscar")
+    public ResponseEntity<List<CompraDTOs.ResumenResponse>> buscarResumen(
+            @RequestParam(name = "codigo", required = false) String codigo,
+            @RequestParam(name = "proveedorId", required = false) Long proveedorId,
+            @RequestParam(name = "fecha", required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fecha,
+            @RequestParam(name = "activos", required = false) Boolean activos) {
+        return ResponseEntity.ok(service.buscarResumen(codigo, proveedorId, fecha, activos));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CompraDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(conComprobanteUrl(service.obtenerPorId(id)));
@@ -75,6 +88,12 @@ public class CompraController {
     public ResponseEntity<Void> actualizarEstado(@PathVariable("id") Long id) {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminar(@PathVariable("id") Long id) {
+        service.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 
     /** Expone la ruta absoluta del comprobante para que el front pueda abrirlo directamente. */

@@ -16,6 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -119,6 +120,12 @@ class CompraControllerTest {
     }
 
     @Test
+    void eliminar_debeRetornarNoContent() throws Exception {
+        mockMvc.perform(delete("/api/v1/compras/1"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void obtenerResumen_debeRetornarOkConCantidadDeProductos() throws Exception {
         when(service.obtenerResumen(any())).thenReturn(List.of(new CompraDTOs.ResumenResponse(
                 1L, "COM-1", "Proveedor SA", LocalDateTime.now(), 15, BigDecimal.valueOf(150))));
@@ -130,6 +137,23 @@ class CompraControllerTest {
                 .andExpect(jsonPath("$[0].proveedor").value("Proveedor SA"))
                 .andExpect(jsonPath("$[0].cantidadProductos").value(15))
                 .andExpect(jsonPath("$[0].total").exists());
+    }
+
+    @Test
+    void buscarResumen_debeRetornarOkConFiltros() throws Exception {
+        when(service.buscarResumen("COM", 1L, java.time.LocalDate.of(2026, 10, 16), true))
+                .thenReturn(List.of(new CompraDTOs.ResumenResponse(
+                        1L, "COM-1", "Proveedor SA", LocalDateTime.now(), 15, BigDecimal.valueOf(150))));
+
+        mockMvc.perform(get("/api/v1/compras/resumen/buscar")
+                        .param("codigo", "COM")
+                        .param("proveedorId", "1")
+                        .param("fecha", "2026-10-16")
+                        .param("activos", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].codigo").value("COM-1"))
+                .andExpect(jsonPath("$[0].proveedor").value("Proveedor SA"))
+                .andExpect(jsonPath("$[0].cantidadProductos").value(15));
     }
 
     @Test

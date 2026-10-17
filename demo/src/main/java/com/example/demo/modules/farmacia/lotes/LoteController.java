@@ -32,6 +32,20 @@ public class LoteController {
         return ResponseEntity.ok(service.buscarPorCodigo(codigo, activos));
     }
 
+    /** Inventario: una fila por lote con producto, compra, proveedor y filtros de stock/vencimiento. */
+    @GetMapping("/inventario")
+    public ResponseEntity<List<LoteDTOs.InventarioResponse>> obtenerInventario(
+            @RequestParam(name = "tipo", required = false) String tipo,
+            @RequestParam(name = "nombre", required = false) String nombre,
+            @RequestParam(name = "proveedorId", required = false) Long proveedorId,
+            @RequestParam(name = "viaAdminId", required = false) Long viaAdminId,
+            @RequestParam(name = "estadoInventario", required = false) String estadoInventario,
+            @RequestParam(name = "activos", required = false) Boolean activos,
+            @RequestParam(name = "diasPorVencer", required = false) Integer diasPorVencer) {
+        return ResponseEntity.ok(service.obtenerInventario(
+                tipo, nombre, proveedorId, viaAdminId, estadoInventario, activos, diasPorVencer));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<LoteDTOs.Response> obtenerPorId(@PathVariable("id") Long id) {
         return ResponseEntity.ok(service.obtenerPorId(id));

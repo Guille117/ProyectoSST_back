@@ -38,4 +38,28 @@ public class LoteDTOs {
             Long idCompra,
             String codigoCompra
     ) {}
+
+    /**
+     * Fila del inventario: cada registro representa un lote con los datos de su producto,
+     * de la compra y del proveedor.
+     */
+    public record InventarioResponse(
+            Long id,
+            String tipo,
+            Long idItem,
+            String codigo,
+            String nombre,
+            String descripcion,
+            String administracion,
+            String presentacion,
+            Integer cantidad,
+            Integer disponible,
+            Long proveedorId,
+            String proveedor,
+            String codigoLote,
+            LocalDate fechaVencimiento,
+            boolean estado,
+            Long idCompra,
+            String codigoCompra
+    ) {}
 }

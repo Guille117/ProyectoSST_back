@@ -150,6 +150,37 @@ class LoteControllerTest {
     }
 
     @Test
+    void obtenerInventario_debeRetornarOkConFiltros() throws Exception {
+        LoteDTOs.InventarioResponse resp = new LoteDTOs.InventarioResponse(
+                10L, "MEDICAMENTO", 9L, "MED-009", "Amoxicilina",
+                "500 mg · Tabletas · Genfar", "Oral", "Tabletas",
+                50, 8, 1L, "Distribuidora la Paz", "Lt-2025",
+                LocalDate.of(2028, 12, 10), true, 1L, "COM-1");
+        when(service.obtenerInventario("medicamento", "amox", 1L, 2L, "por-vencer", true, 30))
+                .thenReturn(List.of(resp));
+
+        mockMvc.perform(get("/api/v1/lotes/inventario")
+                        .param("tipo", "medicamento")
+                        .param("nombre", "amox")
+                        .param("proveedorId", "1")
+                        .param("viaAdminId", "2")
+                        .param("estadoInventario", "por-vencer")
+                        .param("activos", "true")
+                        .param("diasPorVencer", "30"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$[0].tipo").value("MEDICAMENTO"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$[0].codigo").value("MED-009"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$[0].administracion").value("Oral"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$[0].disponible").value(8))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath(
+                        "$[0].proveedorId").value(1));
+    }
+
+    @Test
     void cambiarEstado_debeRetornarOk() throws Exception {
         mockMvc.perform(patch("/api/v1/lotes/1"))
                 .andExpect(status().isOk());

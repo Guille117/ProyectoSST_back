@@ -1,6 +1,8 @@
 package com.example.demo.modules.farmacia.lotes;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -30,4 +32,9 @@ public interface LoteRepository extends JpaRepository<LoteEntity, Long> {
 
     @Query("SELECT COALESCE(SUM(l.total), 0) FROM LoteEntity l WHERE l.compra.id = :compraId")
     BigDecimal sumTotalesPorCompra(@Param("compraId") Long compraId);
+
+    /** Bloquea el lote para descontar stock sin condiciones de carrera. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM LoteEntity l WHERE l.id = :id")
+    Optional<LoteEntity> findByIdForUpdate(@Param("id") Long id);
 }
