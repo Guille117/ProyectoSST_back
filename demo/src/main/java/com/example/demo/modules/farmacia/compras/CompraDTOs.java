@@ -1,6 +1,5 @@
 package com.example.demo.modules.farmacia.compras;
 
-import com.example.demo.modules.farmacia.lotes.LoteDTOs;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -40,7 +39,30 @@ public class CompraDTOs {
             Long proveedorId,
             String proveedorNombre,
             LocalDateTime fecha,
-            List<LoteDTOs.Response> lotes
+            List<LoteResponse> lotes
+    ) {}
+
+    /**
+     * Lote dentro de la respuesta de compras.
+     * nombreMedicamento se envia como texto compuesto: nombre, fabricante (marca),
+     * presentacion, dosis y abreviatura de la unidad de medida (ej. "Amoxicilina Genfar Caja x 12 500mg").
+     */
+    public record LoteResponse(
+            Long id,
+            String codigoLote,
+            Integer cantidad,
+            Integer disponible,
+            boolean estado,
+            LocalDate fechaVencimiento,
+            BigDecimal precioCompra,
+            BigDecimal precioVenta,
+            BigDecimal total,
+            Long idInsumoLog,
+            String nombreInsumo,
+            Long idMedicamentoLog,
+            String nombreMedicamento,
+            Long idCompra,
+            String codigoCompra
     ) {}
 
     /**

@@ -7,6 +7,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -14,6 +17,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class ComprobanteArchivoStorage {
 
     public static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
+
+    public record Archivo(Resource recurso, MediaType tipo) {}
     private static final String RELATIVE_DIRECTORY = "uploads/comprobantes";
     private static final byte[] PDF_SIGNATURE = "%PDF-".getBytes(StandardCharsets.US_ASCII);
     private static final byte[] PNG_SIGNATURE = new byte[] {
@@ -65,23 +70,52 @@ public class ComprobanteArchivoStorage {
         }
     }
 
+    public Archivo cargar(String rutaRelativa) {
+        if (rutaRelativa == null || rutaRelativa.isBlank()) {
+            throw new IllegalArgumentException("La compra no tiene comprobante");
+        }
+        Path destino = resolver(rutaRelativa);
+        if (!Files.isRegularFile(destino)) {
+            throw new IllegalArgumentException("El comprobante no existe");
+        }
+        return new Archivo(new FileSystemResource(destino), tipoContenido(destino));
+    }
+
     public void eliminar(String rutaRelativa) {
         if (rutaRelativa == null || rutaRelativa.isBlank()) {
             return;
         }
-        if (!rutaRelativa.startsWith(RELATIVE_DIRECTORY + "/")) {
-            throw new IllegalArgumentException("Ruta de comprobante inválida");
-        }
-
-        Path destino = directory.resolve(Path.of(rutaRelativa).getFileName()).normalize();
-        if (!destino.startsWith(directory)) {
-            throw new IllegalArgumentException("Ruta de comprobante inválida");
-        }
+        Path destino = resolver(rutaRelativa);
         try {
             Files.deleteIfExists(destino);
         } catch (IOException ex) {
             throw new IllegalStateException("No se pudo eliminar el comprobante", ex);
         }
+    }
+
+    private Path resolver(String rutaRelativa) {
+        if (!rutaRelativa.startsWith(RELATIVE_DIRECTORY + "/")) {
+            throw new IllegalArgumentException("Ruta de comprobante inválida");
+        }
+        Path destino = directory.resolve(Path.of(rutaRelativa).getFileName()).normalize();
+        if (!destino.startsWith(directory)) {
+            throw new IllegalArgumentException("Ruta de comprobante inválida");
+        }
+        return destino;
+    }
+
+    private MediaType tipoContenido(Path archivo) {
+        String nombre = archivo.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (nombre.endsWith(".pdf")) {
+            return MediaType.APPLICATION_PDF;
+        }
+        if (nombre.endsWith(".png")) {
+            return MediaType.IMAGE_PNG;
+        }
+        if (nombre.endsWith(".jpg") || nombre.endsWith(".jpeg")) {
+            return MediaType.IMAGE_JPEG;
+        }
+        return MediaType.APPLICATION_OCTET_STREAM;
     }
 
     private String extensionPermitida(String contentType) {

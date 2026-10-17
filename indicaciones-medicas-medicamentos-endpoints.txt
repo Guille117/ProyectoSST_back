@@ -1,66 +1,75 @@
-ENDPOINTS DE INDICACIONES MEDICAS - MEDICAMENTOS
-Base URL: /api/v1/medicamentos
-Esta base corresponde a indicaciones de medicamentos, no al catalogo de farmacia.
-Formato de intercambio: JSON, salvo donde se indica que no hay body.
-Los valores de ejemplo ilustran el contrato de la API; no son recomendaciones medicas.
+ENDPOINTS DE INDICACIONES MEDICAS - EXAMENES
+Base URL: /api/v1/examenes
+POST y PUT reciben multipart/form-data, no un body JSON directo.
+Las respuestas con contenido son JSON. Los ejemplos son ilustrativos.
 
 RESUMEN DE RUTAS ACTUALES
-POST   /api/v1/medicamentos
-GET    /api/v1/medicamentos
-GET    /api/v1/medicamentos/buscar?episodioId=5&estado=ACTIVO
-GET    /api/v1/medicamentos/{id}
-PUT    /api/v1/medicamentos/{id}
-PATCH  /api/v1/medicamentos/{id}/estado?estado=FINALIZADO
-DELETE /api/v1/medicamentos/{id}
+POST   /api/v1/examenes
+GET    /api/v1/examenes
+GET    /api/v1/examenes/buscar?episodioId=5&estado=ACTIVO
+GET    /api/v1/examenes/{id}
+PUT    /api/v1/examenes/{id}
+PATCH  /api/v1/examenes/{id}/estado?estado=ELIMINADO
+DELETE /api/v1/examenes/{id}/archivos/{archivoId}
+DELETE /api/v1/examenes/{id}
+
+ESTADOS PERMITIDOS
+- ACTIVO
+- ELIMINADO
+- No existe el estado FINALIZADO para examenes.
 
 
-1. CREAR INDICACION MEDICA DE MEDICAMENTO
+1. CREAR EXAMEN
 
 Metodo: POST
-Ruta: /api/v1/medicamentos
+Ruta: /api/v1/examenes
 
 Que recibe:
-- Header Content-Type: application/json.
-- Body JSON:
-  - medicamentoLogId: obligatorio, numero entero positivo. El medicamento debe existir.
-  - cantidad: obligatoria, numero entero mayor a 0.
-  - frecuencia: obligatoria, numero entero mayor a 0.
-  - tipoDuracion: obligatorio. Valores: DIAS, DOSIS_UNICA, TIEMPO_INDEFINIDO.
-  - duracion: numero entero mayor a 0, obligatorio si tipoDuracion es DIAS.
-    Para DOSIS_UNICA y TIEMPO_INDEFINIDO se puede omitir o enviar null;
-    el servidor guarda null aunque se envie un numero.
-  - observaciones: opcional, maximo 2000 caracteres.
-  - episodioId: obligatorio, numero entero positivo. El episodio debe existir.
-  - usuarioId: obligatorio, numero entero positivo. El usuario debe existir.
-- El contrato no especifica la unidad de cantidad ni de frecuencia.
+- Content-Type: multipart/form-data con su boundary.
+- Parte obligatoria "request", con Content-Type: application/json.
+  Campos del JSON:
+  - nombreExamen: obligatorio, no vacio ni solo espacios, maximo 200 caracteres.
+  - observacion: opcional, maximo 2000 caracteres.
+  - episodioId: obligatorio, numero entero positivo; el episodio debe existir.
+  - usuarioId: obligatorio, numero entero positivo; el usuario debe existir.
+- Parte opcional "archivos": uno o varios archivos binarios.
+  Para varios archivos, repetir la parte con el nombre "archivos".
+- Tipos de archivo admitidos: application/pdf, image/jpeg, image/png.
+- Cada archivo debe tener contenido y no superar 10 MiB (10 * 1024 * 1024 bytes).
+  El servidor valida que la firma del contenido corresponda al tipo declarado.
+- No enviar los archivos como base64 ni dentro del JSON.
 
-JSON de entrada:
+JSON de entrada (contenido de la parte "request"):
 {
-  "medicamentoLogId": 9,
-  "cantidad": 2,
-  "frecuencia": 8,
-  "duracion": 7,
-  "tipoDuracion": "DIAS",
-  "observaciones": "Observacion de ejemplo",
+  "nombreExamen": "Hemograma completo",
+  "observacion": "Solicitud de examen de ejemplo",
   "episodioId": 1,
   "usuarioId": 2
 }
 
+Ejemplo de estructura multipart:
+- request (application/json): el JSON anterior.
+- archivos (application/pdf): contenido binario de resultado.pdf, opcional.
+- archivos (image/png): contenido binario de imagen.png, opcional.
+Aunque no se adjunten archivos, la solicitud debe ser multipart/form-data.
+
 Que envia:
 - HTTP 201 Created.
-- El objeto creado, con su ID, nombre del medicamento, nombre del usuario,
-  fecha asignada por el servidor y estado.
+- El examen creado con estado ACTIVO y fecha asignada por el servidor.
+- "archivos" contiene los IDs y rutas relativas de los archivos guardados.
+  Si no se adjuntaron archivos, devuelve "archivos": [].
 
 JSON de respuesta:
 {
-  "id": 30,
-  "medicamentoLogId": 9,
-  "medicamento": "Ibuprofeno",
-  "cantidad": 2,
-  "frecuencia": 8,
-  "duracion": 7,
-  "tipoDuracion": "DIAS",
-  "observaciones": "Observacion de ejemplo",
+  "id": 40,
+  "nombreExamen": "Hemograma completo",
+  "observacion": "Solicitud de examen de ejemplo",
+  "archivos": [
+    {
+      "id": 101,
+      "urlArchivo": "uploads/examenes/examen-40-550e8400-e29b-41d4-a716-446655440000.pdf"
+    }
+  ],
   "episodioId": 1,
   "usuarioId": 2,
   "usuarioNombre": "Carlos Mendez",
@@ -69,36 +78,36 @@ JSON de respuesta:
 }
 
 
-2. OBTENER INDICACIONES MEDICAS POR ESTADO
+2. OBTENER EXAMENES POR ESTADO
 
 Metodo: GET
-Ruta: /api/v1/medicamentos
+Ruta: /api/v1/examenes
 
 Que recibe:
-- No recibe body JSON.
+- No recibe body ni JSON de entrada.
 - Query param opcional: estado; por defecto es ACTIVO.
-- Valores de estado: ACTIVO, FINALIZADO, ELIMINADO.
+- Valores permitidos: ACTIVO, ELIMINADO.
 - Ejemplos:
-  /api/v1/medicamentos
-  /api/v1/medicamentos?estado=FINALIZADO
-  /api/v1/medicamentos?estado=ELIMINADO
+  /api/v1/examenes
+  /api/v1/examenes?estado=ELIMINADO
 
 Que envia:
 - HTTP 200 OK.
-- Lista de indicaciones del estado solicitado, ordenadas por fecha descendente.
+- Lista de examenes del estado indicado, ordenados por fecha descendente.
 - Si no hay coincidencias, devuelve [].
 
 JSON de respuesta:
 [
   {
-    "id": 30,
-    "medicamentoLogId": 9,
-    "medicamento": "Ibuprofeno",
-    "cantidad": 2,
-    "frecuencia": 8,
-    "duracion": 7,
-    "tipoDuracion": "DIAS",
-    "observaciones": "Observacion de ejemplo",
+    "id": 40,
+    "nombreExamen": "Hemograma completo",
+    "observacion": "Solicitud de examen de ejemplo",
+    "archivos": [
+      {
+        "id": 101,
+        "urlArchivo": "uploads/examenes/examen-40-550e8400-e29b-41d4-a716-446655440000.pdf"
+      }
+    ],
     "episodioId": 1,
     "usuarioId": 2,
     "usuarioNombre": "Carlos Mendez",
@@ -108,36 +117,32 @@ JSON de respuesta:
 ]
 
 
-3. BUSCAR INDICACIONES MEDICAS POR EPISODIO
+3. BUSCAR EXAMENES POR EPISODIO
 
 Metodo: GET
-Ruta: /api/v1/medicamentos/buscar
+Ruta: /api/v1/examenes/buscar
 
 Que recibe:
-- No recibe body JSON.
+- No recibe body ni JSON de entrada.
 - Query param obligatorio: episodioId, ID del episodio.
 - Query param opcional: estado; por defecto es ACTIVO.
-- Valores de estado: ACTIVO, FINALIZADO, ELIMINADO.
+- Valores permitidos de estado: ACTIVO, ELIMINADO.
 - Ejemplos:
-  /api/v1/medicamentos/buscar?episodioId=5
-  /api/v1/medicamentos/buscar?episodioId=5&estado=FINALIZADO
+  /api/v1/examenes/buscar?episodioId=5
+  /api/v1/examenes/buscar?episodioId=5&estado=ELIMINADO
 
 Que envia:
 - HTTP 200 OK.
-- Lista de indicaciones del episodio y estado indicados, por fecha descendente.
+- Lista de examenes del episodio y estado indicados, por fecha descendente.
 - Si no hay coincidencias, devuelve [].
 
 JSON de respuesta:
 [
   {
-    "id": 31,
-    "medicamentoLogId": 9,
-    "medicamento": "Ibuprofeno",
-    "cantidad": 1,
-    "frecuencia": 12,
-    "duracion": 3,
-    "tipoDuracion": "DIAS",
-    "observaciones": null,
+    "id": 41,
+    "nombreExamen": "Radiografia de torax",
+    "observacion": null,
+    "archivos": [],
     "episodioId": 5,
     "usuarioId": 2,
     "usuarioNombre": "Carlos Mendez",
@@ -147,84 +152,92 @@ JSON de respuesta:
 ]
 
 
-4. OBTENER INDICACION MEDICA POR ID
+4. OBTENER EXAMEN POR ID
 
 Metodo: GET
-Ruta: /api/v1/medicamentos/{id}
+Ruta: /api/v1/examenes/{id}
 
 Que recibe:
-- No recibe body JSON.
-- Variable de ruta obligatoria: id, ID de la indicacion medica.
-- Ejemplo: /api/v1/medicamentos/30
+- No recibe body ni JSON de entrada.
+- Variable de ruta obligatoria: id, ID del examen.
+- Ejemplo: /api/v1/examenes/40
 
 Que envia:
 - HTTP 200 OK.
-- El objeto correspondiente al ID, sin filtrar por estado.
+- El examen correspondiente al ID, sin filtrar por estado.
 
 JSON de respuesta:
 {
-  "id": 30,
-  "medicamentoLogId": 9,
-  "medicamento": "Ibuprofeno",
-  "cantidad": 2,
-  "frecuencia": 8,
-  "duracion": 7,
-  "tipoDuracion": "DIAS",
-  "observaciones": "Observacion de ejemplo",
+  "id": 40,
+  "nombreExamen": "Hemograma completo",
+  "observacion": "Solicitud de examen de ejemplo",
+  "archivos": [
+    {
+      "id": 101,
+      "urlArchivo": "uploads/examenes/examen-40-550e8400-e29b-41d4-a716-446655440000.pdf"
+    }
+  ],
   "episodioId": 1,
   "usuarioId": 2,
   "usuarioNombre": "Carlos Mendez",
   "fecha": "2026-10-16T11:00:00",
-  "estado": "FINALIZADO"
+  "estado": "ACTIVO"
 }
 
 
-5. ACTUALIZAR INDICACION MEDICA
+5. ACTUALIZAR EXAMEN
 
 Metodo: PUT
-Ruta: /api/v1/medicamentos/{id}
+Ruta: /api/v1/examenes/{id}
 
 Que recibe:
-- Variable de ruta obligatoria: id, ID de la indicacion medica.
-- Header Content-Type: application/json.
-- Body JSON con los mismos campos y reglas que POST:
-  - medicamentoLogId: obligatorio, numero entero positivo, medicamento existente.
-  - cantidad y frecuencia: obligatorias, numeros enteros mayores a 0.
-  - tipoDuracion: obligatorio; DIAS, DOSIS_UNICA o TIEMPO_INDEFINIDO.
-  - duracion: obligatoria y mayor a 0 para DIAS; para los otros tipos se guarda null.
-  - observaciones: opcional, maximo 2000 caracteres.
-  - episodioId y usuarioId: obligatorios, numeros enteros positivos,
-    correspondientes a registros existentes.
-- No es una actualizacion parcial: deben enviarse todos los campos obligatorios.
-- Ejemplo: /api/v1/medicamentos/30
+- Variable de ruta obligatoria: id, ID del examen.
+- Content-Type: multipart/form-data con su boundary.
+- Parte obligatoria "request", con Content-Type: application/json.
+  - nombreExamen: obligatorio, no vacio ni solo espacios, maximo 200 caracteres.
+  - observacion: opcional, maximo 2000 caracteres.
+  - episodioId y usuarioId: obligatorios, numeros enteros positivos;
+    deben corresponder a registros existentes.
+- Parte opcional "archivos": archivos nuevos, con las mismas reglas que POST.
+  Se permiten PDF, JPEG y PNG, con contenido y hasta 10 MiB por archivo.
+- Los archivos nuevos se agregan a los existentes, no los reemplazan.
+- Si se omite "archivos", los archivos existentes se conservan.
+- Para quitar un archivo se utiliza el endpoint DELETE de archivos.
+- Deben enviarse todos los campos obligatorios de "request".
+- Ejemplo: /api/v1/examenes/40
 
-JSON de entrada:
+JSON de entrada (contenido de la parte "request"):
 {
-  "medicamentoLogId": 10,
-  "cantidad": 3,
-  "frecuencia": 6,
-  "duracion": null,
-  "tipoDuracion": "TIEMPO_INDEFINIDO",
-  "observaciones": "Observacion actualizada de ejemplo",
+  "nombreExamen": "Hemograma completo",
+  "observacion": "Resultado adjunto",
   "episodioId": 1,
   "usuarioId": 3
 }
 
+Ejemplo de estructura multipart:
+- request (application/json): el JSON anterior.
+- archivos (image/png): contenido binario de resultado-adicional.png, opcional.
+
 Que envia:
 - HTTP 200 OK.
-- El objeto actualizado, con los nombres del medicamento y del usuario.
+- El examen actualizado con la lista de archivos existentes y nuevos.
 - La fecha original y el estado se conservan.
 
 JSON de respuesta:
 {
-  "id": 30,
-  "medicamentoLogId": 10,
-  "medicamento": "Paracetamol",
-  "cantidad": 3,
-  "frecuencia": 6,
-  "duracion": null,
-  "tipoDuracion": "TIEMPO_INDEFINIDO",
-  "observaciones": "Observacion actualizada de ejemplo",
+  "id": 40,
+  "nombreExamen": "Hemograma completo",
+  "observacion": "Resultado adjunto",
+  "archivos": [
+    {
+      "id": 101,
+      "urlArchivo": "uploads/examenes/examen-40-550e8400-e29b-41d4-a716-446655440000.pdf"
+    },
+    {
+      "id": 102,
+      "urlArchivo": "uploads/examenes/examen-40-550e8400-e29b-41d4-a716-446655440001.png"
+    }
+  ],
   "episodioId": 1,
   "usuarioId": 3,
   "usuarioNombre": "Ana Lopez",
@@ -233,53 +246,72 @@ JSON de respuesta:
 }
 
 
-6. CAMBIAR ESTADO DE INDICACION MEDICA
+6. CAMBIAR ESTADO DE EXAMEN
 
 Metodo: PATCH
-Ruta: /api/v1/medicamentos/{id}/estado
+Ruta: /api/v1/examenes/{id}/estado
 
 Que recibe:
-- Variable de ruta obligatoria: id, ID de la indicacion medica.
+- Variable de ruta obligatoria: id, ID del examen.
 - Query param obligatorio: estado.
-- Valores permitidos: ACTIVO, FINALIZADO, ELIMINADO.
-- No recibe body JSON.
-- Ejemplo: /api/v1/medicamentos/30/estado?estado=FINALIZADO
-- Asigna el estado indicado; no alterna automaticamente entre estados.
+- Valores permitidos: ACTIVO, ELIMINADO.
+- No recibe body ni JSON de entrada.
+- Ejemplo: /api/v1/examenes/40/estado?estado=ELIMINADO
+- Asigna el estado indicado, no lo alterna automaticamente.
 
 Que envia:
 - HTTP 200 OK.
-- El objeto con el estado solicitado.
+- El examen con el estado solicitado.
 
 JSON de respuesta:
 {
-  "id": 30,
-  "medicamentoLogId": 9,
-  "medicamento": "Ibuprofeno",
-  "cantidad": 2,
-  "frecuencia": 8,
-  "duracion": 7,
-  "tipoDuracion": "DIAS",
-  "observaciones": "Observacion de ejemplo",
+  "id": 40,
+  "nombreExamen": "Hemograma completo",
+  "observacion": "Solicitud de examen de ejemplo",
+  "archivos": [
+    {
+      "id": 101,
+      "urlArchivo": "uploads/examenes/examen-40-550e8400-e29b-41d4-a716-446655440000.pdf"
+    }
+  ],
   "episodioId": 1,
   "usuarioId": 2,
   "usuarioNombre": "Carlos Mendez",
   "fecha": "2026-10-16T11:00:00",
-  "estado": "FINALIZADO"
+  "estado": "ELIMINADO"
 }
 
 
-7. ELIMINAR INDICACION MEDICA
+7. ELIMINAR ARCHIVO DE EXAMEN
 
 Metodo: DELETE
-Ruta: /api/v1/medicamentos/{id}
+Ruta: /api/v1/examenes/{id}/archivos/{archivoId}
 
 Que recibe:
-- Variable de ruta obligatoria: id, ID de la indicacion medica.
-- No recibe body JSON.
-- Ejemplo: /api/v1/medicamentos/30
+- Variable de ruta obligatoria: id, ID del examen.
+- Variable de ruta obligatoria: archivoId, ID del archivo asociado al examen.
+- No recibe body ni JSON de entrada.
+- Ejemplo: /api/v1/examenes/40/archivos/101
 
 Que envia:
 - HTTP 204 No Content.
 - No devuelve body ni JSON de respuesta.
-- Es una eliminacion logica: cambia el estado a ELIMINADO;
-  no borra fisicamente el registro.
+- Quita el archivo del examen y elimina el archivo almacenado.
+- El examen se conserva.
+
+
+8. ELIMINAR EXAMEN
+
+Metodo: DELETE
+Ruta: /api/v1/examenes/{id}
+
+Que recibe:
+- Variable de ruta obligatoria: id, ID del examen.
+- No recibe body ni JSON de entrada.
+- Ejemplo: /api/v1/examenes/40
+
+Que envia:
+- HTTP 204 No Content.
+- No devuelve body ni JSON de respuesta.
+- Es una eliminacion logica: cambia el estado a ELIMINADO.
+- No borra fisicamente el examen ni sus archivos adjuntos.

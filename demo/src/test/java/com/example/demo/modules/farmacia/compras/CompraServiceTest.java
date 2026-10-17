@@ -108,11 +108,16 @@ class CompraServiceTest {
         when(comprobanteStorage.guardar(any(), anyLong())).thenReturn("uploads/comprobantes/compra-1-abc.pdf");
         when(mapper.toDTO(any())).thenReturn(base);
         when(loteService.crear(any())).thenReturn(respuestaLoteMock("LOTE-A"));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of(
+                loteMedicamentoDeCompra(guardada, 1L, "LOTE-A", 10),
+                loteInsumoDeCompra(guardada, 2L, "LOTE-B", 5)));
 
         CompraDTOs.Response result = service.crear(comprobante, req);
 
         assertThat(result.codigo()).isEqualTo("COM-1");
         assertThat(result.lotes()).hasSize(2);
+        assertThat(result.lotes().get(0).nombreMedicamento())
+                .isEqualTo("Amoxicilina Genfar Caja x 12 500mg");
         verify(loteService).crear(argThat(r ->
                 r.idCompra().equals(1L)
                         && r.idMedicamentoLog() != null
@@ -147,6 +152,9 @@ class CompraServiceTest {
         });
         when(mapper.toDTO(any())).thenReturn(base);
         when(loteService.crear(any())).thenReturn(respuestaLoteMock("LOTE-A"));
+        CompraEntity compraLotes = CompraEntity.builder().id(1L).codigo("COM-1").build();
+        when(loteRepository.findByCompra_Id(1L))
+                .thenReturn(List.of(loteMedicamentoDeCompra(compraLotes, 1L, "LOTE-A", 10)));
 
         CompraDTOs.Response result = service.crear(null, req);
 
@@ -178,6 +186,7 @@ class CompraServiceTest {
         });
         when(mapper.toDTO(any())).thenReturn(base);
         when(loteService.crear(any())).thenReturn(respuestaLoteMock("LOTE-A"));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
 
         CompraDTOs.Response result = service.crear(vacio, req);
 
@@ -286,6 +295,7 @@ class CompraServiceTest {
             return e;
         });
         when(mapper.toDTO(any())).thenReturn(base);
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
 
         CompraDTOs.Response result = service.crear(null, requestConLotes(List.of(insumoSinFecha)));
 
@@ -370,6 +380,7 @@ class CompraServiceTest {
                 1L, "Proveedor SA", entity.getFecha(), null);
         when(repository.findById(1L)).thenReturn(Optional.of(entity));
         when(mapper.toDTO(entity)).thenReturn(resp);
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
 
         assertThat(service.obtenerPorId(1L).id()).isEqualTo(1L);
     }
@@ -381,6 +392,24 @@ class CompraServiceTest {
         assertThatThrownBy(() -> service.obtenerPorId(99L))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Compra no encontrada");
+    }
+
+    @Test
+    void obtenerTodos_debeIncluirLotesConNombreDeMedicamentoCompuesto() {
+        CompraEntity compra = compraDe("COM-1", BigDecimal.valueOf(150), 1L);
+        when(repository.findAll()).thenReturn(List.of(compra));
+        when(loteRepository.findByCompra_IdIn(List.of(1L)))
+                .thenReturn(List.of(loteMedicamentoDeCompra(compra, 1L, "LOTE-A", 10)));
+        when(mapper.toDTO(compra)).thenReturn(new CompraDTOs.Response(
+                1L, "COM-1", BigDecimal.valueOf(150), null, true, 1L, "Proveedor SA", compra.getFecha(), null));
+
+        CompraDTOs.Response response = service.obtenerTodos(null).get(0);
+
+        assertThat(response.proveedorNombre()).isEqualTo("Proveedor SA");
+        assertThat(response.lotes()).hasSize(1);
+        assertThat(response.lotes().get(0).nombreMedicamento())
+                .isEqualTo("Amoxicilina Genfar Caja x 12 500mg");
+        assertThat(response.lotes().get(0).idMedicamentoLog()).isEqualTo(3L);
     }
 
     @Test
@@ -408,6 +437,7 @@ class CompraServiceTest {
         when(mapper.toDTO(existente)).thenReturn(new CompraDTOs.Response(
                 1L, "COM-1", BigDecimal.ZERO, "uploads/comprobantes/compra-1-nuevo.pdf", true,
                 1L, "Proveedor SA", existente.getFecha(), null));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
 
         CompraDTOs.Response result = service.actualizar(1L, comprobante, null);
 

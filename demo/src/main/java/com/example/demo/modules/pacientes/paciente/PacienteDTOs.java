@@ -61,6 +61,7 @@ public class PacienteDTOs {
 
     public record ListadoResponse(
             String codigoExpediente,
+            Long episodioId,
             String nombreCompleto,
             String telefono,
             TipoAtencion tipoTratamiento,

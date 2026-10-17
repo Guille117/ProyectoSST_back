@@ -141,12 +141,13 @@ class PacienteControllerTest {
         @Test
         void listar_delegaEstadoOpcionalAlServicio() throws Exception {
                 when(service.listar(null)).thenReturn(java.util.List.of(
-                                new PacienteDTOs.ListadoResponse("EXP-30", "Ana Maria Lopez Ruiz", "12345678",
+                                new PacienteDTOs.ListadoResponse("EXP-30", 42L, "Ana Maria Lopez Ruiz", "12345678",
                                                 TipoAtencion.HOSPITALIZACION, true)));
 
                 mockMvc.perform(get("/api/v1/pacientes"))
                                 .andExpect(status().isOk())
                                 .andExpect(jsonPath("$[0].codigoExpediente").value("EXP-30"))
+                                .andExpect(jsonPath("$[0].episodioId").value(42))
                                 .andExpect(jsonPath("$[0].nombreCompleto").value("Ana Maria Lopez Ruiz"))
                                 .andExpect(jsonPath("$[0].telefono").value("12345678"))
                                 .andExpect(jsonPath("$[0].tipoTratamiento").value("HOSPITALIZACION"))

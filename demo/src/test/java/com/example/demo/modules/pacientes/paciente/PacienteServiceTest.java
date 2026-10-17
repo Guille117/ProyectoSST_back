@@ -382,6 +382,7 @@ class PacienteServiceTest {
 
         assertEquals(1, resultado.size());
         assertEquals("EXP-30", resultado.get(0).codigoExpediente());
+        assertEquals(42L, resultado.get(0).episodioId());
         assertEquals("Ana Maria Luisa Lopez Ruiz", resultado.get(0).nombreCompleto());
         assertEquals("12345678", resultado.get(0).telefono());
         assertEquals(TipoAtencion.EMERGENCIA, resultado.get(0).tipoTratamiento());

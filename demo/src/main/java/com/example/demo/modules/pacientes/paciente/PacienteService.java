@@ -188,12 +188,20 @@ public class PacienteService {
                 codigosPorPaciente.put(expediente.getPaciente().getId(), expediente.getCodigo()));
 
         Map<Long, TipoAtencion> tratamientoPorPaciente = new HashMap<>();
-        episodioRepository.findByPaciente_IdInOrderByIdDesc(pacienteIds).forEach(episodio ->
-                tratamientoPorPaciente.putIfAbsent(episodio.getPaciente().getId(), episodio.getTipoAtencion()));
+        Map<Long, Long> episodioIdPorPaciente = new HashMap<>();
+        episodioRepository.findByPaciente_IdInOrderByIdDesc(pacienteIds).forEach(episodio -> {
+                Long pacienteId = episodio.getPaciente().getId();
+                tratamientoPorPaciente.putIfAbsent(pacienteId, episodio.getTipoAtencion());
+                // El episodio activo más reciente es el que abre la pantalla de atención médica
+                if (episodio.isEstado()) {
+                        episodioIdPorPaciente.putIfAbsent(pacienteId, episodio.getId());
+                }
+        });
 
         return pacientes.stream()
                 .map(paciente -> new PacienteDTOs.ListadoResponse(
                         codigosPorPaciente.get(paciente.getId()),
+                        episodioIdPorPaciente.get(paciente.getId()),
                         paciente.getPersona().getNombreCompleto(),
                         paciente.getPersona().getTelefono(),
                         tratamientoPorPaciente.get(paciente.getId()),

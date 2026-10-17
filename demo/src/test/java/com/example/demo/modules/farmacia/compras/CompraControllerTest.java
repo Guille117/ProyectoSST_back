@@ -78,6 +78,41 @@ class CompraControllerTest {
     }
 
     @Test
+    void obtenerTodos_debeExponerProveedorIdCodigoLoteYComponerNombreMedicamento() throws Exception {
+        CompraDTOs.Response resp = new CompraDTOs.Response(
+                1L, "COM-1", BigDecimal.valueOf(500), "uploads/comprobantes/compra-1-abc.pdf", true,
+                3L, "Proveedor SA", LocalDateTime.now(),
+                List.of(new CompraDTOs.LoteResponse(
+                        10L, "LOTE-AMOX-001", 50, 50, true, java.time.LocalDate.of(2027, 10, 16),
+                        BigDecimal.TEN, BigDecimal.valueOf(15), BigDecimal.valueOf(500),
+                        null, null, 9L, "Amoxicilina Genfar Caja x 12 500mg", 1L, "COM-1")));
+        when(service.obtenerTodos(any())).thenReturn(List.of(resp));
+
+        mockMvc.perform(get("/api/v1/compras"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].proveedorNombre").value("Proveedor SA"))
+                .andExpect(jsonPath("$[0].proveedorId").value(3))
+                .andExpect(jsonPath("$[0].comprobante")
+                        .value("http://localhost/api/v1/compras/1/comprobante"))
+                .andExpect(jsonPath("$[0].lotes[0].codigoLote").value("LOTE-AMOX-001"))
+                .andExpect(jsonPath("$[0].lotes[0].nombreMedicamento")
+                        .value("Amoxicilina Genfar Caja x 12 500mg"))
+                .andExpect(jsonPath("$[0].lotes[0].idMedicamentoLog").value(9));
+    }
+
+    @Test
+    void obtenerComprobante_debeRetornarElArchivo() throws Exception {
+        when(service.obtenerComprobante(1L)).thenReturn(new ComprobanteArchivoStorage.Archivo(
+                new org.springframework.core.io.ByteArrayResource("%PDF-1.4 contenido".getBytes()),
+                MediaType.APPLICATION_PDF));
+
+        mockMvc.perform(get("/api/v1/compras/1/comprobante"))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers
+                        .content().contentType(MediaType.APPLICATION_PDF));
+    }
+
+    @Test
     void cambiarEstado_debeRetornarOk() throws Exception {
         mockMvc.perform(patch("/api/v1/compras/1"))
                 .andExpect(status().isOk());

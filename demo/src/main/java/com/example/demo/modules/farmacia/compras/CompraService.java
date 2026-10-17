@@ -70,15 +70,11 @@ public class CompraService {
             }
             CompraEntity finalCompra = repository.save(guardado);
 
-            List<LoteDTOs.Response> lotesCreados = new ArrayList<>();
             for (CompraDTOs.LoteEntrada entrada : lotes) {
-                lotesCreados.add(loteService.crear(convertirLote(entrada, finalCompra.getId())));
+                loteService.crear(convertirLote(entrada, finalCompra.getId()));
             }
 
-            CompraDTOs.Response base = mapper.toDTO(finalCompra);
-            return new CompraDTOs.Response(
-                    base.id(), base.codigo(), base.total(), base.comprobante(), base.estado(),
-                    base.proveedorId(), base.proveedorNombre(), base.fecha(), lotesCreados);
+            return toResponse(finalCompra, loteRepository.findByCompra_Id(finalCompra.getId()));
         } catch (RuntimeException ex) {
             try {
                 comprobanteStorage.eliminar(rutaGuardada.get());
@@ -107,10 +103,10 @@ public class CompraService {
                 existente.setComprobante(ruta);
                 CompraEntity actualizado = repository.save(existente);
                 comprobanteStorage.eliminar(rutaAnterior);
-                return mapper.toDTO(actualizado);
+                return toResponse(actualizado, loteRepository.findByCompra_Id(actualizado.getId()));
             }
             CompraEntity actualizado = repository.save(existente);
-            return mapper.toDTO(actualizado);
+            return toResponse(actualizado, loteRepository.findByCompra_Id(actualizado.getId()));
         } catch (RuntimeException ex) {
             try {
                 comprobanteStorage.eliminar(rutaNueva.get());
@@ -125,15 +121,22 @@ public class CompraService {
     public CompraDTOs.Response obtenerPorId(Long id) {
         CompraEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
-        return mapper.toDTO(entity);
+        return toResponse(entity, loteRepository.findByCompra_Id(entity.getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public ComprobanteArchivoStorage.Archivo obtenerComprobante(Long id) {
+        CompraEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
+        return comprobanteStorage.cargar(entity.getComprobante());
     }
 
     @Transactional(readOnly = true)
     public List<CompraDTOs.Response> obtenerTodos(Boolean activos) {
-        if (activos == null) {
-            return repository.findAll().stream().map(mapper::toDTO).toList();
-        }
-        return repository.findByEstado(activos).stream().map(mapper::toDTO).toList();
+        List<CompraEntity> compras = activos == null
+                ? repository.findAll()
+                : repository.findByEstado(activos);
+        return toResponses(compras);
     }
 
     @Transactional(readOnly = true)
@@ -142,10 +145,10 @@ public class CompraService {
             return List.of();
         }
         String norm = codigo.trim();
-        if (activos == null) {
-            return repository.findByCodigoContainingIgnoreCase(norm).stream().map(mapper::toDTO).toList();
-        }
-        return repository.findByCodigoContainingIgnoreCaseAndEstado(norm, activos).stream().map(mapper::toDTO).toList();
+        List<CompraEntity> compras = activos == null
+                ? repository.findByCodigoContainingIgnoreCase(norm)
+                : repository.findByCodigoContainingIgnoreCaseAndEstado(norm, activos);
+        return toResponses(compras);
     }
 
     @Transactional
@@ -236,6 +239,76 @@ public class CompraService {
                 lote.getCantidad(),
                 lote.getPrecioCompra(),
                 lote.getFechaVencimiento());
+    }
+
+    private List<CompraDTOs.Response> toResponses(List<CompraEntity> compras) {
+        List<Long> ids = compras.stream().map(CompraEntity::getId).filter(Objects::nonNull).toList();
+        Map<Long, List<LoteEntity>> lotesPorCompra = ids.isEmpty()
+                ? Collections.emptyMap()
+                : loteRepository.findByCompra_IdIn(ids).stream()
+                        .collect(Collectors.groupingBy(lote -> lote.getCompra().getId()));
+        return compras.stream()
+                .map(compra -> toResponse(compra, lotesPorCompra.getOrDefault(compra.getId(), List.of())))
+                .toList();
+    }
+
+    private CompraDTOs.Response toResponse(CompraEntity compra, List<LoteEntity> lotes) {
+        CompraDTOs.Response base = mapper.toDTO(compra);
+        List<CompraDTOs.LoteResponse> lotesResponse = lotes == null
+                ? List.of()
+                : lotes.stream().map(this::toLoteResponse).toList();
+        return new CompraDTOs.Response(
+                base.id(), base.codigo(), base.total(), base.comprobante(), base.estado(),
+                base.proveedorId(), base.proveedorNombre(), base.fecha(), lotesResponse);
+    }
+
+    private CompraDTOs.LoteResponse toLoteResponse(LoteEntity lote) {
+        medicamentoLogEntity medicamento = lote.getMedicamentoLog();
+        insumosLogEntity insumo = lote.getInsumoLog();
+        return new CompraDTOs.LoteResponse(
+                lote.getId(),
+                lote.getCodigoLote(),
+                lote.getCantidad(),
+                lote.getDisponible(),
+                lote.isEstado(),
+                lote.getFechaVencimiento(),
+                lote.getPrecioCompra(),
+                lote.getPrecioVenta(),
+                lote.getTotal(),
+                insumo == null ? null : insumo.getId(),
+                insumo == null ? null : insumo.getNombre(),
+                medicamento == null ? null : medicamento.getId(),
+                medicamento == null ? null : nombreMedicamento(medicamento),
+                lote.getCompra() == null ? null : lote.getCompra().getId(),
+                lote.getCompra() == null ? null : lote.getCompra().getCodigo());
+    }
+
+    /** Nombre de medicamento como texto: nombre, fabricante, presentacion, dosis y unidad. */
+    private String nombreMedicamento(medicamentoLogEntity medicamento) {
+        List<String> partes = new ArrayList<>();
+        agregarParte(partes, medicamento.getNombre());
+        agregarParte(partes, medicamento.getMarca() == null ? null : medicamento.getMarca().getNombre());
+        agregarParte(partes, medicamento.getPresentacion() == null ? null : medicamento.getPresentacion().getNombre());
+        String dosisUnidad = dosisConUnidad(medicamento);
+        if (dosisUnidad != null) {
+            partes.add(dosisUnidad);
+        }
+        return partes.isEmpty() ? null : String.join(" ", partes);
+    }
+
+    private String dosisConUnidad(medicamentoLogEntity medicamento) {
+        if (medicamento.getDosis() == null) {
+            return null;
+        }
+        String dosis = medicamento.getDosis().stripTrailingZeros().toPlainString();
+        String unidad = medicamento.getUnidadMedida() == null ? null : medicamento.getUnidadMedida().getAbreviatura();
+        return unidad == null || unidad.isBlank() ? dosis : dosis + unidad.trim();
+    }
+
+    private void agregarParte(List<String> partes, String valor) {
+        if (valor != null && !valor.isBlank()) {
+            partes.add(valor.trim());
+        }
     }
 
     private Long idProveedor(CompraEntity compra) {
