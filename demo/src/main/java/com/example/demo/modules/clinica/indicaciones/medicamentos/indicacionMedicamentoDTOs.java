@@ -1,4 +1,4 @@
-package com.example.demo.modules.clinica.indicaciones.indicacionMedica;
+package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import jakarta.validation.constraints.NotNull;
@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.time.LocalDateTime;
 
-public class indicacionMedicaDTOs {
+public class indicacionMedicamentoDTOs {
 
     public record Request(
             @NotNull(message = "El medicamento es obligatorio")
@@ -45,6 +45,6 @@ public class indicacionMedicaDTOs {
             Long usuarioId,
             String usuarioNombre,
             LocalDateTime fecha,
-            EstadoIndicacionMedica estado
+            EstadoIndicacionMedicamento estado
     ) {}
 }

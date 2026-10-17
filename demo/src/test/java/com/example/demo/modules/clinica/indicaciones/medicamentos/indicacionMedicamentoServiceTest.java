@@ -1,4 +1,4 @@
-package com.example.demo.modules.clinica.indicaciones.indicacionMedica;
+package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
@@ -23,10 +23,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class indicacionMedicaServiceTest {
+class indicacionMedicamentoServiceTest {
 
     @Mock
-    private indicacionMedicaRepository repository;
+    private indicacionMedicamentoRepository repository;
 
     @Mock
     private medicamentoLogRepository medicamentoLogRepository;
@@ -38,20 +38,20 @@ class indicacionMedicaServiceTest {
     private UsuarioRepository usuarioRepository;
 
     @InjectMocks
-    private indicacionMedicaService service;
+    private indicacionMedicamentoService service;
 
     @Test
     void crear_debeGuardarConFechaDelServidorYEstadoActivo() {
         when(medicamentoLogRepository.findById(9L)).thenReturn(Optional.of(medicamento(9L, "Ibuprofeno")));
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
-        when(repository.save(any(indicacionMedicaEntity.class))).thenAnswer(invocation -> {
-            indicacionMedicaEntity entity = invocation.getArgument(0);
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> {
+            indicacionMedicamentoEntity entity = invocation.getArgument(0);
             entity.setId(30L);
             return entity;
         });
 
-        indicacionMedicaDTOs.Response response = service.crear(new indicacionMedicaDTOs.Request(
+        indicacionMedicamentoDTOs.Response response = service.crear(new indicacionMedicamentoDTOs.Request(
                 9L, 2, 8, 7, TipoDuracion.DIAS, "  Tomar con alimentos ", 1L, 2L));
 
         assertEquals(30L, response.id());
@@ -64,7 +64,7 @@ class indicacionMedicaServiceTest {
         assertEquals("Tomar con alimentos", response.observaciones());
         assertEquals("Carlos Mendez", response.usuarioNombre());
         assertNotNull(response.fecha());
-        assertEquals(EstadoIndicacionMedica.ACTIVO, response.estado());
+        assertEquals(EstadoIndicacionMedicamento.ACTIVO, response.estado());
     }
 
     @Test
@@ -72,9 +72,9 @@ class indicacionMedicaServiceTest {
         when(medicamentoLogRepository.findById(9L)).thenReturn(Optional.of(medicamento(9L, "Ibuprofeno")));
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
-        when(repository.save(any(indicacionMedicaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        indicacionMedicaDTOs.Response response = service.crear(new indicacionMedicaDTOs.Request(
+        indicacionMedicamentoDTOs.Response response = service.crear(new indicacionMedicamentoDTOs.Request(
                 9L, 1, 24, 99, TipoDuracion.DOSIS_UNICA, null, 1L, 2L));
 
         assertNull(response.duracion());
@@ -87,7 +87,7 @@ class indicacionMedicaServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new indicacionMedicaDTOs.Request(
+                () -> service.crear(new indicacionMedicamentoDTOs.Request(
                         9L, 2, 8, null, TipoDuracion.DIAS, null, 1L, 2L)));
 
         assertEquals("La duración es obligatoria cuando el tipo es DIAS", exception.getMessage());
@@ -100,7 +100,7 @@ class indicacionMedicaServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new indicacionMedicaDTOs.Request(
+                () -> service.crear(new indicacionMedicamentoDTOs.Request(
                         99L, 2, 8, 7, TipoDuracion.DIAS, null, 1L, 2L)));
 
         assertEquals("Medicamento no encontrado con el ID: 99", exception.getMessage());
@@ -110,7 +110,7 @@ class indicacionMedicaServiceTest {
     @Test
     void actualizar_debeCambiarDatosYConservarLaFecha() {
         LocalDateTime fechaOriginal = LocalDateTime.of(2026, 3, 5, 16, 20);
-        indicacionMedicaEntity existente = indicacionMedicaEntity.builder()
+        indicacionMedicamentoEntity existente = indicacionMedicamentoEntity.builder()
                 .id(6L)
                 .medicamentoLog(medicamento(9L, "Ibuprofeno"))
                 .cantidad(1)
@@ -120,16 +120,16 @@ class indicacionMedicaServiceTest {
                 .episodio(episodio(1L))
                 .usuario(usuario(2L, "Carlos Mendez"))
                 .fecha(fechaOriginal)
-                .estado(EstadoIndicacionMedica.ACTIVO)
+                .estado(EstadoIndicacionMedicamento.ACTIVO)
                 .build();
 
         when(repository.findById(6L)).thenReturn(Optional.of(existente));
         when(medicamentoLogRepository.findById(10L)).thenReturn(Optional.of(medicamento(10L, "Paracetamol")));
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
         when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, "Ana Lopez")));
-        when(repository.save(any(indicacionMedicaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        indicacionMedicaDTOs.Response response = service.actualizar(6L, new indicacionMedicaDTOs.Request(
+        indicacionMedicamentoDTOs.Response response = service.actualizar(6L, new indicacionMedicamentoDTOs.Request(
                 10L, 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo esquema", 1L, 3L));
 
         assertEquals(10L, response.medicamentoLogId());
@@ -152,43 +152,43 @@ class indicacionMedicaServiceTest {
 
     @Test
     void buscarPorEpisodio_debeFiltrarPorEpisodioYEstado() {
-        when(repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(1L, EstadoIndicacionMedica.ACTIVO))
-                .thenReturn(List.of(entidad(7L, 2, TipoDuracion.DIAS, 7, EstadoIndicacionMedica.ACTIVO)));
+        when(repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(1L, EstadoIndicacionMedicamento.ACTIVO))
+                .thenReturn(List.of(entidad(7L, 2, TipoDuracion.DIAS, 7, EstadoIndicacionMedicamento.ACTIVO)));
 
-        List<indicacionMedicaDTOs.Response> resultado = service.buscarPorEpisodio(1L, EstadoIndicacionMedica.ACTIVO);
+        List<indicacionMedicamentoDTOs.Response> resultado = service.buscarPorEpisodio(1L, EstadoIndicacionMedicamento.ACTIVO);
 
         assertEquals(1, resultado.size());
         assertEquals(7L, resultado.get(0).id());
-        verify(repository).findByEpisodio_IdAndEstadoOrderByFechaDesc(1L, EstadoIndicacionMedica.ACTIVO);
+        verify(repository).findByEpisodio_IdAndEstadoOrderByFechaDesc(1L, EstadoIndicacionMedicamento.ACTIVO);
     }
 
     @Test
     void cambiarEstado_debeAsignarElNuevoEstado() {
-        indicacionMedicaEntity existente = entidad(7L, 2, TipoDuracion.DIAS, 7, EstadoIndicacionMedica.ACTIVO);
+        indicacionMedicamentoEntity existente = entidad(7L, 2, TipoDuracion.DIAS, 7, EstadoIndicacionMedicamento.ACTIVO);
         when(repository.findById(7L)).thenReturn(Optional.of(existente));
-        when(repository.save(any(indicacionMedicaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        indicacionMedicaDTOs.Response response = service.cambiarEstado(7L, EstadoIndicacionMedica.FINALIZADO);
+        indicacionMedicamentoDTOs.Response response = service.cambiarEstado(7L, EstadoIndicacionMedicamento.FINALIZADO);
 
-        assertEquals(EstadoIndicacionMedica.FINALIZADO, response.estado());
+        assertEquals(EstadoIndicacionMedicamento.FINALIZADO, response.estado());
         verify(repository).save(existente);
     }
 
     @Test
     void eliminar_debeMarcarElRegistroComoEliminado() {
-        indicacionMedicaEntity existente = entidad(7L, 2, TipoDuracion.DIAS, 7, EstadoIndicacionMedica.ACTIVO);
+        indicacionMedicamentoEntity existente = entidad(7L, 2, TipoDuracion.DIAS, 7, EstadoIndicacionMedicamento.ACTIVO);
         when(repository.findById(7L)).thenReturn(Optional.of(existente));
-        when(repository.save(any(indicacionMedicaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.eliminar(7L);
 
-        assertEquals(EstadoIndicacionMedica.ELIMINADO, existente.getEstado());
+        assertEquals(EstadoIndicacionMedicamento.ELIMINADO, existente.getEstado());
         verify(repository).save(existente);
     }
 
-    private indicacionMedicaEntity entidad(Long id, Integer cantidad, TipoDuracion tipo, Integer duracion,
-                                           EstadoIndicacionMedica estado) {
-        return indicacionMedicaEntity.builder()
+    private indicacionMedicamentoEntity entidad(Long id, Integer cantidad, TipoDuracion tipo, Integer duracion,
+                                           EstadoIndicacionMedicamento estado) {
+        return indicacionMedicamentoEntity.builder()
                 .id(id)
                 .medicamentoLog(medicamento(9L, "Ibuprofeno"))
                 .cantidad(cantidad)

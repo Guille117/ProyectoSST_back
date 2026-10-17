@@ -1,4 +1,4 @@
-package com.example.demo.modules.clinica.indicaciones.indicacionMedica;
+package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,8 +24,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @AutoConfigureMockMvc(addFilters = false)
-@WebMvcTest(indicacionMedicaController.class)
-class indicacionMedicaControllerTest {
+@WebMvcTest(indicacionMedicamentoController.class)
+class indicacionMedicamentoControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -35,7 +35,7 @@ class indicacionMedicaControllerTest {
     private static final LocalDateTime FECHA = LocalDateTime.of(2026, 10, 16, 11, 0);
 
     @MockitoBean
-    private indicacionMedicaService service;
+    private indicacionMedicamentoService service;
 
     @MockitoBean
     private com.example.demo.security.JwtUtil jwtUtil;
@@ -48,13 +48,13 @@ class indicacionMedicaControllerTest {
 
     @Test
     void crear_debeRetornarCreatedConElRegistroGuardado() throws Exception {
-        when(service.crear(any())).thenReturn(new indicacionMedicaDTOs.Response(
+        when(service.crear(any())).thenReturn(new indicacionMedicamentoDTOs.Response(
                 30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
-                1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedica.ACTIVO));
+                1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.ACTIVO));
 
-        mockMvc.perform(post("/api/v1/indicacionMedica")
+        mockMvc.perform(post("/api/v1/medicamentos")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new indicacionMedicaDTOs.Request(
+                        .content(objectMapper.writeValueAsString(new indicacionMedicamentoDTOs.Request(
                                 9L, 2, 8, 7, TipoDuracion.DIAS, "Con alimentos", 1L, 2L))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(30))
@@ -69,7 +69,7 @@ class indicacionMedicaControllerTest {
         String json = "{\"cantidad\":2,\"frecuencia\":8,\"duracion\":7,\"tipoDuracion\":\"DIAS\","
                 + "\"episodioId\":1,\"usuarioId\":2}";
 
-        mockMvc.perform(post("/api/v1/indicacionMedica")
+        mockMvc.perform(post("/api/v1/medicamentos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
@@ -77,11 +77,11 @@ class indicacionMedicaControllerTest {
 
     @Test
     void obtenerTodos_debeAplicarEstadoActivoPorDefecto() throws Exception {
-        when(service.obtenerTodos(EstadoIndicacionMedica.ACTIVO)).thenReturn(List.of(new indicacionMedicaDTOs.Response(
+        when(service.obtenerTodos(EstadoIndicacionMedicamento.ACTIVO)).thenReturn(List.of(new indicacionMedicamentoDTOs.Response(
                 30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
-                1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedica.ACTIVO)));
+                1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.ACTIVO)));
 
-        mockMvc.perform(get("/api/v1/indicacionMedica"))
+        mockMvc.perform(get("/api/v1/medicamentos"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(30))
                 .andExpect(jsonPath("$[0].estado").value("ACTIVO"));
@@ -89,23 +89,23 @@ class indicacionMedicaControllerTest {
 
     @Test
     void buscar_debeFiltrarPorEpisodio() throws Exception {
-        when(service.buscarPorEpisodio(5L, EstadoIndicacionMedica.ACTIVO))
-                .thenReturn(List.of(new indicacionMedicaDTOs.Response(
+        when(service.buscarPorEpisodio(5L, EstadoIndicacionMedicamento.ACTIVO))
+                .thenReturn(List.of(new indicacionMedicamentoDTOs.Response(
                         31L, 9L, "Ibuprofeno", 1, 12, 3, TipoDuracion.DIAS, null,
-                        5L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedica.ACTIVO)));
+                        5L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.ACTIVO)));
 
-        mockMvc.perform(get("/api/v1/indicacionMedica/buscar").param("episodioId", "5"))
+        mockMvc.perform(get("/api/v1/medicamentos/buscar").param("episodioId", "5"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].episodioId").value(5));
     }
 
     @Test
     void obtenerPorId_debeRetornarElRegistro() throws Exception {
-        when(service.obtenerPorId(30L)).thenReturn(new indicacionMedicaDTOs.Response(
+        when(service.obtenerPorId(30L)).thenReturn(new indicacionMedicamentoDTOs.Response(
                 30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
-                1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedica.FINALIZADO));
+                1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.FINALIZADO));
 
-        mockMvc.perform(get("/api/v1/indicacionMedica/30"))
+        mockMvc.perform(get("/api/v1/medicamentos/30"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(30))
                 .andExpect(jsonPath("$.estado").value("FINALIZADO"));
@@ -113,13 +113,13 @@ class indicacionMedicaControllerTest {
 
     @Test
     void actualizar_debeRetornarElRegistroActualizado() throws Exception {
-        when(service.actualizar(any(), any())).thenReturn(new indicacionMedicaDTOs.Response(
+        when(service.actualizar(any(), any())).thenReturn(new indicacionMedicamentoDTOs.Response(
                 30L, 10L, "Paracetamol", 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo",
-                1L, 3L, "Ana Lopez", FECHA, EstadoIndicacionMedica.ACTIVO));
+                1L, 3L, "Ana Lopez", FECHA, EstadoIndicacionMedicamento.ACTIVO));
 
-        mockMvc.perform(put("/api/v1/indicacionMedica/30")
+        mockMvc.perform(put("/api/v1/medicamentos/30")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new indicacionMedicaDTOs.Request(
+                        .content(objectMapper.writeValueAsString(new indicacionMedicamentoDTOs.Request(
                                 10L, 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo", 1L, 3L))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.medicamentoLogId").value(10))
@@ -128,19 +128,19 @@ class indicacionMedicaControllerTest {
 
     @Test
     void cambiarEstado_debeRetornarElNuevoEstado() throws Exception {
-        when(service.cambiarEstado(30L, EstadoIndicacionMedica.FINALIZADO))
-                .thenReturn(new indicacionMedicaDTOs.Response(
+        when(service.cambiarEstado(30L, EstadoIndicacionMedicamento.FINALIZADO))
+                .thenReturn(new indicacionMedicamentoDTOs.Response(
                         30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
-                        1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedica.FINALIZADO));
+                        1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.FINALIZADO));
 
-        mockMvc.perform(patch("/api/v1/indicacionMedica/30/estado").param("estado", "FINALIZADO"))
+        mockMvc.perform(patch("/api/v1/medicamentos/30/estado").param("estado", "FINALIZADO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("FINALIZADO"));
     }
 
     @Test
     void eliminar_debeRetornarNoContent() throws Exception {
-        mockMvc.perform(delete("/api/v1/indicacionMedica/30"))
+        mockMvc.perform(delete("/api/v1/medicamentos/30"))
                 .andExpect(status().isNoContent());
     }
 }

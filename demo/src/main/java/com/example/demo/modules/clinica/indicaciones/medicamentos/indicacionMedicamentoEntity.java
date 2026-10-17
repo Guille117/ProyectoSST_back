@@ -1,4 +1,4 @@
-package com.example.demo.modules.clinica.indicaciones.indicacionMedica;
+package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class indicacionMedicaEntity {
+public class indicacionMedicamentoEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,5 +55,5 @@ public class indicacionMedicaEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private EstadoIndicacionMedica estado = EstadoIndicacionMedica.ACTIVO;
+    private EstadoIndicacionMedicamento estado = EstadoIndicacionMedicamento.ACTIVO;
 }

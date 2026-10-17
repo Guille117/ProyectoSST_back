@@ -1,0 +1,285 @@
+ENDPOINTS DE INDICACIONES MEDICAS - MEDICAMENTOS
+Base URL: /api/v1/medicamentos
+Esta base corresponde a indicaciones de medicamentos, no al catalogo de farmacia.
+Formato de intercambio: JSON, salvo donde se indica que no hay body.
+Los valores de ejemplo ilustran el contrato de la API; no son recomendaciones medicas.
+
+RESUMEN DE RUTAS ACTUALES
+POST   /api/v1/medicamentos
+GET    /api/v1/medicamentos
+GET    /api/v1/medicamentos/buscar?episodioId=5&estado=ACTIVO
+GET    /api/v1/medicamentos/{id}
+PUT    /api/v1/medicamentos/{id}
+PATCH  /api/v1/medicamentos/{id}/estado?estado=FINALIZADO
+DELETE /api/v1/medicamentos/{id}
+
+
+1. CREAR INDICACION MEDICA DE MEDICAMENTO
+
+Metodo: POST
+Ruta: /api/v1/medicamentos
+
+Que recibe:
+- Header Content-Type: application/json.
+- Body JSON:
+  - medicamentoLogId: obligatorio, numero entero positivo. El medicamento debe existir.
+  - cantidad: obligatoria, numero entero mayor a 0.
+  - frecuencia: obligatoria, numero entero mayor a 0.
+  - tipoDuracion: obligatorio. Valores: DIAS, DOSIS_UNICA, TIEMPO_INDEFINIDO.
+  - duracion: numero entero mayor a 0, obligatorio si tipoDuracion es DIAS.
+    Para DOSIS_UNICA y TIEMPO_INDEFINIDO se puede omitir o enviar null;
+    el servidor guarda null aunque se envie un numero.
+  - observaciones: opcional, maximo 2000 caracteres.
+  - episodioId: obligatorio, numero entero positivo. El episodio debe existir.
+  - usuarioId: obligatorio, numero entero positivo. El usuario debe existir.
+- El contrato no especifica la unidad de cantidad ni de frecuencia.
+
+JSON de entrada:
+{
+  "medicamentoLogId": 9,
+  "cantidad": 2,
+  "frecuencia": 8,
+  "duracion": 7,
+  "tipoDuracion": "DIAS",
+  "observaciones": "Observacion de ejemplo",
+  "episodioId": 1,
+  "usuarioId": 2
+}
+
+Que envia:
+- HTTP 201 Created.
+- El objeto creado, con su ID, nombre del medicamento, nombre del usuario,
+  fecha asignada por el servidor y estado.
+
+JSON de respuesta:
+{
+  "id": 30,
+  "medicamentoLogId": 9,
+  "medicamento": "Ibuprofeno",
+  "cantidad": 2,
+  "frecuencia": 8,
+  "duracion": 7,
+  "tipoDuracion": "DIAS",
+  "observaciones": "Observacion de ejemplo",
+  "episodioId": 1,
+  "usuarioId": 2,
+  "usuarioNombre": "Carlos Mendez",
+  "fecha": "2026-10-16T11:00:00",
+  "estado": "ACTIVO"
+}
+
+
+2. OBTENER INDICACIONES MEDICAS POR ESTADO
+
+Metodo: GET
+Ruta: /api/v1/medicamentos
+
+Que recibe:
+- No recibe body JSON.
+- Query param opcional: estado; por defecto es ACTIVO.
+- Valores de estado: ACTIVO, FINALIZADO, ELIMINADO.
+- Ejemplos:
+  /api/v1/medicamentos
+  /api/v1/medicamentos?estado=FINALIZADO
+  /api/v1/medicamentos?estado=ELIMINADO
+
+Que envia:
+- HTTP 200 OK.
+- Lista de indicaciones del estado solicitado, ordenadas por fecha descendente.
+- Si no hay coincidencias, devuelve [].
+
+JSON de respuesta:
+[
+  {
+    "id": 30,
+    "medicamentoLogId": 9,
+    "medicamento": "Ibuprofeno",
+    "cantidad": 2,
+    "frecuencia": 8,
+    "duracion": 7,
+    "tipoDuracion": "DIAS",
+    "observaciones": "Observacion de ejemplo",
+    "episodioId": 1,
+    "usuarioId": 2,
+    "usuarioNombre": "Carlos Mendez",
+    "fecha": "2026-10-16T11:00:00",
+    "estado": "ACTIVO"
+  }
+]
+
+
+3. BUSCAR INDICACIONES MEDICAS POR EPISODIO
+
+Metodo: GET
+Ruta: /api/v1/medicamentos/buscar
+
+Que recibe:
+- No recibe body JSON.
+- Query param obligatorio: episodioId, ID del episodio.
+- Query param opcional: estado; por defecto es ACTIVO.
+- Valores de estado: ACTIVO, FINALIZADO, ELIMINADO.
+- Ejemplos:
+  /api/v1/medicamentos/buscar?episodioId=5
+  /api/v1/medicamentos/buscar?episodioId=5&estado=FINALIZADO
+
+Que envia:
+- HTTP 200 OK.
+- Lista de indicaciones del episodio y estado indicados, por fecha descendente.
+- Si no hay coincidencias, devuelve [].
+
+JSON de respuesta:
+[
+  {
+    "id": 31,
+    "medicamentoLogId": 9,
+    "medicamento": "Ibuprofeno",
+    "cantidad": 1,
+    "frecuencia": 12,
+    "duracion": 3,
+    "tipoDuracion": "DIAS",
+    "observaciones": null,
+    "episodioId": 5,
+    "usuarioId": 2,
+    "usuarioNombre": "Carlos Mendez",
+    "fecha": "2026-10-16T11:00:00",
+    "estado": "ACTIVO"
+  }
+]
+
+
+4. OBTENER INDICACION MEDICA POR ID
+
+Metodo: GET
+Ruta: /api/v1/medicamentos/{id}
+
+Que recibe:
+- No recibe body JSON.
+- Variable de ruta obligatoria: id, ID de la indicacion medica.
+- Ejemplo: /api/v1/medicamentos/30
+
+Que envia:
+- HTTP 200 OK.
+- El objeto correspondiente al ID, sin filtrar por estado.
+
+JSON de respuesta:
+{
+  "id": 30,
+  "medicamentoLogId": 9,
+  "medicamento": "Ibuprofeno",
+  "cantidad": 2,
+  "frecuencia": 8,
+  "duracion": 7,
+  "tipoDuracion": "DIAS",
+  "observaciones": "Observacion de ejemplo",
+  "episodioId": 1,
+  "usuarioId": 2,
+  "usuarioNombre": "Carlos Mendez",
+  "fecha": "2026-10-16T11:00:00",
+  "estado": "FINALIZADO"
+}
+
+
+5. ACTUALIZAR INDICACION MEDICA
+
+Metodo: PUT
+Ruta: /api/v1/medicamentos/{id}
+
+Que recibe:
+- Variable de ruta obligatoria: id, ID de la indicacion medica.
+- Header Content-Type: application/json.
+- Body JSON con los mismos campos y reglas que POST:
+  - medicamentoLogId: obligatorio, numero entero positivo, medicamento existente.
+  - cantidad y frecuencia: obligatorias, numeros enteros mayores a 0.
+  - tipoDuracion: obligatorio; DIAS, DOSIS_UNICA o TIEMPO_INDEFINIDO.
+  - duracion: obligatoria y mayor a 0 para DIAS; para los otros tipos se guarda null.
+  - observaciones: opcional, maximo 2000 caracteres.
+  - episodioId y usuarioId: obligatorios, numeros enteros positivos,
+    correspondientes a registros existentes.
+- No es una actualizacion parcial: deben enviarse todos los campos obligatorios.
+- Ejemplo: /api/v1/medicamentos/30
+
+JSON de entrada:
+{
+  "medicamentoLogId": 10,
+  "cantidad": 3,
+  "frecuencia": 6,
+  "duracion": null,
+  "tipoDuracion": "TIEMPO_INDEFINIDO",
+  "observaciones": "Observacion actualizada de ejemplo",
+  "episodioId": 1,
+  "usuarioId": 3
+}
+
+Que envia:
+- HTTP 200 OK.
+- El objeto actualizado, con los nombres del medicamento y del usuario.
+- La fecha original y el estado se conservan.
+
+JSON de respuesta:
+{
+  "id": 30,
+  "medicamentoLogId": 10,
+  "medicamento": "Paracetamol",
+  "cantidad": 3,
+  "frecuencia": 6,
+  "duracion": null,
+  "tipoDuracion": "TIEMPO_INDEFINIDO",
+  "observaciones": "Observacion actualizada de ejemplo",
+  "episodioId": 1,
+  "usuarioId": 3,
+  "usuarioNombre": "Ana Lopez",
+  "fecha": "2026-10-16T11:00:00",
+  "estado": "ACTIVO"
+}
+
+
+6. CAMBIAR ESTADO DE INDICACION MEDICA
+
+Metodo: PATCH
+Ruta: /api/v1/medicamentos/{id}/estado
+
+Que recibe:
+- Variable de ruta obligatoria: id, ID de la indicacion medica.
+- Query param obligatorio: estado.
+- Valores permitidos: ACTIVO, FINALIZADO, ELIMINADO.
+- No recibe body JSON.
+- Ejemplo: /api/v1/medicamentos/30/estado?estado=FINALIZADO
+- Asigna el estado indicado; no alterna automaticamente entre estados.
+
+Que envia:
+- HTTP 200 OK.
+- El objeto con el estado solicitado.
+
+JSON de respuesta:
+{
+  "id": 30,
+  "medicamentoLogId": 9,
+  "medicamento": "Ibuprofeno",
+  "cantidad": 2,
+  "frecuencia": 8,
+  "duracion": 7,
+  "tipoDuracion": "DIAS",
+  "observaciones": "Observacion de ejemplo",
+  "episodioId": 1,
+  "usuarioId": 2,
+  "usuarioNombre": "Carlos Mendez",
+  "fecha": "2026-10-16T11:00:00",
+  "estado": "FINALIZADO"
+}
+
+
+7. ELIMINAR INDICACION MEDICA
+
+Metodo: DELETE
+Ruta: /api/v1/medicamentos/{id}
+
+Que recibe:
+- Variable de ruta obligatoria: id, ID de la indicacion medica.
+- No recibe body JSON.
+- Ejemplo: /api/v1/medicamentos/30
+
+Que envia:
+- HTTP 204 No Content.
+- No devuelve body ni JSON de respuesta.
+- Es una eliminacion logica: cambia el estado a ELIMINADO;
+  no borra fisicamente el registro.

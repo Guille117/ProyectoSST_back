@@ -1,4 +1,4 @@
-package com.example.demo.modules.clinica.indicaciones.indicacionMedica;
+package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
 import com.example.demo.modules.clinica.indicaciones.DuracionValidator;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
@@ -17,20 +17,20 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class indicacionMedicaService {
+public class indicacionMedicamentoService {
 
-    private final indicacionMedicaRepository repository;
+    private final indicacionMedicamentoRepository repository;
     private final medicamentoLogRepository medicamentoLogRepository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
 
     @Transactional
-    public indicacionMedicaDTOs.Response crear(indicacionMedicaDTOs.Request request) {
+    public indicacionMedicamentoDTOs.Response crear(indicacionMedicamentoDTOs.Request request) {
         if (request == null) {
             throw new IllegalArgumentException("La solicitud es obligatoria");
         }
 
-        indicacionMedicaEntity entity = indicacionMedicaEntity.builder()
+        indicacionMedicamentoEntity entity = indicacionMedicamentoEntity.builder()
                 .medicamentoLog(buscarMedicamento(request.medicamentoLogId()))
                 .cantidad(validarCantidad(request.cantidad()))
                 .frecuencia(validarFrecuencia(request.frecuencia()))
@@ -46,12 +46,12 @@ public class indicacionMedicaService {
     }
 
     @Transactional
-    public indicacionMedicaDTOs.Response actualizar(Long id, indicacionMedicaDTOs.Request request) {
+    public indicacionMedicamentoDTOs.Response actualizar(Long id, indicacionMedicamentoDTOs.Request request) {
         if (request == null) {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        indicacionMedicaEntity entity = repository.findById(id)
+        indicacionMedicamentoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
 
         entity.setMedicamentoLog(buscarMedicamento(request.medicamentoLogId()));
@@ -67,18 +67,18 @@ public class indicacionMedicaService {
     }
 
     @Transactional(readOnly = true)
-    public indicacionMedicaDTOs.Response obtenerPorId(Long id) {
+    public indicacionMedicamentoDTOs.Response obtenerPorId(Long id) {
         return repository.findById(id).map(this::toResponse)
                 .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
     }
 
     @Transactional(readOnly = true)
-    public List<indicacionMedicaDTOs.Response> obtenerTodos(EstadoIndicacionMedica estado) {
+    public List<indicacionMedicamentoDTOs.Response> obtenerTodos(EstadoIndicacionMedicamento estado) {
         return repository.findByEstadoOrderByFechaDesc(validarEstado(estado)).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
-    public List<indicacionMedicaDTOs.Response> buscarPorEpisodio(Long episodioId, EstadoIndicacionMedica estado) {
+    public List<indicacionMedicamentoDTOs.Response> buscarPorEpisodio(Long episodioId, EstadoIndicacionMedicamento estado) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
@@ -89,8 +89,8 @@ public class indicacionMedicaService {
     }
 
     @Transactional
-    public indicacionMedicaDTOs.Response cambiarEstado(Long id, EstadoIndicacionMedica estado) {
-        indicacionMedicaEntity entity = repository.findById(id)
+    public indicacionMedicamentoDTOs.Response cambiarEstado(Long id, EstadoIndicacionMedicamento estado) {
+        indicacionMedicamentoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
 
         entity.setEstado(validarEstado(estado));
@@ -99,14 +99,14 @@ public class indicacionMedicaService {
 
     @Transactional
     public void eliminar(Long id) {
-        indicacionMedicaEntity entity = repository.findById(id)
+        indicacionMedicamentoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
 
-        entity.setEstado(EstadoIndicacionMedica.ELIMINADO);
+        entity.setEstado(EstadoIndicacionMedicamento.ELIMINADO);
         repository.save(entity);
     }
 
-    private EstadoIndicacionMedica validarEstado(EstadoIndicacionMedica estado) {
+    private EstadoIndicacionMedicamento validarEstado(EstadoIndicacionMedicamento estado) {
         if (estado == null) {
             throw new IllegalArgumentException("El estado es obligatorio");
         }
@@ -169,8 +169,8 @@ public class indicacionMedicaService {
         return nombreCompleto.isBlank() ? usuario.getUsername() : nombreCompleto;
     }
 
-    private indicacionMedicaDTOs.Response toResponse(indicacionMedicaEntity entity) {
-        return new indicacionMedicaDTOs.Response(
+    private indicacionMedicamentoDTOs.Response toResponse(indicacionMedicamentoEntity entity) {
+        return new indicacionMedicamentoDTOs.Response(
                 entity.getId(),
                 entity.getMedicamentoLog().getId(),
                 entity.getMedicamentoLog().getNombre(),
