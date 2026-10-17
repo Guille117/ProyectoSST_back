@@ -302,3 +302,15 @@ Revisar errores de comportamiento, contratos, concurrencia, validaciones, seguri
 4. **Pendiente/riesgos:** endpoints o datos no disponibles, errores preexistentes, cambio de contratos y validaciones que requieran confirmación.
 
 Nunca afirmar «todo funciona» solo porque el código compila. La entrega debe cumplir lo solicitado, respetar la arquitectura, preservar los datos y dejar el alcance afectado sin código fantasma.
+
+
+### Control de comandos y procesos bloqueados
+
+- No ejecutar compilaciones con `-q` durante tareas de diagnóstico, ya que oculta información necesaria.
+- No mantener indefinidamente un comando sin progreso verificable.
+- Si una compilación permanece más de 3 minutos sin actividad observable, comprobar si el proceso continúa trabajando.
+- Si no existe progreso y el proceso parece bloqueado, interrumpirlo de manera controlada.
+- No repetir automáticamente un comando que se haya bloqueado sin investigar primero la causa.
+- Después de interrumpir un proceso, conservar las modificaciones realizadas y reportar el último paso completado.
+- No reiniciar toda la implementación por un error de compilación. Continuar desde el punto donde se interrumpió.
+- Las compilaciones y pruebas deben realizarse únicamente cuando sean necesarias según la complejidad de la tarea.
