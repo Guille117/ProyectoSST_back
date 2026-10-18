@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -95,45 +96,101 @@ public class PacienteService {
         PacienteDTOs.PersonaRequest datosPersona = request.paciente().persona();
         PacienteDTOs.EpisodioRequest datosEpisodio = request.episodio();
         String cui = StringNormalizer.normalizarNullable(datosPersona.cui());
-        Optional<PersonaEntity> personaExistente = cui == null
-                ? Optional.empty()
-                : personaRepository.findByCui(cui);
-        Optional<PacienteEntity> pacienteExistente = personaExistente.flatMap(
-                persona -> pacienteRepository.findByPersonaId(persona.getId()));
-        LocalDate fechaNacimiento = personaExistente.map(PersonaEntity::getFechaNacimiento)
-                .orElse(datosPersona.fechaNacimiento());
+        Long pacienteId = request.paciente().pacienteId();
+
+        PersonaEntity persona;
+        PacienteEntity paciente;
+        LocalDate fechaNacimiento;
+
+        if (pacienteId != null) {
+            paciente = pacienteRepository.findById(pacienteId)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Paciente no encontrado con el ID: " + pacienteId));
+            persona = paciente.getPersona();
+            fechaNacimiento = datosPersona.fechaNacimiento();
+        } else {
+            Optional<PersonaEntity> personaExistente = cui == null
+                    ? Optional.empty()
+                    : personaRepository.findByCui(cui);
+            Optional<PacienteEntity> pacienteEncontrado = personaExistente.flatMap(
+                    personaEncontrada -> pacienteRepository.findByPersonaId(personaEncontrada.getId()));
+            persona = personaExistente.orElse(null);
+            paciente = pacienteEncontrado.orElse(null);
+            fechaNacimiento = personaExistente.map(PersonaEntity::getFechaNacimiento)
+                    .orElse(datosPersona.fechaNacimiento());
+        }
 
         if (fechaNacimiento == null || fechaNacimiento.isAfter(fechaActual)) {
             throw new IllegalArgumentException("La fecha de nacimiento del paciente no es válida");
         }
+
+        if (paciente != null && episodioRepository.existsByPaciente_IdAndEstadoTrue(paciente.getId())) {
+            throw new IllegalArgumentException(
+                    "El paciente ya tiene un episodio activo. Debe registrar el alta antes de crear otro.");
+        }
+
+        boolean pacienteExistente = paciente != null;
         boolean menorDeEdad = fechaNacimiento.plusYears(18).isAfter(fechaActual);
         boolean requiereResponsable = datosEpisodio.tipoAtencion() == TipoAtencion.HOSPITALIZACION
                 || (datosEpisodio.tipoAtencion() == TipoAtencion.EMERGENCIA && menorDeEdad);
         if (requiereResponsable && datosEpisodio.responsable() == null) {
             throw new IllegalArgumentException("El responsable es obligatorio para esta atención");
         }
-                if (datosEpisodio.responsable() != null) {
-                        validarDatosPersonaResponsable(datosEpisodio.responsable().persona());
-                        String cuiResponsable = StringNormalizer.normalizarTexto(datosEpisodio.responsable().persona().cui());
-                        if (cui != null && cui.equals(cuiResponsable)) {
-                                throw new IllegalArgumentException("El paciente no puede ser su propio responsable");
-                        }
+        if (datosEpisodio.responsable() != null) {
+            validarDatosPersonaResponsable(datosEpisodio.responsable().persona());
+            String cuiResponsable = StringNormalizer.normalizarTexto(datosEpisodio.responsable().persona().cui());
+            String cuiPaciente = pacienteId != null
+                    ? cui
+                    : (persona != null ? persona.getCui() : cui);
+            if (cuiPaciente != null && cuiPaciente.equals(cuiResponsable)) {
+                throw new IllegalArgumentException("El paciente no puede ser su propio responsable");
+            }
         }
 
-                parentescoEntity parentesco = cargarParentesco(datosEpisodio.responsable());
-                institucionEntity institucion = cargarInstitucion(datosEpisodio.referencia());
-                camasEntity cama = cargarCama(request.paciente().camaId(), pacienteExistente.orElse(null));
+        parentescoEntity parentesco = cargarParentesco(datosEpisodio.responsable());
+        institucionEntity institucion = cargarInstitucion(datosEpisodio.referencia());
+        camasEntity cama = cargarCama(request.paciente().camaId(), paciente);
 
         UsuarioEntity medico = usuarioRepository.findById(datosEpisodio.medicoId())
                 .orElseThrow(() -> new IllegalArgumentException("Médico no encontrado"));
 
-        PersonaEntity persona = personaExistente.orElseGet(() -> guardarPersona(datosPersona));
-        PacienteEntity paciente = pacienteExistente.orElseGet(() -> pacienteRepository.save(PacienteEntity.builder()
-                .persona(persona)
-                .estadoCivil(request.paciente().estadoCivil())
-                .direccion(StringNormalizer.normalizarNullable(request.paciente().direccion()))
-                .ocupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()))
-                .build()));
+        if (pacienteId != null) {
+            if (cui != null) {
+                Optional<PersonaEntity> otraPersona = personaRepository.findByCui(cui);
+                if (otraPersona.isPresent() && !otraPersona.get().getId().equals(persona.getId())) {
+                    throw new IllegalArgumentException("El CUI ya está registrado por otra persona");
+                }
+            }
+
+            persona.setCui(cui);
+            persona.setSexo(datosPersona.sexo());
+            persona.setFechaNacimiento(datosPersona.fechaNacimiento());
+            persona.setTelefono(StringNormalizer.normalizarNullable(datosPersona.telefono()));
+            persona.setEmail(StringNormalizer.normalizarNullable(datosPersona.email()));
+            persona.asignarNombres(datosPersona.nombres(), datosPersona.apellidos());
+            personaRepository.save(persona);
+
+            paciente.setEstadoCivil(request.paciente().estadoCivil());
+            paciente.setDireccion(StringNormalizer.normalizarNullable(request.paciente().direccion()));
+            paciente.setOcupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()));
+            paciente.setEstado(true);
+            pacienteRepository.save(paciente);
+        } else if (paciente != null) {
+            // Reutilización por CUI: se conservan los datos existentes y se reactiva el paciente.
+            if (!paciente.isEstado()) {
+                paciente.setEstado(true);
+                pacienteRepository.save(paciente);
+            }
+        } else {
+            persona = persona != null ? persona : guardarPersona(datosPersona);
+            paciente = pacienteRepository.save(PacienteEntity.builder()
+                    .persona(persona)
+                    .estadoCivil(request.paciente().estadoCivil())
+                    .direccion(StringNormalizer.normalizarNullable(request.paciente().direccion()))
+                    .ocupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()))
+                    .estado(true)
+                    .build());
+        }
         asignarCama(cama, paciente);
         ExpedienteEntity expediente = obtenerOCrearExpediente(paciente);
 
@@ -142,6 +199,7 @@ public class PacienteService {
         EpisodioEntity episodio = episodioRepository.save(EpisodioEntity.builder()
                 .tipoAtencion(datosEpisodio.tipoAtencion())
                 .descripcion(StringNormalizer.normalizarTexto(datosEpisodio.descripcion()))
+                .fechaHoraIngreso(LocalDateTime.now())
                 .paciente(paciente)
                 .expediente(expediente)
                 .medico(medico)
@@ -165,8 +223,9 @@ public class PacienteService {
         }
 
         return new PacienteDTOs.Response(paciente.getId(), expediente.getId(), episodio.getId(),
+                episodio.getFechaHoraIngreso(),
                 responsable != null ? responsable.getId() : null,
-                referencia != null ? referencia.getId() : null, pacienteExistente.isPresent());
+                referencia != null ? referencia.getId() : null, pacienteExistente);
     }
 
     private List<MultipartFile> unirArchivos(MultipartFile archivo, List<MultipartFile> archivos) {
@@ -204,6 +263,18 @@ public class PacienteService {
                 if (cama == null) {
                         return;
                 }
+
+                // Si el paciente ya tenía otra cama, se libera antes de ocupar la nueva.
+                camasEntity camaAnterior = camasRepository.findByPaciente_Id(paciente.getId()).orElse(null);
+                if (camaAnterior != null && !camaAnterior.getId().equals(cama.getId())) {
+                        camaAnterior.setPaciente(null);
+                        camaAnterior.setEstado(EstadoCama.DISPONIBLE);
+                        camasRepository.save(camaAnterior);
+                        // Se confirma la liberación antes de ocupar la nueva para no chocar con la
+                        // restricción única de la cama por paciente.
+                        camasRepository.flush();
+                }
+
                 cama.setPaciente(paciente);
                 cama.setEstado(EstadoCama.OCUPADA);
                 camasRepository.save(cama);
@@ -212,7 +283,41 @@ public class PacienteService {
     @Transactional(readOnly = true)
     public List<PacienteDTOs.ListadoResponse> listar(Boolean estado) {
         boolean estadoFiltro = estado == null || estado;
-        List<PacienteEntity> pacientes = pacienteRepository.findByEstadoOrderByIdAsc(estadoFiltro);
+        return mapearListado(pacienteRepository.findByEstadoOrderByIdAsc(estadoFiltro));
+    }
+
+    /** Busca pacientes por nombre o CUI, incluyendo activos y egresados. */
+    @Transactional(readOnly = true)
+    public List<PacienteDTOs.ListadoResponse> buscar(String texto) {
+        String termino = normalizarBusqueda(texto);
+        if (termino.isEmpty()) {
+            return List.of();
+        }
+
+        List<PacienteEntity> coincidencias = pacienteRepository.findAll().stream()
+                .filter(paciente -> coincideBusqueda(paciente, termino))
+                .toList();
+        return mapearListado(coincidencias);
+    }
+
+    private boolean coincideBusqueda(PacienteEntity paciente, String termino) {
+        PersonaEntity persona = paciente.getPersona();
+        return normalizarBusqueda(persona.getNombreCompleto()).contains(termino)
+                || normalizarBusqueda(persona.getCui()).contains(termino);
+    }
+
+    private String normalizarBusqueda(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        return java.text.Normalizer.normalize(valor, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replaceAll("\\s+", " ")
+                .trim()
+                .toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private List<PacienteDTOs.ListadoResponse> mapearListado(List<PacienteEntity> pacientes) {
         if (pacientes.isEmpty()) {
             return List.of();
         }
@@ -224,24 +329,353 @@ public class PacienteService {
 
         Map<Long, TipoAtencion> tratamientoPorPaciente = new HashMap<>();
         Map<Long, Long> episodioIdPorPaciente = new HashMap<>();
+        Map<Long, LocalDateTime> fechaIngresoPorPaciente = new HashMap<>();
         episodioRepository.findByPaciente_IdInOrderByIdDesc(pacienteIds).forEach(episodio -> {
                 Long pacienteId = episodio.getPaciente().getId();
                 tratamientoPorPaciente.putIfAbsent(pacienteId, episodio.getTipoAtencion());
                 // El episodio activo más reciente es el que abre la pantalla de atención médica
                 if (episodio.isEstado()) {
                         episodioIdPorPaciente.putIfAbsent(pacienteId, episodio.getId());
+                        fechaIngresoPorPaciente.putIfAbsent(pacienteId, episodio.getFechaHoraIngreso());
                 }
         });
 
         return pacientes.stream()
                 .map(paciente -> new PacienteDTOs.ListadoResponse(
+                        paciente.getId(),
                         codigosPorPaciente.get(paciente.getId()),
                         episodioIdPorPaciente.get(paciente.getId()),
+                        fechaIngresoPorPaciente.get(paciente.getId()),
                         paciente.getPersona().getNombreCompleto(),
+                        paciente.getPersona().getCui(),
+                        paciente.getPersona().getSexo(),
                         paciente.getPersona().getTelefono(),
                         tratamientoPorPaciente.get(paciente.getId()),
                         paciente.isEstado()))
                 .toList();
+    }
+
+    /** Detalle del paciente con su episodio activo, cama y responsable. */
+    @Transactional(readOnly = true)
+    public PacienteDTOs.DetalleResponse obtenerDetalle(Long pacienteId) {
+        PacienteEntity paciente = buscarPaciente(pacienteId);
+        PersonaEntity persona = paciente.getPersona();
+        EpisodioEntity episodio = episodioRepository
+                .findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(pacienteId)
+                .orElse(null);
+        // Para precargar al responsable de un egresado se usa su último episodio, aunque esté cerrado.
+        EpisodioEntity episodioConResponsable = episodio != null
+                ? episodio
+                : episodioRepository.findFirstByPaciente_IdOrderByIdDesc(pacienteId).orElse(null);
+        camasEntity cama = camasRepository.findByPaciente_IdAndActivoTrue(pacienteId).orElse(null);
+        ExpedienteEntity expediente = expedienteRepository.findByPacienteId(pacienteId).orElse(null);
+
+        return new PacienteDTOs.DetalleResponse(
+                paciente.getId(),
+                expediente != null ? expediente.getCodigo() : null,
+                persona.getNombreCompleto(),
+                unirPartes(persona.getPrimerNombre(), persona.getSegundoNombre(), persona.getOtrosNombres()),
+                unirPartes(persona.getPrimerApellido(), persona.getSegundoApellido()),
+                persona.getCui(),
+                persona.getFechaNacimiento(),
+                calcularEdad(persona.getFechaNacimiento()),
+                persona.getSexo(),
+                persona.getTelefono(),
+                persona.getEmail(),
+                paciente.getEstadoCivil(),
+                paciente.getDireccion(),
+                paciente.getOcupacion(),
+                paciente.isEstado(),
+                episodio != null ? episodio.getId() : null,
+                episodio != null ? episodio.getTipoAtencion() : null,
+                episodio != null ? episodio.getDescripcion() : null,
+                episodio != null ? episodio.getFechaHoraIngreso() : null,
+                episodio != null && episodio.getMedico() != null ? episodio.getMedico().getId() : null,
+                episodio != null && episodio.getMedico() != null && episodio.getMedico().getPersona() != null
+                        ? episodio.getMedico().getPersona().getNombreCompleto()
+                        : null,
+                cama != null ? cama.getId() : null,
+                cama != null ? cama.getCodigo() : null,
+                responsableDetalle(episodioConResponsable),
+                referenciaDetalle(episodioConResponsable));
+    }
+
+    /**
+     * Actualiza los datos del paciente y, cuando el episodio viene en la solicitud, también los datos
+     * de su atención activa. El archivo de referencia es opcional y se registra como documento del
+     * episodio.
+     */
+    @Transactional
+    public PacienteDTOs.Response actualizar(
+            Long pacienteId, PacienteDTOs.ActualizacionRequest request, MultipartFile archivoReferencia) {
+        if (request == null || request.paciente() == null || request.paciente().persona() == null) {
+            throw new IllegalArgumentException("Los datos del paciente son obligatorios");
+        }
+
+        PacienteEntity paciente = buscarPaciente(pacienteId);
+        PersonaEntity persona = paciente.getPersona();
+        PacienteDTOs.PersonaRequest datosPersona = request.paciente().persona();
+
+        if (datosPersona.fechaNacimiento() == null || datosPersona.fechaNacimiento().isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("La fecha de nacimiento del paciente no es válida");
+        }
+
+        String cui = StringNormalizer.normalizarNullable(datosPersona.cui());
+        if (cui != null) {
+            personaRepository.findByCui(cui).ifPresent(otra -> {
+                if (!otra.getId().equals(persona.getId())) {
+                    throw new IllegalArgumentException("El CUI ya está registrado por otra persona");
+                }
+            });
+        }
+
+        persona.setCui(cui);
+        persona.setSexo(datosPersona.sexo());
+        persona.setFechaNacimiento(datosPersona.fechaNacimiento());
+        persona.setTelefono(StringNormalizer.normalizarNullable(datosPersona.telefono()));
+        persona.setEmail(StringNormalizer.normalizarNullable(datosPersona.email()));
+        persona.asignarNombres(datosPersona.nombres(), datosPersona.apellidos());
+        personaRepository.save(persona);
+
+        paciente.setEstadoCivil(request.paciente().estadoCivil());
+        paciente.setDireccion(StringNormalizer.normalizarNullable(request.paciente().direccion()));
+        paciente.setOcupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()));
+        pacienteRepository.save(paciente);
+
+        EpisodioEntity episodio = episodioRepository
+                .findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(pacienteId)
+                .orElse(null);
+
+        Long responsableId = null;
+        Long referenciaId = null;
+        if (request.episodio() != null) {
+            if (episodio == null) {
+                throw new IllegalArgumentException("El paciente no tiene un episodio activo para actualizar");
+            }
+            responsableId = actualizarEpisodio(paciente, persona, episodio, request, archivoReferencia);
+            referenciaId = episodio.getReferencia() != null ? episodio.getReferencia().getId() : null;
+        } else if (archivoReferencia != null) {
+            throw new IllegalArgumentException("No hay un episodio activo para adjuntar documentos");
+        }
+
+        ExpedienteEntity expediente = expedienteRepository.findByPacienteId(pacienteId).orElse(null);
+        return new PacienteDTOs.Response(
+                pacienteId,
+                expediente != null ? expediente.getId() : null,
+                episodio != null ? episodio.getId() : null,
+                episodio != null ? episodio.getFechaHoraIngreso() : null,
+                responsableId,
+                referenciaId,
+                true);
+    }
+
+    /** Actualiza la atención activa y devuelve el identificador del responsable resultante. */
+    private Long actualizarEpisodio(
+            PacienteEntity paciente,
+            PersonaEntity persona,
+            EpisodioEntity episodio,
+            PacienteDTOs.ActualizacionRequest request,
+            MultipartFile archivoReferencia) {
+        PacienteDTOs.EpisodioRequest datos = request.episodio();
+        if (datos.tipoAtencion() == null) {
+            throw new IllegalArgumentException("El tipo de atención es obligatorio");
+        }
+
+        boolean menorDeEdad = esMenorDeEdad(persona.getFechaNacimiento());
+        boolean requiereResponsable = datos.tipoAtencion() == TipoAtencion.HOSPITALIZACION
+                || (datos.tipoAtencion() == TipoAtencion.EMERGENCIA && menorDeEdad);
+        if (requiereResponsable && datos.responsable() == null) {
+            throw new IllegalArgumentException("El responsable es obligatorio para esta atención");
+        }
+        if (datos.responsable() != null) {
+            validarDatosPersonaResponsable(datos.responsable().persona());
+            String cuiResponsable = StringNormalizer.normalizarTexto(datos.responsable().persona().cui());
+            if (persona.getCui() != null && persona.getCui().equals(cuiResponsable)) {
+                throw new IllegalArgumentException("El paciente no puede ser su propio responsable");
+            }
+        }
+
+        UsuarioEntity medico = usuarioRepository.findById(datos.medicoId())
+                .orElseThrow(() -> new IllegalArgumentException("Médico no encontrado"));
+        parentescoEntity parentesco = cargarParentesco(datos.responsable());
+        institucionEntity institucion = cargarInstitucion(datos.referencia());
+
+        camasEntity camaSolicitada = datos.tipoAtencion() == TipoAtencion.HOSPITALIZACION
+                ? cargarCama(request.paciente().camaId(), paciente)
+                : null;
+        if (datos.tipoAtencion() == TipoAtencion.HOSPITALIZACION && camaSolicitada == null) {
+            throw new IllegalArgumentException("La cama es obligatoria para la hospitalización");
+        }
+
+        episodio.setTipoAtencion(datos.tipoAtencion());
+        episodio.setDescripcion(StringNormalizer.normalizarTexto(datos.descripcion()));
+        episodio.setMedico(medico);
+        actualizarResponsable(episodio, datos.responsable(), parentesco);
+        actualizarReferencia(episodio, datos.referencia(), institucion);
+        episodioRepository.save(episodio);
+
+        actualizarCama(paciente, camaSolicitada);
+
+        if (archivoReferencia != null) {
+            Long usuarioId = request.usuarioId() != null ? request.usuarioId() : datos.medicoId();
+            documentoEpisodioService.guardarTodos(episodio, usuarioId,
+                    Map.of(TipoDocumentoEpisodio.REFERENCIA, List.of(archivoReferencia)));
+        }
+
+        return episodio.getPersonaResponsable() != null ? episodio.getPersonaResponsable().getId() : null;
+    }
+
+    private void actualizarResponsable(
+            EpisodioEntity episodio,
+            PacienteDTOs.ResponsableRequest datos,
+            parentescoEntity parentesco) {
+        PersonaResponsableEntity actual = episodio.getPersonaResponsable();
+        if (datos == null) {
+            episodio.setPersonaResponsable(null);
+            if (actual != null) {
+                actual.setEstado(false);
+                responsableRepository.save(actual);
+            }
+            return;
+        }
+
+        PersonaEntity personaResponsable = resolverPersonaResponsable(datos.persona(), actual);
+        if (actual == null) {
+            actual = PersonaResponsableEntity.builder()
+                    .persona(personaResponsable)
+                    .parentesco(parentesco)
+                    .direccion(StringNormalizer.normalizarNullable(datos.direccion()))
+                    .estado(true)
+                    .build();
+        } else {
+            actual.setPersona(personaResponsable);
+            actual.setParentesco(parentesco);
+            actual.setDireccion(StringNormalizer.normalizarNullable(datos.direccion()));
+            actual.setEstado(true);
+        }
+        episodio.setPersonaResponsable(responsableRepository.save(actual));
+    }
+
+    private PersonaEntity resolverPersonaResponsable(
+            PacienteDTOs.PersonaRequest datos, PersonaResponsableEntity actual) {
+        String cui = StringNormalizer.normalizarTexto(datos.cui());
+        PersonaEntity personaActual = actual != null ? actual.getPersona() : null;
+
+        if (personaActual != null && cui.equals(personaActual.getCui())) {
+            personaActual.setSexo(datos.sexo());
+            personaActual.setFechaNacimiento(datos.fechaNacimiento());
+            personaActual.setTelefono(StringNormalizer.normalizarNullable(datos.telefono()));
+            personaActual.setEmail(StringNormalizer.normalizarNullable(datos.email()));
+            personaActual.asignarNombres(datos.nombres(), datos.apellidos());
+            return personaRepository.save(personaActual);
+        }
+
+        return personaRepository.findByCui(cui).orElseGet(() -> guardarPersona(datos));
+    }
+
+    private void actualizarReferencia(
+            EpisodioEntity episodio,
+            PacienteDTOs.ReferenciaRequest datos,
+            institucionEntity institucion) {
+        ReferenciaEntity actual = episodio.getReferencia();
+        if (datos == null) {
+            episodio.setReferencia(null);
+            if (actual != null) {
+                actual.setEstado(false);
+                referenciaRepository.save(actual);
+            }
+            return;
+        }
+
+        if (actual == null) {
+            actual = ReferenciaEntity.builder()
+                    .institucion(institucion)
+                    .motivoReferencia(StringNormalizer.normalizarTexto(datos.motivoReferencia()))
+                    .estado(true)
+                    .build();
+        } else {
+            actual.setInstitucion(institucion);
+            actual.setMotivoReferencia(StringNormalizer.normalizarTexto(datos.motivoReferencia()));
+            actual.setEstado(true);
+        }
+        episodio.setReferencia(referenciaRepository.save(actual));
+    }
+
+    /** Libera la cama anterior y ocupa la nueva cuando cambió. */
+    private void actualizarCama(PacienteEntity paciente, camasEntity nueva) {
+        camasEntity actual = camasRepository.findByPaciente_Id(paciente.getId()).orElse(null);
+
+        if (actual != null && (nueva == null || !actual.getId().equals(nueva.getId()))) {
+            actual.setPaciente(null);
+            actual.setEstado(EstadoCama.DISPONIBLE);
+            camasRepository.save(actual);
+            // Se confirma la liberación antes de ocupar la nueva para no chocar con la restricción
+            // única de la cama por paciente.
+            camasRepository.flush();
+        }
+
+        if (nueva != null && (actual == null || !nueva.getId().equals(actual.getId()))) {
+            nueva.setPaciente(paciente);
+            nueva.setEstado(EstadoCama.OCUPADA);
+            camasRepository.save(nueva);
+        }
+    }
+
+    private PacienteDTOs.ResponsableDetalle responsableDetalle(EpisodioEntity episodio) {
+        if (episodio == null || episodio.getPersonaResponsable() == null) {
+            return null;
+        }
+        PersonaResponsableEntity responsable = episodio.getPersonaResponsable();
+        PersonaEntity persona = responsable.getPersona();
+        if (persona == null) {
+            return null;
+        }
+        return new PacienteDTOs.ResponsableDetalle(
+                responsable.getId(),
+                persona.getCui(),
+                unirPartes(persona.getPrimerNombre(), persona.getSegundoNombre(), persona.getOtrosNombres()),
+                unirPartes(persona.getPrimerApellido(), persona.getSegundoApellido()),
+                persona.getFechaNacimiento(),
+                persona.getSexo(),
+                persona.getTelefono(),
+                responsable.getParentesco() != null ? responsable.getParentesco().getId() : null,
+                responsable.getParentesco() != null ? responsable.getParentesco().getNombre() : null,
+                responsable.getDireccion());
+    }
+
+    private PacienteDTOs.ReferenciaDetalle referenciaDetalle(EpisodioEntity episodio) {
+        if (episodio == null || episodio.getReferencia() == null) {
+            return null;
+        }
+        ReferenciaEntity referencia = episodio.getReferencia();
+        return new PacienteDTOs.ReferenciaDetalle(
+                referencia.getId(),
+                referencia.getInstitucion() != null ? referencia.getInstitucion().getId() : null,
+                referencia.getInstitucion() != null ? referencia.getInstitucion().getNombre() : null,
+                referencia.getMotivoReferencia());
+    }
+
+    private PacienteEntity buscarPaciente(Long pacienteId) {
+        if (pacienteId == null) {
+            throw new IllegalArgumentException("El paciente es obligatorio");
+        }
+        return pacienteRepository.findById(pacienteId)
+                .orElseThrow(() -> new IllegalArgumentException("Paciente no encontrado con el ID: " + pacienteId));
+    }
+
+    private boolean esMenorDeEdad(LocalDate fechaNacimiento) {
+        return fechaNacimiento != null && fechaNacimiento.plusYears(18).isAfter(LocalDate.now());
+    }
+
+    private Integer calcularEdad(LocalDate fechaNacimiento) {
+        return fechaNacimiento == null ? null : java.time.Period.between(fechaNacimiento, LocalDate.now()).getYears();
+    }
+
+    private String unirPartes(String... partes) {
+        return java.util.stream.Stream.of(partes)
+                .filter(parte -> parte != null && !parte.isBlank())
+                .map(String::trim)
+                .collect(java.util.stream.Collectors.joining(" "));
     }
 
     private ExpedienteEntity obtenerOCrearExpediente(PacienteEntity paciente) {

@@ -23,6 +23,25 @@ public class PacienteController {
         return ResponseEntity.ok(service.listar(estado));
     }
 
+    @GetMapping("/buscar")
+    public ResponseEntity<List<PacienteDTOs.ListadoResponse>> buscar(
+            @RequestParam("texto") String texto) {
+        return ResponseEntity.ok(service.buscar(texto));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<PacienteDTOs.DetalleResponse> obtenerDetalle(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(service.obtenerDetalle(id));
+    }
+
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<PacienteDTOs.Response> actualizar(
+            @PathVariable("id") Long id,
+            @Valid @RequestPart("request") PacienteDTOs.ActualizacionRequest request,
+            @RequestPart(value = "archivoReferencia", required = false) MultipartFile archivoReferencia) {
+        return ResponseEntity.ok(service.actualizar(id, request, archivoReferencia));
+    }
+
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PacienteDTOs.Response> crear(@Valid @RequestBody PacienteDTOs.Request request) {
         return new ResponseEntity<>(service.crear(request), HttpStatus.CREATED);

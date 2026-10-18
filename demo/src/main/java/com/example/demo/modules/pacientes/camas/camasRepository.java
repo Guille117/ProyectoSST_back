@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface camasRepository extends JpaRepository<camasEntity, Long> {
@@ -15,6 +16,8 @@ public interface camasRepository extends JpaRepository<camasEntity, Long> {
     boolean existsByHabitacion_Id(Long habitacionId);
     boolean existsByTipo_Id(Long tipoId);
     List<camasEntity> findByEstadoAndActivoTrueAndPacienteIsNotNullOrderByCodigoAsc(EstadoCama estado);
+    Optional<camasEntity> findByPaciente_IdAndActivoTrue(Long pacienteId);
+    Optional<camasEntity> findByPaciente_Id(Long pacienteId);
 
         @Query("""
                         SELECT c FROM camasEntity c

@@ -4,6 +4,7 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,10 @@ public class EpisodioEntity {
 
     @Column(nullable = false, length = 2000)
     private String descripcion;
+
+    /** Fecha y hora en que el paciente ingresó al episodio de atención. */
+    @Column(name = "fecha_hora_ingreso", nullable = false, updatable = false)
+    private LocalDateTime fechaHoraIngreso;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "paciente_id", nullable = false)
