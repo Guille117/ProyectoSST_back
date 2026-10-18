@@ -1,5 +1,6 @@
 package com.example.demo.modules.farmacia.medicamentoLog;
 
+import com.example.demo.modules.farmacia.lotes.LoteRepository;
 import com.example.demo.modules.farmacia.marca.marcaEntity;
 import com.example.demo.modules.farmacia.marca.marcaRepository;
 import com.example.demo.modules.farmacia.presentacion.presentacionEntity;
@@ -39,6 +40,8 @@ class medicamentoLogServiceTest {
     private viaAdminRepository viaAdminRepository;
     @Mock
     private presentacionRepository presentacionRepository;
+    @Mock
+    private LoteRepository loteRepository;
 
     @InjectMocks
     private medicamentoLogService service;
@@ -165,10 +168,12 @@ class medicamentoLogServiceTest {
                 .presentacion(presentacion)
                 .build();
         when(repository.findByEstado(true)).thenReturn(List.of(medicamento));
+        when(loteRepository.sumDisponibleMedicamento(any(), any())).thenReturn(15L);
 
         List<medicamentoLogDTOs.MedicamentoLogResponse> resultado = service.obtenerTodos(true);
 
         assertEquals("mg", resultado.get(0).unidadMedida());
+        assertEquals(15, resultado.get(0).disponible());
         assertEquals(true, resultado.get(0).estado());
     }
 

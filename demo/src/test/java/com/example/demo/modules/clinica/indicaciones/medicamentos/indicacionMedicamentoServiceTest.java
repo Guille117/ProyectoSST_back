@@ -52,11 +52,12 @@ class indicacionMedicamentoServiceTest {
         });
 
         indicacionMedicamentoDTOs.Response response = service.crear(new indicacionMedicamentoDTOs.Request(
-                9L, 2, 8, 7, TipoDuracion.DIAS, "  Tomar con alimentos ", 1L, 2L));
+                9L, null, "  tabletas de 400 mg ", 2, 8, 7, TipoDuracion.DIAS, "  Tomar con alimentos ", 1L, 2L));
 
         assertEquals(30L, response.id());
         assertEquals(9L, response.medicamentoLogId());
         assertEquals("Ibuprofeno", response.medicamento());
+        assertEquals("tabletas de 400 mg", response.presentacion());
         assertEquals(2, response.cantidad());
         assertEquals(8, response.frecuencia());
         assertEquals(7, response.duracion());
@@ -68,6 +69,38 @@ class indicacionMedicamentoServiceTest {
     }
 
     @Test
+    void crear_conMedicamentoLibre_debeGuardarSinCatalogo() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> {
+            indicacionMedicamentoEntity entity = invocation.getArgument(0);
+            entity.setId(31L);
+            return entity;
+        });
+
+        indicacionMedicamentoDTOs.Response response = service.crear(
+                new indicacionMedicamentoDTOs.Request(
+                        null, "  Aspirina 500 mg cada 8 horas ", null, 1, 8, 7,
+                        TipoDuracion.DIAS, null, 1L, 2L));
+
+        assertEquals(31L, response.id());
+        assertNull(response.medicamentoLogId());
+        assertEquals("Aspirina 500 mg cada 8 horas", response.medicamentoLibre());
+        assertEquals("Aspirina 500 mg cada 8 horas", response.medicamento());
+        verifyNoInteractions(medicamentoLogRepository);
+    }
+
+    @Test
+    void crear_sinCatalogoNiTextoLibre_debeFallar() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(new indicacionMedicamentoDTOs.Request(
+                        null, "   ", null, 1, 8, 7, TipoDuracion.DIAS, null, 1L, 2L)));
+
+        assertEquals("El medicamento es obligatorio", exception.getMessage());
+    }
+
+    @Test
     void crear_conDosisUnica_debeGuardarDuracionNula() {
         when(medicamentoLogRepository.findById(9L)).thenReturn(Optional.of(medicamento(9L, "Ibuprofeno")));
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
@@ -75,7 +108,7 @@ class indicacionMedicamentoServiceTest {
         when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         indicacionMedicamentoDTOs.Response response = service.crear(new indicacionMedicamentoDTOs.Request(
-                9L, 1, 24, 99, TipoDuracion.DOSIS_UNICA, null, 1L, 2L));
+                9L, null, null, 1, 24, 99, TipoDuracion.DOSIS_UNICA, null, 1L, 2L));
 
         assertNull(response.duracion());
         assertEquals(TipoDuracion.DOSIS_UNICA, response.tipoDuracion());
@@ -88,7 +121,7 @@ class indicacionMedicamentoServiceTest {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.crear(new indicacionMedicamentoDTOs.Request(
-                        9L, 2, 8, null, TipoDuracion.DIAS, null, 1L, 2L)));
+                        9L, null, null, 2, 8, null, TipoDuracion.DIAS, null, 1L, 2L)));
 
         assertEquals("La duración es obligatoria cuando el tipo es DIAS", exception.getMessage());
         verify(repository, never()).save(any());
@@ -101,7 +134,7 @@ class indicacionMedicamentoServiceTest {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.crear(new indicacionMedicamentoDTOs.Request(
-                        99L, 2, 8, 7, TipoDuracion.DIAS, null, 1L, 2L)));
+                        99L, null, null, 2, 8, 7, TipoDuracion.DIAS, null, 1L, 2L)));
 
         assertEquals("Medicamento no encontrado con el ID: 99", exception.getMessage());
         verify(repository, never()).save(any());
@@ -130,10 +163,11 @@ class indicacionMedicamentoServiceTest {
         when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         indicacionMedicamentoDTOs.Response response = service.actualizar(6L, new indicacionMedicamentoDTOs.Request(
-                10L, 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo esquema", 1L, 3L));
+                10L, null, "jarabe de 120 ml", 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo esquema", 1L, 3L));
 
         assertEquals(10L, response.medicamentoLogId());
         assertEquals("Paracetamol", response.medicamento());
+        assertEquals("jarabe de 120 ml", response.presentacion());
         assertEquals(3, response.cantidad());
         assertNull(response.duracion());
         assertEquals(TipoDuracion.TIEMPO_INDEFINIDO, response.tipoDuracion());

@@ -22,4 +22,10 @@ public class examenArchivoEntity {
 
     @Column(name = "url_archivo", nullable = false, length = 500)
     private String urlArchivo;
+
+    @Column(name = "nombre_original", length = 255)
+    private String nombreOriginal;
+
+    @Column(name = "tamano")
+    private Long tamano;
 }

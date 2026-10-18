@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -34,6 +35,7 @@ public class cuidadoService {
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
                 .episodio(buscarEpisodio(request.episodioId()))
                 .usuario(buscarUsuario(request.usuarioId()))
+                .fecha(LocalDateTime.now())
                 .build();
 
         return toResponse(repository.save(entity));
@@ -162,6 +164,7 @@ public class cuidadoService {
                 entity.getEpisodio().getId(),
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
+                entity.getFecha(),
                 entity.getEstado());
     }
 }

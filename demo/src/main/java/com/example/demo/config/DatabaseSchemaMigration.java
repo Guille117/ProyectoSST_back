@@ -46,21 +46,32 @@ public class DatabaseSchemaMigration {
             return;
         }
 
-        hacerColumnaNullable("cui", "VARCHAR(13)");
-        hacerColumnaNullable("sexo", "VARCHAR(20)");
-        hacerColumnaNullable("fecha_nacimiento", "DATE");
+        hacerColumnaNullable("personas", "cui", "VARCHAR(13)");
+        hacerColumnaNullable("personas", "sexo", "VARCHAR(20)");
+        hacerColumnaNullable("personas", "fecha_nacimiento", "DATE");
     }
 
-    private void hacerColumnaNullable(String columna, String tipoSql) {
+    /** Las indicaciones pueden guardar un medicamento libre cuando no está en el catálogo. */
+    @PostConstruct
+    public void permitirMedicamentoLibreEnIndicaciones() {
+        if (!existeTabla("indicaciones_medicas")) {
+            return;
+        }
+
+        hacerColumnaNullable("indicaciones_medicas", "medicamento_log_id", "BIGINT");
+    }
+
+    private void hacerColumnaNullable(String tabla, String columna, String tipoSql) {
         String nulable = jdbcTemplate.queryForObject("""
                 SELECT IS_NULLABLE
                 FROM information_schema.COLUMNS
                 WHERE TABLE_SCHEMA = DATABASE()
-                  AND TABLE_NAME = 'personas'
+                  AND TABLE_NAME = ?
                   AND COLUMN_NAME = ?
-                """, String.class, columna);
+                """, String.class, tabla, columna);
         if ("NO".equalsIgnoreCase(nulable)) {
-            jdbcTemplate.execute("ALTER TABLE personas MODIFY COLUMN " + columna + " " + tipoSql + " NULL");
+            jdbcTemplate.execute(
+                    "ALTER TABLE " + tabla + " MODIFY COLUMN " + columna + " " + tipoSql + " NULL");
         }
     }
 

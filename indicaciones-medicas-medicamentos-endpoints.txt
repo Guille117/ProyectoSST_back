@@ -8,6 +8,7 @@ POST   /api/v1/examenes
 GET    /api/v1/examenes
 GET    /api/v1/examenes/buscar?episodioId=5&estado=ACTIVO
 GET    /api/v1/examenes/{id}
+GET    /api/v1/examenes/{id}/archivos/{archivoId}
 PUT    /api/v1/examenes/{id}
 PATCH  /api/v1/examenes/{id}/estado?estado=ELIMINADO
 DELETE /api/v1/examenes/{id}/archivos/{archivoId}
@@ -17,6 +18,17 @@ ESTADOS PERMITIDOS
 - ACTIVO
 - ELIMINADO
 - No existe el estado FINALIZADO para examenes.
+
+ARCHIVOS DE UN EXAMEN
+- Cada examen admite varios archivos, de tipos distintos, en la misma solicitud.
+- Tipos permitidos: application/pdf, image/jpeg, image/png, text/plain.
+- Cada archivo admite hasta 10 MiB. El limite total de la solicitud multipart es 100 MB.
+- Cada elemento de "archivos" en las respuestas incluye:
+  - id: identificador del archivo.
+  - nombreOriginal: nombre con el que se subio el archivo.
+  - urlArchivo: ruta relativa del archivo almacenado.
+  - tamano: tamano en bytes; puede ser null en registros antiguos.
+- Para ver o descargar un archivo se usa el endpoint GET indicado en el resumen.
 
 
 1. CREAR EXAMEN
@@ -34,7 +46,7 @@ Que recibe:
   - usuarioId: obligatorio, numero entero positivo; el usuario debe existir.
 - Parte opcional "archivos": uno o varios archivos binarios.
   Para varios archivos, repetir la parte con el nombre "archivos".
-- Tipos de archivo admitidos: application/pdf, image/jpeg, image/png.
+- Tipos de archivo admitidos: application/pdf, image/jpeg, image/png, text/plain.
 - Cada archivo debe tener contenido y no superar 10 MiB (10 * 1024 * 1024 bytes).
   El servidor valida que la firma del contenido corresponda al tipo declarado.
 - No enviar los archivos como base64 ni dentro del JSON.
@@ -315,3 +327,21 @@ Que envia:
 - No devuelve body ni JSON de respuesta.
 - Es una eliminacion logica: cambia el estado a ELIMINADO.
 - No borra fisicamente el examen ni sus archivos adjuntos.
+
+
+9. OBTENER ARCHIVO DE UN EXAMEN
+
+Metodo: GET
+Ruta: /api/v1/examenes/{id}/archivos/{archivoId}
+
+Que recibe:
+- Variable de ruta obligatoria: id, ID del examen.
+- Variable de ruta obligatoria: archivoId, ID del archivo asociado al examen.
+- No recibe body ni JSON de entrada.
+- Ejemplo: /api/v1/examenes/40/archivos/101
+
+Que envia:
+- HTTP 200 OK.
+- El contenido binario del archivo.
+- Content-Type segun el tipo: application/pdf, image/jpeg, image/png o text/plain.
+- Si el archivo no existe o no pertenece al examen, responde con error.

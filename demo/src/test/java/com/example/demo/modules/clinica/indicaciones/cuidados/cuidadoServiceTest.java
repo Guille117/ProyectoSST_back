@@ -12,6 +12,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,6 +55,7 @@ class cuidadoServiceTest {
         assertEquals(TipoDuracion.DIAS, response.tipoDuracion());
         assertEquals("Cada turno", response.observacion());
         assertEquals("Carlos Mendez", response.usuarioNombre());
+        assertNotNull(response.fecha());
         assertEquals(EstadoCuidado.EN_PROCESO, response.estado());
     }
 
@@ -152,6 +154,7 @@ class cuidadoServiceTest {
                 .tipoDuracion(tipo)
                 .episodio(episodio(1L))
                 .usuario(usuario(2L, "Carlos Mendez"))
+                .fecha(LocalDateTime.of(2026, 10, 16, 11, 0))
                 .estado(estado)
                 .build();
     }

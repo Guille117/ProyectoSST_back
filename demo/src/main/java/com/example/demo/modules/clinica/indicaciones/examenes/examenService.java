@@ -90,6 +90,19 @@ public class examenService {
     }
 
     @Transactional(readOnly = true)
+    public ExamenArchivoStorage.Archivo cargarArchivo(Long examenId, Long archivoId) {
+        examenEntity entity = repository.findById(examenId)
+                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + examenId));
+
+        examenArchivoEntity archivo = entity.getArchivos().stream()
+                .filter(item -> archivoId.equals(item.getId()))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Archivo del examen no encontrado con el ID: " + archivoId));
+
+        return archivoStorage.cargar(archivo.getUrlArchivo());
+    }
+
+    @Transactional(readOnly = true)
     public examenDTOs.Response obtenerPorId(Long id) {
         return repository.findById(id).map(this::toResponse)
                 .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
@@ -142,11 +155,35 @@ public class examenService {
             rutasGuardadas.add(ruta);
             examenArchivoEntity archivoEntity = examenArchivoEntity.builder()
                     .examen(examen)
+                    .nombreOriginal(nombreOriginal(archivo))
                     .urlArchivo(ruta)
+                    .tamano(archivo.getSize())
                     .build();
             archivoRepository.save(archivoEntity);
             examen.getArchivos().add(archivoEntity);
         }
+    }
+
+    private String nombreOriginal(MultipartFile archivo) {
+        String nombre = archivo.getOriginalFilename();
+        if (nombre == null || nombre.isBlank()) {
+            nombre = "archivo";
+        }
+        nombre = nombre.trim();
+        return nombre.length() > 255 ? nombre.substring(0, 255) : nombre;
+    }
+
+    private String nombreOriginal(examenArchivoEntity archivo) {
+        String nombre = archivo.getNombreOriginal();
+        if (nombre != null && !nombre.isBlank()) {
+            return nombre;
+        }
+        String ruta = archivo.getUrlArchivo();
+        if (ruta == null || ruta.isBlank()) {
+            return "archivo";
+        }
+        int separador = ruta.lastIndexOf('/');
+        return separador >= 0 ? ruta.substring(separador + 1) : ruta;
     }
 
     private void eliminarArchivosSilencioso(List<String> rutasGuardadas, RuntimeException ex) {
@@ -203,7 +240,11 @@ public class examenService {
 
     private examenDTOs.Response toResponse(examenEntity entity) {
         List<examenDTOs.ArchivoResponse> archivos = entity.getArchivos().stream()
-                .map(archivo -> new examenDTOs.ArchivoResponse(archivo.getId(), archivo.getUrlArchivo()))
+                .map(archivo -> new examenDTOs.ArchivoResponse(
+                        archivo.getId(),
+                        nombreOriginal(archivo),
+                        archivo.getUrlArchivo(),
+                        archivo.getTamano()))
                 .toList();
 
         return new examenDTOs.Response(

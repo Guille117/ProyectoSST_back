@@ -26,7 +26,9 @@ public class examenDTOs {
 
     public record ArchivoResponse(
             Long id,
-            String urlArchivo
+            String nombreOriginal,
+            String urlArchivo,
+            Long tamano
     ) {}
 
     public record Response(

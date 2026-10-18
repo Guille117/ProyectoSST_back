@@ -57,7 +57,7 @@ class medicamentoLogControllerTest {
     void obtenerTodos_debeRetornarFormatoDeListadoSolicitado() throws Exception {
         when(service.obtenerTodos(true)).thenReturn(java.util.List.of(
                 new medicamentoLogDTOs.MedicamentoLogResponse(
-                        1L, "Amoxicilina", "MED-1", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", true)));
+                        1L, "Amoxicilina", "MED-1", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", 25, true)));
 
         mockMvc.perform(get("/api/v1/medicamentoLog"))
                 .andExpect(status().isOk())
@@ -92,7 +92,7 @@ class medicamentoLogControllerTest {
     void buscar_debeAceptarFiltrosDeNombreYCatalogos() throws Exception {
         when(service.buscar("amox", 2L, 3L, 4L, true)).thenReturn(java.util.List.of(
                 new medicamentoLogDTOs.MedicamentoLogResponse(
-                        7L, "Amoxicilina", "MED-7", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", true)));
+                        7L, "Amoxicilina", "MED-7", new BigDecimal("500"), "Marca A", "Tableta", "Oral", "mg", 25, true)));
 
         mockMvc.perform(get("/api/v1/medicamentoLog/buscar")
                         .param("nombre", "amox")

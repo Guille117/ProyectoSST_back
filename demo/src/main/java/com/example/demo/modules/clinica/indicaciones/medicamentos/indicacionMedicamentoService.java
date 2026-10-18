@@ -30,8 +30,13 @@ public class indicacionMedicamentoService {
             throw new IllegalArgumentException("La solicitud es obligatoria");
         }
 
+        medicamentoLogEntity medicamento = resolverMedicamentoLog(request.medicamentoLogId());
+        String medicamentoLibre = resolverMedicamentoLibre(request);
+
         indicacionMedicamentoEntity entity = indicacionMedicamentoEntity.builder()
-                .medicamentoLog(buscarMedicamento(request.medicamentoLogId()))
+                .medicamentoLog(medicamento)
+                .medicamentoLibre(medicamentoLibre)
+                .presentacion(StringNormalizer.normalizarNullable(request.presentacion()))
                 .cantidad(validarCantidad(request.cantidad()))
                 .frecuencia(validarFrecuencia(request.frecuencia()))
                 .duracion(DuracionValidator.validar(request.tipoDuracion(), request.duracion()))
@@ -54,7 +59,9 @@ public class indicacionMedicamentoService {
         indicacionMedicamentoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
 
-        entity.setMedicamentoLog(buscarMedicamento(request.medicamentoLogId()));
+        entity.setMedicamentoLog(resolverMedicamentoLog(request.medicamentoLogId()));
+        entity.setMedicamentoLibre(resolverMedicamentoLibre(request));
+        entity.setPresentacion(StringNormalizer.normalizarNullable(request.presentacion()));
         entity.setCantidad(validarCantidad(request.cantidad()));
         entity.setFrecuencia(validarFrecuencia(request.frecuencia()));
         entity.setDuracion(DuracionValidator.validar(request.tipoDuracion(), request.duracion()));
@@ -133,11 +140,24 @@ public class indicacionMedicamentoService {
         return frecuencia;
     }
 
-    private medicamentoLogEntity buscarMedicamento(Long medicamentoLogId) {
-        if (medicamentoLogId == null) {
-            throw new IllegalArgumentException("El medicamento es obligatorio");
+    /** El medicamento puede venir del catálogo o escribirse libremente si no está registrado. */
+    private medicamentoLogEntity resolverMedicamentoLog(Long medicamentoLogId) {
+        return medicamentoLogId == null ? null : buscarMedicamento(medicamentoLogId);
+    }
+
+    private String resolverMedicamentoLibre(indicacionMedicamentoDTOs.Request request) {
+        if (request.medicamentoLogId() != null) {
+            return null;
         }
 
+        String libre = StringNormalizer.normalizarNullable(request.medicamentoLibre());
+        if (libre == null) {
+            throw new IllegalArgumentException("El medicamento es obligatorio");
+        }
+        return libre;
+    }
+
+    private medicamentoLogEntity buscarMedicamento(Long medicamentoLogId) {
         return medicamentoLogRepository.findById(medicamentoLogId)
                 .orElseThrow(() -> new IllegalArgumentException("Medicamento no encontrado con el ID: " + medicamentoLogId));
     }
@@ -170,10 +190,17 @@ public class indicacionMedicamentoService {
     }
 
     private indicacionMedicamentoDTOs.Response toResponse(indicacionMedicamentoEntity entity) {
+        Long medicamentoLogId = entity.getMedicamentoLog() == null
+                ? null : entity.getMedicamentoLog().getId();
+        String medicamento = entity.getMedicamentoLog() == null
+                ? entity.getMedicamentoLibre() : entity.getMedicamentoLog().getNombre();
+
         return new indicacionMedicamentoDTOs.Response(
                 entity.getId(),
-                entity.getMedicamentoLog().getId(),
-                entity.getMedicamentoLog().getNombre(),
+                medicamentoLogId,
+                medicamento,
+                entity.getMedicamentoLibre(),
+                entity.getPresentacion(),
                 entity.getCantidad(),
                 entity.getFrecuencia(),
                 entity.getDuracion(),

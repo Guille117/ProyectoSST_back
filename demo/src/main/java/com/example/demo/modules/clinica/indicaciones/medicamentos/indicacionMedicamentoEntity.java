@@ -22,9 +22,16 @@ public class indicacionMedicamentoEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER, optional = false)
-    @JoinColumn(name = "medicamento_log_id", nullable = false)
+    @ManyToOne(fetch = FetchType.EAGER, optional = true)
+    @JoinColumn(name = "medicamento_log_id", nullable = true)
     private medicamentoLogEntity medicamentoLog;
+
+    /** Nombre y detalles escritos por el usuario cuando el medicamento no está en el catálogo. */
+    @Column(name = "medicamento_libre", length = 1000)
+    private String medicamentoLibre;
+
+    @Column(length = 255)
+    private String presentacion;
 
     @Column(nullable = false)
     private Integer cantidad;

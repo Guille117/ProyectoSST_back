@@ -1,5 +1,6 @@
 package com.example.demo.modules.farmacia.medicamentoLog;
 
+import com.example.demo.modules.farmacia.lotes.LoteRepository;
 import com.example.demo.modules.farmacia.marca.marcaRepository;
 import com.example.demo.modules.farmacia.presentacion.presentacionRepository;
 import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaRepository;
@@ -7,6 +8,7 @@ import com.example.demo.modules.farmacia.viaAdmin.viaAdminRepository;
 import com.example.demo.utils.StringNormalizer;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.StoredProcedureQuery;
@@ -26,6 +28,7 @@ public class medicamentoLogService {
     private final marcaRepository marcaRepository;
     private final viaAdminRepository viaAdminRepository;
     private final presentacionRepository presentacionRepository;
+    private final LoteRepository loteRepository;
 
     @PersistenceContext 
     private EntityManager entityManager; 
@@ -159,7 +162,14 @@ public class medicamentoLogService {
     private medicamentoLogDTOs.MedicamentoLogResponse toListadoResponse(medicamentoLogEntity entity) {
         return new medicamentoLogDTOs.MedicamentoLogResponse(entity.getId(), entity.getNombre(), entity.getCodigo(), entity.getDosis(),
                 entity.getMarca().getNombre(), entity.getPresentacion().getNombre(),
-            entity.getViaAdmin().getNombre(), entity.getUnidadMedida().getAbreviatura(), entity.isEstado());
+            entity.getViaAdmin().getNombre(), entity.getUnidadMedida().getAbreviatura(),
+            disponibleMedicamento(entity.getId()), entity.isEstado());
+    }
+
+    /** Unidades disponibles del medicamento en lotes activos y vigentes. */
+    private Integer disponibleMedicamento(Long medicamentoLogId) {
+        Long total = loteRepository.sumDisponibleMedicamento(medicamentoLogId, LocalDate.now());
+        return total == null ? 0 : Math.toIntExact(total);
     }
 
     private medicamentoLogDTOs.MedicamentoLogBusquedaResponse toBusquedaResponse(medicamentoLogEntity entity) {

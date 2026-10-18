@@ -1,6 +1,7 @@
 package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -10,9 +11,12 @@ import java.time.LocalDateTime;
 public class indicacionMedicamentoDTOs {
 
     public record Request(
-            @NotNull(message = "El medicamento es obligatorio")
             @Positive(message = "El medicamento debe ser un ID válido")
             Long medicamentoLogId,
+            @Size(max = 1000, message = "El medicamento no registrado no debe superar los 1000 caracteres")
+            String medicamentoLibre,
+            @Size(max = 255, message = "La presentación no debe superar los 255 caracteres")
+            String presentacion,
             @NotNull(message = "La cantidad es obligatoria")
             @Positive(message = "La cantidad debe ser mayor a 0")
             Integer cantidad,
@@ -30,12 +34,20 @@ public class indicacionMedicamentoDTOs {
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
             Long usuarioId
-    ) {}
+    ) {
+        @AssertTrue(message = "El medicamento es obligatorio")
+        public boolean isMedicamentoPresente() {
+            return medicamentoLogId != null
+                    || (medicamentoLibre != null && !medicamentoLibre.isBlank());
+        }
+    }
 
     public record Response(
             Long id,
             Long medicamentoLogId,
             String medicamento,
+            String medicamentoLibre,
+            String presentacion,
             Integer cantidad,
             Integer frecuencia,
             Integer duracion,

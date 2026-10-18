@@ -49,19 +49,37 @@ class indicacionMedicamentoControllerTest {
     @Test
     void crear_debeRetornarCreatedConElRegistroGuardado() throws Exception {
         when(service.crear(any())).thenReturn(new indicacionMedicamentoDTOs.Response(
-                30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
+                30L, 9L, "Ibuprofeno", null, "tabletas de 400 mg", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
                 1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.ACTIVO));
 
         mockMvc.perform(post("/api/v1/medicamentos")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new indicacionMedicamentoDTOs.Request(
-                                9L, 2, 8, 7, TipoDuracion.DIAS, "Con alimentos", 1L, 2L))))
+                                9L, null, "tabletas de 400 mg", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos", 1L, 2L))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(30))
                 .andExpect(jsonPath("$.medicamentoLogId").value(9))
+                .andExpect(jsonPath("$.presentacion").value("tabletas de 400 mg"))
                 .andExpect(jsonPath("$.cantidad").value(2))
                 .andExpect(jsonPath("$.tipoDuracion").value("DIAS"))
                 .andExpect(jsonPath("$.estado").value("ACTIVO"));
+    }
+
+    @Test
+    void crear_conMedicamentoLibre_debeRetornarCreated() throws Exception {
+        when(service.crear(any())).thenReturn(new indicacionMedicamentoDTOs.Response(
+                31L, null, "Aspirina 500 mg", "Aspirina 500 mg", null, 1, 8, 7,
+                TipoDuracion.DIAS, null, 1L, 2L, "Carlos Mendez", FECHA,
+                EstadoIndicacionMedicamento.ACTIVO));
+
+        mockMvc.perform(post("/api/v1/medicamentos")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new indicacionMedicamentoDTOs.Request(
+                                null, "Aspirina 500 mg", null, 1, 8, 7, TipoDuracion.DIAS,
+                                null, 1L, 2L))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.medicamento").value("Aspirina 500 mg"))
+                .andExpect(jsonPath("$.medicamentoLibre").value("Aspirina 500 mg"));
     }
 
     @Test
@@ -78,7 +96,7 @@ class indicacionMedicamentoControllerTest {
     @Test
     void obtenerTodos_debeAplicarEstadoActivoPorDefecto() throws Exception {
         when(service.obtenerTodos(EstadoIndicacionMedicamento.ACTIVO)).thenReturn(List.of(new indicacionMedicamentoDTOs.Response(
-                30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
+                30L, 9L, "Ibuprofeno", null, "tabletas de 400 mg", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
                 1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.ACTIVO)));
 
         mockMvc.perform(get("/api/v1/medicamentos"))
@@ -91,18 +109,19 @@ class indicacionMedicamentoControllerTest {
     void buscar_debeFiltrarPorEpisodio() throws Exception {
         when(service.buscarPorEpisodio(5L, EstadoIndicacionMedicamento.ACTIVO))
                 .thenReturn(List.of(new indicacionMedicamentoDTOs.Response(
-                        31L, 9L, "Ibuprofeno", 1, 12, 3, TipoDuracion.DIAS, null,
+                        31L, 9L, "Ibuprofeno", null, "tabletas de 400 mg", 1, 12, 3, TipoDuracion.DIAS, null,
                         5L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.ACTIVO)));
 
         mockMvc.perform(get("/api/v1/medicamentos/buscar").param("episodioId", "5"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].episodioId").value(5));
+                .andExpect(jsonPath("$[0].episodioId").value(5))
+                .andExpect(jsonPath("$[0].presentacion").value("tabletas de 400 mg"));
     }
 
     @Test
     void obtenerPorId_debeRetornarElRegistro() throws Exception {
         when(service.obtenerPorId(30L)).thenReturn(new indicacionMedicamentoDTOs.Response(
-                30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
+                30L, 9L, "Ibuprofeno", null, "tabletas de 400 mg", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
                 1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.FINALIZADO));
 
         mockMvc.perform(get("/api/v1/medicamentos/30"))
@@ -114,15 +133,16 @@ class indicacionMedicamentoControllerTest {
     @Test
     void actualizar_debeRetornarElRegistroActualizado() throws Exception {
         when(service.actualizar(any(), any())).thenReturn(new indicacionMedicamentoDTOs.Response(
-                30L, 10L, "Paracetamol", 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo",
+                30L, 10L, "Paracetamol", null, "jarabe de 120 ml", 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo",
                 1L, 3L, "Ana Lopez", FECHA, EstadoIndicacionMedicamento.ACTIVO));
 
         mockMvc.perform(put("/api/v1/medicamentos/30")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new indicacionMedicamentoDTOs.Request(
-                                10L, 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo", 1L, 3L))))
+                                10L, null, "jarabe de 120 ml", 3, 6, null, TipoDuracion.TIEMPO_INDEFINIDO, "Nuevo", 1L, 3L))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.medicamentoLogId").value(10))
+                .andExpect(jsonPath("$.presentacion").value("jarabe de 120 ml"))
                 .andExpect(jsonPath("$.tipoDuracion").value("TIEMPO_INDEFINIDO"));
     }
 
@@ -130,7 +150,7 @@ class indicacionMedicamentoControllerTest {
     void cambiarEstado_debeRetornarElNuevoEstado() throws Exception {
         when(service.cambiarEstado(30L, EstadoIndicacionMedicamento.FINALIZADO))
                 .thenReturn(new indicacionMedicamentoDTOs.Response(
-                        30L, 9L, "Ibuprofeno", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
+                        30L, 9L, "Ibuprofeno", null, "tabletas de 400 mg", 2, 8, 7, TipoDuracion.DIAS, "Con alimentos",
                         1L, 2L, "Carlos Mendez", FECHA, EstadoIndicacionMedicamento.FINALIZADO));
 
         mockMvc.perform(patch("/api/v1/medicamentos/30/estado").param("estado", "FINALIZADO"))

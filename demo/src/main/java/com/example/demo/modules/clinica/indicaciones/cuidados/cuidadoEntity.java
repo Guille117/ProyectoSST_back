@@ -6,6 +6,8 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "cuidados")
 @Getter
@@ -41,6 +43,9 @@ public class cuidadoEntity {
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)
     private UsuarioEntity usuario;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime fecha;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

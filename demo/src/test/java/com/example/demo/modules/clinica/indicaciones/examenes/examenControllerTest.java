@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -18,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,7 +51,7 @@ class examenControllerTest {
     void crear_debeRetornarCreatedConLosArchivos() throws Exception {
         when(service.crear(any(), any())).thenReturn(new examenDTOs.Response(
                 30L, "Hemograma", "En ayunas",
-                List.of(new examenDTOs.ArchivoResponse(50L, "uploads/examenes/examen-30-a.pdf")),
+                List.of(new examenDTOs.ArchivoResponse(50L, "hemograma.pdf", "uploads/examenes/examen-30-a.pdf", 123L)),
                 1L, 2L, "Carlos Mendez", FECHA, EstadoExamen.ACTIVO));
 
         MockMultipartFile requestPart = new MockMultipartFile("request", "", "application/json",
@@ -99,7 +102,7 @@ class examenControllerTest {
     void obtenerPorId_debeRetornarElRegistro() throws Exception {
         when(service.obtenerPorId(30L)).thenReturn(new examenDTOs.Response(
                 30L, "Hemograma", null,
-                List.of(new examenDTOs.ArchivoResponse(50L, "uploads/examenes/examen-30-a.pdf")),
+                List.of(new examenDTOs.ArchivoResponse(50L, "hemograma.pdf", "uploads/examenes/examen-30-a.pdf", 123L)),
                 1L, 2L, "Carlos Mendez", FECHA, EstadoExamen.ELIMINADO));
 
         mockMvc.perform(get("/api/v1/examenes/30"))
@@ -112,7 +115,7 @@ class examenControllerTest {
     void actualizar_debeRetornarElRegistroActualizado() throws Exception {
         when(service.actualizar(any(), any(), any())).thenReturn(new examenDTOs.Response(
                 30L, "Hemograma completo", "Revisar",
-                List.of(new examenDTOs.ArchivoResponse(51L, "uploads/examenes/examen-30-nuevo.pdf")),
+                List.of(new examenDTOs.ArchivoResponse(51L, "nuevo.pdf", "uploads/examenes/examen-30-nuevo.pdf", 456L)),
                 1L, 2L, "Carlos Mendez", FECHA, EstadoExamen.ACTIVO));
 
         MockMultipartFile requestPart = new MockMultipartFile("request", "", "application/json",
@@ -138,6 +141,17 @@ class examenControllerTest {
         mockMvc.perform(patch("/api/v1/examenes/30/estado").param("estado", "ELIMINADO"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("ELIMINADO"));
+    }
+
+    @Test
+    void obtenerArchivo_debeRetornarElContenido() throws Exception {
+        when(service.cargarArchivo(30L, 50L)).thenReturn(new ExamenArchivoStorage.Archivo(
+                new ByteArrayResource("contenido".getBytes()), MediaType.APPLICATION_PDF));
+
+        mockMvc.perform(get("/api/v1/examenes/30/archivos/50"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_PDF))
+                .andExpect(content().bytes("contenido".getBytes()));
     }
 
     @Test

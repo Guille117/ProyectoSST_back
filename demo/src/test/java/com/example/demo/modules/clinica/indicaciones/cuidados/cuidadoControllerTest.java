@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -47,7 +48,8 @@ class cuidadoControllerTest {
     void crear_debeRetornarCreatedConElRegistroGuardado() throws Exception {
         when(service.crear(any())).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
-                1L, 2L, "Carlos Mendez", EstadoCuidado.EN_PROCESO));
+                1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                EstadoCuidado.EN_PROCESO));
 
         mockMvc.perform(post("/api/v1/cuidados")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -74,7 +76,8 @@ class cuidadoControllerTest {
     void obtenerTodos_debeAplicarEstadoEnProcesoPorDefecto() throws Exception {
         when(service.obtenerTodos(EstadoCuidado.EN_PROCESO)).thenReturn(List.of(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
-                1L, 2L, "Carlos Mendez", EstadoCuidado.EN_PROCESO)));
+                1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                EstadoCuidado.EN_PROCESO)));
 
         mockMvc.perform(get("/api/v1/cuidados"))
                 .andExpect(status().isOk())
@@ -87,7 +90,8 @@ class cuidadoControllerTest {
         when(service.buscarPorEpisodio(5L, EstadoCuidado.EN_PROCESO))
                 .thenReturn(List.of(new cuidadoDTOs.Response(
                         31L, "Curacion", 8, 3, TipoDuracion.DIAS, null,
-                        5L, 2L, "Carlos Mendez", EstadoCuidado.EN_PROCESO)));
+                        5L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                        EstadoCuidado.EN_PROCESO)));
 
         mockMvc.perform(get("/api/v1/cuidados/buscar").param("episodioId", "5"))
                 .andExpect(status().isOk())
@@ -98,7 +102,8 @@ class cuidadoControllerTest {
     void obtenerPorId_debeRetornarElRegistro() throws Exception {
         when(service.obtenerPorId(30L)).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
-                1L, 2L, "Carlos Mendez", EstadoCuidado.COMPLETADO));
+                1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                EstadoCuidado.COMPLETADO));
 
         mockMvc.perform(get("/api/v1/cuidados/30"))
                 .andExpect(status().isOk())
@@ -110,7 +115,8 @@ class cuidadoControllerTest {
     void actualizar_debeRetornarElRegistroActualizado() throws Exception {
         when(service.actualizar(any(), any())).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de sonda", 24, null, TipoDuracion.TIEMPO_INDEFINIDO, "Vigilar",
-                1L, 3L, "Ana Lopez", EstadoCuidado.EN_PROCESO));
+                1L, 3L, "Ana Lopez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                EstadoCuidado.EN_PROCESO));
 
         mockMvc.perform(put("/api/v1/cuidados/30")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -125,7 +131,8 @@ class cuidadoControllerTest {
     void cambiarEstado_debeRetornarElNuevoEstado() throws Exception {
         when(service.cambiarEstado(30L, EstadoCuidado.COMPLETADO)).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
-                1L, 2L, "Carlos Mendez", EstadoCuidado.COMPLETADO));
+                1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                EstadoCuidado.COMPLETADO));
 
         mockMvc.perform(patch("/api/v1/cuidados/30/estado").param("estado", "COMPLETADO"))
                 .andExpect(status().isOk())

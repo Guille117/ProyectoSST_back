@@ -10,6 +10,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -93,7 +95,9 @@ class examenServiceTest {
 
         assertEquals(1, response.archivos().size());
         assertEquals(50L, response.archivos().get(0).id());
+        assertEquals("hemograma.pdf", response.archivos().get(0).nombreOriginal());
         assertEquals("uploads/examenes/examen-10-a.pdf", response.archivos().get(0).urlArchivo());
+        assertEquals(archivo.getSize(), response.archivos().get(0).tamano());
         verify(archivoStorage).guardar(archivo, 10L);
     }
 
@@ -159,6 +163,52 @@ class examenServiceTest {
 
         assertTrue(existente.getArchivos().isEmpty());
         verify(archivoStorage).eliminar("uploads/examenes/examen-10-a.pdf");
+    }
+
+    @Test
+    void cargarArchivo_debeDevolverElArchivoDelExamen() {
+        examenArchivoEntity archivoEntidad = examenArchivoEntity.builder()
+                .id(50L)
+                .nombreOriginal("hemograma.pdf")
+                .urlArchivo("uploads/examenes/examen-10-a.pdf")
+                .tamano(20L)
+                .build();
+        examenEntity existente = examenEntity.builder()
+                .id(10L)
+                .nombreExamen("Hemograma")
+                .archivos(new ArrayList<>(List.of(archivoEntidad)))
+                .episodio(episodio(1L))
+                .usuario(usuario(2L, "Carlos Mendez"))
+                .fecha(LocalDateTime.of(2026, 3, 5, 16, 20))
+                .estado(EstadoExamen.ACTIVO)
+                .build();
+        ExamenArchivoStorage.Archivo archivoCargado = new ExamenArchivoStorage.Archivo(
+                new ByteArrayResource("contenido".getBytes()), MediaType.APPLICATION_PDF);
+
+        when(repository.findById(10L)).thenReturn(Optional.of(existente));
+        when(archivoStorage.cargar("uploads/examenes/examen-10-a.pdf")).thenReturn(archivoCargado);
+
+        assertSame(archivoCargado, service.cargarArchivo(10L, 50L));
+    }
+
+    @Test
+    void cargarArchivo_debeLanzarCuandoNoPertenece() {
+        examenEntity existente = examenEntity.builder()
+                .id(10L)
+                .nombreExamen("Hemograma")
+                .archivos(new ArrayList<>())
+                .episodio(episodio(1L))
+                .usuario(usuario(2L, "Carlos Mendez"))
+                .fecha(LocalDateTime.of(2026, 3, 5, 16, 20))
+                .estado(EstadoExamen.ACTIVO)
+                .build();
+
+        when(repository.findById(10L)).thenReturn(Optional.of(existente));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> service.cargarArchivo(10L, 99L));
+
+        assertEquals("Archivo del examen no encontrado con el ID: 99", exception.getMessage());
+        verifyNoInteractions(archivoStorage);
     }
 
     @Test

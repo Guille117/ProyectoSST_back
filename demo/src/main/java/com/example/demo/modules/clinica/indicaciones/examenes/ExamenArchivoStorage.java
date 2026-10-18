@@ -7,11 +7,16 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 @Component
 public class ExamenArchivoStorage {
+
+    public record Archivo(Resource recurso, MediaType tipo) {}
 
     public static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
     private static final String RELATIVE_DIRECTORY = "uploads/examenes";
@@ -65,23 +70,55 @@ public class ExamenArchivoStorage {
         }
     }
 
+    public Archivo cargar(String rutaRelativa) {
+        if (rutaRelativa == null || rutaRelativa.isBlank()) {
+            throw new IllegalArgumentException("El archivo del examen no tiene ruta");
+        }
+        Path destino = resolver(rutaRelativa);
+        if (!Files.isRegularFile(destino)) {
+            throw new IllegalArgumentException("El archivo del examen no existe");
+        }
+        return new Archivo(new FileSystemResource(destino), tipoContenido(destino));
+    }
+
     public void eliminar(String rutaRelativa) {
         if (rutaRelativa == null || rutaRelativa.isBlank()) {
             return;
         }
-        if (!rutaRelativa.startsWith(RELATIVE_DIRECTORY + "/")) {
-            throw new IllegalArgumentException("Ruta de archivo del examen inválida");
-        }
-
-        Path destino = directory.resolve(Path.of(rutaRelativa).getFileName()).normalize();
-        if (!destino.startsWith(directory)) {
-            throw new IllegalArgumentException("Ruta de archivo del examen inválida");
-        }
+        Path destino = resolver(rutaRelativa);
         try {
             Files.deleteIfExists(destino);
         } catch (IOException ex) {
             throw new IllegalStateException("No se pudo eliminar el archivo del examen", ex);
         }
+    }
+
+    private Path resolver(String rutaRelativa) {
+        if (!rutaRelativa.startsWith(RELATIVE_DIRECTORY + "/")) {
+            throw new IllegalArgumentException("Ruta de archivo del examen inválida");
+        }
+        Path destino = directory.resolve(Path.of(rutaRelativa).getFileName()).normalize();
+        if (!destino.startsWith(directory)) {
+            throw new IllegalArgumentException("Ruta de archivo del examen inválida");
+        }
+        return destino;
+    }
+
+    private MediaType tipoContenido(Path archivo) {
+        String nombre = archivo.getFileName().toString().toLowerCase(Locale.ROOT);
+        if (nombre.endsWith(".pdf")) {
+            return MediaType.APPLICATION_PDF;
+        }
+        if (nombre.endsWith(".png")) {
+            return MediaType.IMAGE_PNG;
+        }
+        if (nombre.endsWith(".jpg") || nombre.endsWith(".jpeg")) {
+            return MediaType.IMAGE_JPEG;
+        }
+        if (nombre.endsWith(".txt")) {
+            return MediaType.TEXT_PLAIN;
+        }
+        return MediaType.APPLICATION_OCTET_STREAM;
     }
 
     private String extensionPermitida(String contentType) {
@@ -92,7 +129,8 @@ public class ExamenArchivoStorage {
             case "application/pdf" -> "pdf";
             case "image/jpeg" -> "jpg";
             case "image/png" -> "png";
-            default -> throw new IllegalArgumentException("Solo se permiten archivos PDF, JPG, JPEG o PNG");
+            case "text/plain" -> "txt";
+            default -> throw new IllegalArgumentException("Solo se permiten archivos PDF, JPG, JPEG, PNG o TXT");
         };
     }
 
@@ -104,6 +142,7 @@ public class ExamenArchivoStorage {
                     && (contenido[1] & 0xff) == 0xd8
                     && (contenido[2] & 0xff) == 0xff;
             case "png" -> empiezaCon(contenido, PNG_SIGNATURE);
+            case "txt" -> true;
             default -> false;
         };
         if (!valido) {

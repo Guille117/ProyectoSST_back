@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,6 +33,18 @@ public interface LoteRepository extends JpaRepository<LoteEntity, Long> {
 
     @Query("SELECT COALESCE(SUM(l.total), 0) FROM LoteEntity l WHERE l.compra.id = :compraId")
     BigDecimal sumTotalesPorCompra(@Param("compraId") Long compraId);
+
+    /** Unidades disponibles de un medicamento en lotes activos y no vencidos. */
+    @Query("""
+            SELECT COALESCE(SUM(l.disponible), 0)
+            FROM LoteEntity l
+            WHERE l.medicamentoLog.id = :medicamentoLogId
+              AND l.estado = true
+              AND (l.fechaVencimiento IS NULL OR l.fechaVencimiento >= :hoy)
+            """)
+    Long sumDisponibleMedicamento(
+            @Param("medicamentoLogId") Long medicamentoLogId,
+            @Param("hoy") LocalDate hoy);
 
     /** Bloquea el lote para descontar stock sin condiciones de carrera. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

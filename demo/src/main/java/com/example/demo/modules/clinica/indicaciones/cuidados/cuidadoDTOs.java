@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+import java.time.LocalDateTime;
+
 public class cuidadoDTOs {
 
     public record Request(
@@ -38,6 +40,7 @@ public class cuidadoDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            LocalDateTime fecha,
             EstadoCuidado estado
     ) {}
 }

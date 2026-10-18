@@ -2,6 +2,7 @@ package com.example.demo.modules.clinica.indicaciones.examenes;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -55,6 +56,15 @@ public class examenController {
             @PathVariable("id") Long id,
             @RequestParam(name = "estado") EstadoExamen estado) {
         return ResponseEntity.ok(service.cambiarEstado(id, estado));
+    }
+
+    @GetMapping("/{id}/archivos/{archivoId}")
+    public ResponseEntity<Resource> obtenerArchivo(@PathVariable("id") Long id,
+                                                   @PathVariable("archivoId") Long archivoId) {
+        ExamenArchivoStorage.Archivo archivo = service.cargarArchivo(id, archivoId);
+        return ResponseEntity.ok()
+                .contentType(archivo.tipo())
+                .body(archivo.recurso());
     }
 
     @DeleteMapping("/{id}/archivos/{archivoId}")

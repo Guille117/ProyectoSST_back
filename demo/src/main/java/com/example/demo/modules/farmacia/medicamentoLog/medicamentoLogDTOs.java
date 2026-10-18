@@ -41,6 +41,7 @@ public class medicamentoLogDTOs {
             String presentacion,
             String viaAdministracion,
             String unidadMedida,
+            Integer disponible,
             boolean estado
     ) {}
 
