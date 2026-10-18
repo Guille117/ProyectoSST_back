@@ -24,9 +24,6 @@ public class ReferenciaEntity {
     @Column(name = "motivo_referencia", nullable = false, length = 1000)
     private String motivoReferencia;
 
-    @Column(name = "url_documento", length = 2048)
-    private String urlDocumento;
-
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;

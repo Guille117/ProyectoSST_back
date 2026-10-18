@@ -31,7 +31,11 @@ public class PacienteController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PacienteDTOs.Response> crearConArchivo(
             @Valid @RequestPart("request") PacienteDTOs.Request request,
-            @RequestPart(value = "archivoReferencia", required = false) MultipartFile archivoReferencia) {
-        return new ResponseEntity<>(service.crear(request, archivoReferencia), HttpStatus.CREATED);
+            @RequestPart(value = "archivoReferencia", required = false) MultipartFile archivoReferencia,
+            @RequestPart(value = "referenciaArchivos", required = false) List<MultipartFile> referenciaArchivos,
+            @RequestPart(value = "autorizacionArchivos", required = false) List<MultipartFile> autorizacionArchivos,
+            @RequestPart(value = "responsabilidadArchivos", required = false) List<MultipartFile> responsabilidadArchivos) {
+        return new ResponseEntity<>(service.crear(request, archivoReferencia, referenciaArchivos,
+                autorizacionArchivos, responsabilidadArchivos), HttpStatus.CREATED);
     }
 }

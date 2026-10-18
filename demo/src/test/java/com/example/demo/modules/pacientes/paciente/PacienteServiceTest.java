@@ -43,7 +43,7 @@ class PacienteServiceTest {
     @Mock private parentescoRepository parentescoRepository;
     @Mock private institucionRepository institucionRepository;
     @Mock private camasRepository camasRepository;
-    @Mock private ReferenciaArchivoStorage referenciaArchivoStorage;
+    @Mock private DocumentoEpisodioService documentoEpisodioService;
 
     @InjectMocks private PacienteService service;
 
@@ -57,7 +57,8 @@ class PacienteServiceTest {
                                             PacienteDTOs.ReferenciaRequest referencia) {
         return new PacienteDTOs.Request(
             new PacienteDTOs.PacienteRequest(persona("1234567890123", nacimiento), null, null, null, null),
-                new PacienteDTOs.EpisodioRequest(tipo, "Ingreso", 5L, responsable, referencia));
+                new PacienteDTOs.EpisodioRequest(tipo, "Ingreso", 5L, responsable, referencia),
+                5L);
     }
 
     private void prepararGuardado() {
@@ -111,7 +112,8 @@ class PacienteServiceTest {
             null, "Ana", "Lopez", HOY.minusYears(30), Sexo.FEMENINO, null, null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
             new PacienteDTOs.PacienteRequest(personaSinDatosOpcionales, null, null, null, null),
-            new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null));
+            new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+            5L);
 
         service.crear(request, HOY);
 
@@ -191,8 +193,6 @@ class PacienteServiceTest {
         });
         MockMultipartFile archivo = new MockMultipartFile(
             "archivoReferencia", "origen.pdf", "application/pdf", "%PDF-1.7\ncontenido".getBytes());
-        String ruta = "uploads/referencias/expediente-30-uuid.pdf";
-        when(referenciaArchivoStorage.guardar(archivo, 30L)).thenReturn(ruta);
         when(parentescoRepository.findById(7L)).thenReturn(Optional.of(parentesco(7L, "Madre", true)));
         when(institucionRepository.findById(8L)).thenReturn(Optional.of(institucion(8L, "Centro de salud", true)));
         PacienteDTOs.ResponsableRequest responsable = new PacienteDTOs.ResponsableRequest(
@@ -210,8 +210,11 @@ class PacienteServiceTest {
         assertEquals("Madre", episodio.getValue().getPersonaResponsable().getParentesco().getNombre());
         assertEquals(8L, episodio.getValue().getReferencia().getInstitucion().getId());
         assertEquals("Centro de salud", episodio.getValue().getReferencia().getInstitucion().getNombre());
-        assertEquals(ruta, episodio.getValue().getReferencia().getUrlDocumento());
         assertEquals(5L, episodio.getValue().getMedico().getId());
+        verify(documentoEpisodioService).guardarTodos(
+                any(EpisodioEntity.class), eq(5L),
+                argThat(documentos -> documentos.containsKey(TipoDocumentoEpisodio.REFERENCIA)
+                        && documentos.get(TipoDocumentoEpisodio.REFERENCIA).contains(archivo)));
     }
 
     @Test
@@ -330,7 +333,8 @@ class PacienteServiceTest {
         PacienteDTOs.PersonaRequest datosPersona = persona("1234567890123", HOY.minusYears(30));
         PacienteDTOs.Request request = new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(datosPersona, null, null, null, 9L),
-                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null));
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
 
         service.crear(request, HOY);
 
@@ -349,7 +353,8 @@ class PacienteServiceTest {
         PacienteDTOs.Request request = new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(persona("1234567890123", HOY.minusYears(30)),
                         null, null, null, 9L),
-                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null));
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
 
         assertThrows(IllegalArgumentException.class, () -> service.crear(request, HOY));
         verify(pacienteRepository, never()).save(any());

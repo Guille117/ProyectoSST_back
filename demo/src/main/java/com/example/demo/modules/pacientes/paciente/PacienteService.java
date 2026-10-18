@@ -18,11 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @RequiredArgsConstructor
@@ -38,49 +38,59 @@ public class PacienteService {
         private final parentescoRepository parentescoRepository;
         private final institucionRepository institucionRepository;
         private final camasRepository camasRepository;
-        private final ReferenciaArchivoStorage referenciaArchivoStorage;
+        private final DocumentoEpisodioService documentoEpisodioService;
 
     @Transactional
     public PacienteDTOs.Response crear(PacienteDTOs.Request request) {
-                return crear(request, LocalDate.now(), null);
-        }
+        return crear(request, LocalDate.now(), null, null, null, null);
+    }
 
-        @Transactional
-        public PacienteDTOs.Response crear(PacienteDTOs.Request request, MultipartFile archivoReferencia) {
-                return crear(request, LocalDate.now(), archivoReferencia);
+    @Transactional
+    public PacienteDTOs.Response crear(PacienteDTOs.Request request, MultipartFile archivoReferencia) {
+        return crear(request, LocalDate.now(), archivoReferencia, null, null, null);
+    }
+
+    @Transactional
+    public PacienteDTOs.Response crear(
+            PacienteDTOs.Request request,
+            MultipartFile archivoReferencia,
+            List<MultipartFile> referenciaArchivos,
+            List<MultipartFile> autorizacionArchivos,
+            List<MultipartFile> responsabilidadArchivos) {
+        return crear(request, LocalDate.now(), archivoReferencia, referenciaArchivos,
+                autorizacionArchivos, responsabilidadArchivos);
     }
 
     PacienteDTOs.Response crear(PacienteDTOs.Request request, LocalDate fechaActual) {
-                return crear(request, fechaActual, null);
-        }
+        return crear(request, fechaActual, null, null, null, null);
+    }
 
-        private PacienteDTOs.Response crear(
-                        PacienteDTOs.Request request, LocalDate fechaActual, MultipartFile archivoReferencia) {
-                AtomicReference<String> rutaGuardada = new AtomicReference<>();
-                try {
-                        return crearTransaccional(request, fechaActual, archivoReferencia, rutaGuardada);
-                } catch (RuntimeException ex) {
-                        try {
-                                referenciaArchivoStorage.eliminar(rutaGuardada.get());
-                        } catch (RuntimeException errorLimpieza) {
-                                ex.addSuppressed(errorLimpieza);
-                        }
-                        throw ex;
-                }
-        }
+    private PacienteDTOs.Response crear(
+            PacienteDTOs.Request request,
+            LocalDate fechaActual,
+            MultipartFile archivoReferencia,
+            List<MultipartFile> referenciaArchivos,
+            List<MultipartFile> autorizacionArchivos,
+            List<MultipartFile> responsabilidadArchivos) {
+        return crearTransaccional(request, fechaActual, archivoReferencia, referenciaArchivos,
+                autorizacionArchivos, responsabilidadArchivos);
+    }
 
-        private PacienteDTOs.Response crearTransaccional(
-                        PacienteDTOs.Request request,
-                        LocalDate fechaActual,
-                        MultipartFile archivoReferencia,
-                        AtomicReference<String> rutaGuardada) {
+    private PacienteDTOs.Response crearTransaccional(
+            PacienteDTOs.Request request,
+            LocalDate fechaActual,
+            MultipartFile archivoReferencia,
+            List<MultipartFile> referenciaArchivos,
+            List<MultipartFile> autorizacionArchivos,
+            List<MultipartFile> responsabilidadArchivos) {
         if (request == null || request.paciente() == null || request.paciente().persona() == null
                 || request.episodio() == null || request.episodio().tipoAtencion() == null) {
             throw new IllegalArgumentException("Los datos del paciente y del episodio son obligatorios");
         }
-                if (archivoReferencia != null && request.episodio().referencia() == null) {
-                        throw new IllegalArgumentException("El archivo solo se permite cuando se envían datos de referencia");
-                }
+        List<MultipartFile> referencias = unirArchivos(archivoReferencia, referenciaArchivos);
+        if (!referencias.isEmpty() && request.episodio().referencia() == null) {
+            throw new IllegalArgumentException("El archivo solo se permite cuando se envían datos de referencia");
+        }
 
         PacienteDTOs.PersonaRequest datosPersona = request.paciente().persona();
         PacienteDTOs.EpisodioRequest datosEpisodio = request.episodio();
@@ -128,8 +138,7 @@ public class PacienteService {
         ExpedienteEntity expediente = obtenerOCrearExpediente(paciente);
 
         PersonaResponsableEntity responsable = guardarResponsable(datosEpisodio.responsable(), parentesco);
-        ReferenciaEntity referencia = guardarReferencia(
-                datosEpisodio.referencia(), institucion, archivoReferencia, expediente.getId(), rutaGuardada);
+        ReferenciaEntity referencia = guardarReferencia(datosEpisodio.referencia(), institucion);
         EpisodioEntity episodio = episodioRepository.save(EpisodioEntity.builder()
                 .tipoAtencion(datosEpisodio.tipoAtencion())
                 .descripcion(StringNormalizer.normalizarTexto(datosEpisodio.descripcion()))
@@ -140,9 +149,35 @@ public class PacienteService {
                 .referencia(referencia)
                 .build());
 
+        Map<TipoDocumentoEpisodio, List<MultipartFile>> documentos = new HashMap<>();
+        if (!referencias.isEmpty()) {
+            documentos.put(TipoDocumentoEpisodio.REFERENCIA, referencias);
+        }
+        if (autorizacionArchivos != null && !autorizacionArchivos.isEmpty()) {
+            documentos.put(TipoDocumentoEpisodio.AUTORIZACION_PROCEDIMIENTO, autorizacionArchivos);
+        }
+        if (responsabilidadArchivos != null && !responsabilidadArchivos.isEmpty()) {
+            documentos.put(TipoDocumentoEpisodio.RESPONSABILIDAD, responsabilidadArchivos);
+        }
+        if (!documentos.isEmpty()) {
+            Long usuarioId = request.usuarioId() != null ? request.usuarioId() : datosEpisodio.medicoId();
+            documentoEpisodioService.guardarTodos(episodio, usuarioId, documentos);
+        }
+
         return new PacienteDTOs.Response(paciente.getId(), expediente.getId(), episodio.getId(),
                 responsable != null ? responsable.getId() : null,
                 referencia != null ? referencia.getId() : null, pacienteExistente.isPresent());
+    }
+
+    private List<MultipartFile> unirArchivos(MultipartFile archivo, List<MultipartFile> archivos) {
+        List<MultipartFile> resultado = new ArrayList<>();
+        if (archivo != null) {
+            resultado.add(archivo);
+        }
+        if (archivos != null) {
+            archivos.stream().filter(item -> item != null).forEach(resultado::add);
+        }
+        return resultado;
     }
 
         private camasEntity cargarCama(Long camaId, PacienteEntity pacienteExistente) {
@@ -278,21 +313,14 @@ public class PacienteService {
                                 .orElseThrow(() -> new IllegalArgumentException("Institución no encontrada o inactiva"));
         }
 
-        private ReferenciaEntity guardarReferencia(
-                        PacienteDTOs.ReferenciaRequest datos,
-                        institucionEntity institucion,
-                        MultipartFile archivo,
-                        Long expedienteId,
-                        AtomicReference<String> rutaGuardada) {
+    private ReferenciaEntity guardarReferencia(
+            PacienteDTOs.ReferenciaRequest datos, institucionEntity institucion) {
         if (datos == null) {
             return null;
         }
-                String rutaDocumento = referenciaArchivoStorage.guardar(archivo, expedienteId);
-                rutaGuardada.set(rutaDocumento);
         return referenciaRepository.save(ReferenciaEntity.builder()
-                        .institucion(institucion)
+                .institucion(institucion)
                 .motivoReferencia(StringNormalizer.normalizarTexto(datos.motivoReferencia()))
-                                .urlDocumento(rutaDocumento)
                 .build());
     }
 }

@@ -47,7 +47,9 @@ public class PacienteDTOs {
 
     public record Request(
             @NotNull @Valid PacienteRequest paciente,
-            @NotNull @Valid EpisodioRequest episodio
+            @NotNull @Valid EpisodioRequest episodio,
+            // Usuario que registra la atención y sube los documentos. Si no llega, se usa el médico.
+            @Positive Long usuarioId
     ) {}
 
     public record Response(

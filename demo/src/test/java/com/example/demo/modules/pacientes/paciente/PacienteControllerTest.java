@@ -44,7 +44,8 @@ class PacienteControllerTest {
                 "12345678", null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(persona, null, null, null, null),
-                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null));
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
         when(service.crear(any())).thenReturn(new PacienteDTOs.Response(1L, 2L, 3L, null, null, false));
 
         mockMvc.perform(post("/api/v1/pacientes")
@@ -73,7 +74,8 @@ class PacienteControllerTest {
                 null, null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(persona, null, null, null, null),
-                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null));
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
         when(service.crear(any())).thenThrow(new IllegalArgumentException("El responsable es obligatorio"));
 
         mockMvc.perform(post("/api/v1/pacientes")
@@ -89,7 +91,8 @@ class PacienteControllerTest {
                 null, "Ana", "Lopez", LocalDate.of(1990, 1, 1), Sexo.FEMENINO, null, null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(persona, null, null, null, null),
-                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null));
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
         when(service.crear(any())).thenReturn(new PacienteDTOs.Response(1L, 2L, 3L, null, null, false));
 
         mockMvc.perform(post("/api/v1/pacientes")
@@ -102,14 +105,14 @@ class PacienteControllerTest {
     void crearMultipartAceptaArchivoDeReferenciaOpcional() throws Exception {
         MockMultipartFile requestPart = new MockMultipartFile("request", "", "application/json",
                 objectMapper.writeValueAsBytes(requestConReferencia()));
-        when(service.crear(any(PacienteDTOs.Request.class), isNull(MultipartFile.class)))
+        when(service.crear(any(PacienteDTOs.Request.class), isNull(), isNull(), isNull(), isNull()))
                 .thenReturn(new PacienteDTOs.Response(1L, 2L, 3L, null, 60L, false));
 
         mockMvc.perform(multipart("/api/v1/pacientes").file(requestPart))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.referenciaId").value(60));
 
-        verify(service).crear(any(PacienteDTOs.Request.class), isNull(MultipartFile.class));
+        verify(service).crear(any(PacienteDTOs.Request.class), isNull(), isNull(), isNull(), isNull());
     }
 
     @Test
@@ -118,14 +121,16 @@ class PacienteControllerTest {
                 objectMapper.writeValueAsBytes(requestConReferencia()));
         MockMultipartFile archivo = new MockMultipartFile(
                 "archivoReferencia", "origen.pdf", "application/pdf", "%PDF-1.7\ncontenido".getBytes());
-        when(service.crear(any(PacienteDTOs.Request.class), any(MultipartFile.class)))
+        when(service.crear(any(PacienteDTOs.Request.class), any(MultipartFile.class),
+                isNull(), isNull(), isNull()))
                 .thenReturn(new PacienteDTOs.Response(1L, 2L, 3L, null, 60L, false));
 
         mockMvc.perform(multipart("/api/v1/pacientes").file(requestPart).file(archivo))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.referenciaId").value(60));
 
-        verify(service).crear(any(PacienteDTOs.Request.class), any(MultipartFile.class));
+        verify(service).crear(any(PacienteDTOs.Request.class), any(MultipartFile.class),
+                isNull(), isNull(), isNull());
     }
 
     private PacienteDTOs.Request requestConReferencia() {
@@ -135,7 +140,8 @@ class PacienteControllerTest {
         return new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(persona, null, null, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null,
-                        new PacienteDTOs.ReferenciaRequest(8L, "Evaluacion")));
+                        new PacienteDTOs.ReferenciaRequest(8L, "Evaluacion")),
+                5L);
     }
 
         @Test

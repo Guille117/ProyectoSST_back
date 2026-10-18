@@ -4,6 +4,9 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "episodios")
 @Getter
@@ -47,4 +50,8 @@ public class EpisodioEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;
+
+    @OneToMany(mappedBy = "episodio", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<DocumentoEpisodioEntity> documentos = new ArrayList<>();
 }
