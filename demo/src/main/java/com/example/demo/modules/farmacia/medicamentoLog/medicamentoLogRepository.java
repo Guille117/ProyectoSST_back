@@ -43,6 +43,17 @@ public interface medicamentoLogRepository extends JpaRepository<medicamentoLogEn
         @Param("viaAdminId") Long viaAdminId,
         @Param("activo") boolean activo
     );
+    @Query("""
+        SELECT m FROM medicamentoLogEntity m
+        WHERE m.estado = true
+          AND (
+            LOWER(m.nombre) LIKE LOWER(CONCAT('%', :nombre, '%'))
+            OR LOWER(m.marca.nombre) LIKE LOWER(CONCAT('%', :nombre, '%'))
+            OR LOWER(m.presentacion.nombre) LIKE LOWER(CONCAT('%', :nombre, '%'))
+          )
+        """)
+    List<medicamentoLogEntity> buscarDisponibles(@Param("nombre") String nombre);
+
     List<medicamentoLogEntity> findByEstado(boolean estado);
     Optional<medicamentoLogEntity> findByIdAndEstado(Long id, boolean estado);
     boolean existsByMarca_Id(Long marcaId);

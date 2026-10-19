@@ -46,6 +46,18 @@ public interface LoteRepository extends JpaRepository<LoteEntity, Long> {
             @Param("medicamentoLogId") Long medicamentoLogId,
             @Param("hoy") LocalDate hoy);
 
+    /** Unidades disponibles de un insumo en lotes activos y no vencidos. */
+    @Query("""
+            SELECT COALESCE(SUM(l.disponible), 0)
+            FROM LoteEntity l
+            WHERE l.insumoLog.id = :insumoLogId
+              AND l.estado = true
+              AND (l.fechaVencimiento IS NULL OR l.fechaVencimiento >= :hoy)
+            """)
+    Long sumDisponibleInsumo(
+            @Param("insumoLogId") Long insumoLogId,
+            @Param("hoy") LocalDate hoy);
+
     /** Bloquea el lote para descontar stock sin condiciones de carrera. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM LoteEntity l WHERE l.id = :id")

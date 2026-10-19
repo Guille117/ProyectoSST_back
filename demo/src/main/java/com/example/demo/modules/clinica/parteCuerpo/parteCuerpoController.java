@@ -2,6 +2,7 @@ package com.example.demo.modules.clinica.parteCuerpo;
 
 import com.example.demo.modules.catalogo.controllerBase;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoService;
+import com.example.demo.modules.clinica.procedimiento.procedimientoService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,13 +12,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class parteCuerpoController extends controllerBase<parteCuerpoEntity> {
     private final parteCuerpoService parteCuerpoService;
     private final condicionEgresoService condicionEgresoService;
+    private final procedimientoService procedimientoService;
 
-    public record ConteoCatalogosResponse(long partesCuerpo, long condicionesEgreso) {}
+    public record ConteoCatalogosResponse(long partesCuerpo, long condicionesEgreso, long procedimientos) {}
 
     // Constructor para inicializar los servicios de los catálogos de gestión clínica
-    public parteCuerpoController(parteCuerpoService parteCuerpoService, condicionEgresoService condicionEgresoService) {
+    public parteCuerpoController(
+            parteCuerpoService parteCuerpoService,
+            condicionEgresoService condicionEgresoService,
+            procedimientoService procedimientoService) {
         this.parteCuerpoService = parteCuerpoService;
         this.condicionEgresoService = condicionEgresoService;
+        this.procedimientoService = procedimientoService;
     }
 
     @Override
@@ -30,6 +36,7 @@ public class parteCuerpoController extends controllerBase<parteCuerpoEntity> {
     public ConteoCatalogosResponse contarCatalogos() {
         return new ConteoCatalogosResponse(
                 parteCuerpoService.contarPartesCuerpo(),
-                condicionEgresoService.contarCondicionesEgreso());
+                condicionEgresoService.contarCondicionesEgreso(),
+                procedimientoService.contarProcedimientos());
     }
 }
