@@ -148,7 +148,7 @@ class PacienteControllerTest {
         @Test
         void listar_delegaEstadoOpcionalAlServicio() throws Exception {
                 when(service.listar(null)).thenReturn(java.util.List.of(
-                                new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, java.time.LocalDateTime.now(), "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
+                                new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(), "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
                                                 TipoAtencion.HOSPITALIZACION, true)));
 
                 mockMvc.perform(get("/api/v1/pacientes"))
@@ -156,6 +156,7 @@ class PacienteControllerTest {
                                 .andExpect(jsonPath("$[0].pacienteId").value(20))
                                 .andExpect(jsonPath("$[0].codigoExpediente").value("EXP-30"))
                                 .andExpect(jsonPath("$[0].episodioId").value(42))
+                                .andExpect(jsonPath("$[0].ultimoEpisodioId").value(42))
                                 .andExpect(jsonPath("$[0].nombreCompleto").value("Ana Maria Lopez Ruiz"))
                                 .andExpect(jsonPath("$[0].cui").value("1234567890123"))
                                 .andExpect(jsonPath("$[0].sexo").value("FEMENINO"))
@@ -167,7 +168,7 @@ class PacienteControllerTest {
         @Test
         void buscar_devuelvePacientesPorTexto() throws Exception {
                 when(service.buscar("ana")).thenReturn(java.util.List.of(
-                                new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, java.time.LocalDateTime.now(),
+                                new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(),
                                                 "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
                                                 TipoAtencion.EMERGENCIA, true)));
 

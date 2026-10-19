@@ -329,10 +329,13 @@ public class PacienteService {
 
         Map<Long, TipoAtencion> tratamientoPorPaciente = new HashMap<>();
         Map<Long, Long> episodioIdPorPaciente = new HashMap<>();
+        Map<Long, Long> ultimoEpisodioIdPorPaciente = new HashMap<>();
         Map<Long, LocalDateTime> fechaIngresoPorPaciente = new HashMap<>();
         episodioRepository.findByPaciente_IdInOrderByIdDesc(pacienteIds).forEach(episodio -> {
                 Long pacienteId = episodio.getPaciente().getId();
                 tratamientoPorPaciente.putIfAbsent(pacienteId, episodio.getTipoAtencion());
+                // El último episodio se conserva aunque esté cerrado, para consultar su historial
+                ultimoEpisodioIdPorPaciente.putIfAbsent(pacienteId, episodio.getId());
                 // El episodio activo más reciente es el que abre la pantalla de atención médica
                 if (episodio.isEstado()) {
                         episodioIdPorPaciente.putIfAbsent(pacienteId, episodio.getId());
@@ -345,6 +348,7 @@ public class PacienteService {
                         paciente.getId(),
                         codigosPorPaciente.get(paciente.getId()),
                         episodioIdPorPaciente.get(paciente.getId()),
+                        ultimoEpisodioIdPorPaciente.get(paciente.getId()),
                         fechaIngresoPorPaciente.get(paciente.getId()),
                         paciente.getPersona().getNombreCompleto(),
                         paciente.getPersona().getCui(),

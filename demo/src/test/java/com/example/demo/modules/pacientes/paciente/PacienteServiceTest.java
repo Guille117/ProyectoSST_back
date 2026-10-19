@@ -394,6 +394,7 @@ class PacienteServiceTest {
         assertEquals(1, resultado.size());
         assertEquals("EXP-30", resultado.get(0).codigoExpediente());
         assertEquals(42L, resultado.get(0).episodioId());
+        assertEquals(42L, resultado.get(0).ultimoEpisodioId());
         assertEquals(ingresoReciente, resultado.get(0).fechaHoraIngreso());
         assertEquals("Ana Maria Luisa Lopez Ruiz", resultado.get(0).nombreCompleto());
         assertEquals("12345678", resultado.get(0).telefono());
@@ -433,9 +434,11 @@ class PacienteServiceTest {
         assertEquals(2, resultado.size());
         assertEquals("1234567890123", resultado.get(0).cui());
         assertEquals(42L, resultado.get(0).episodioId());
+        assertEquals(42L, resultado.get(0).ultimoEpisodioId());
         assertTrue(resultado.get(0).estado());
         assertEquals("9876543210123", resultado.get(1).cui());
         assertNull(resultado.get(1).episodioId());
+        assertNull(resultado.get(1).ultimoEpisodioId());
         assertFalse(resultado.get(1).estado());
         }
 

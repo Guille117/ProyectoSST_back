@@ -68,6 +68,7 @@ public class PacienteDTOs {
             Long pacienteId,
             String codigoExpediente,
             Long episodioId,
+            Long ultimoEpisodioId,
             LocalDateTime fechaHoraIngreso,
             String nombreCompleto,
             String cui,
