@@ -6,6 +6,7 @@ import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
@@ -21,6 +22,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -48,6 +50,8 @@ class procedimientoMedicoServiceTest {
     private insumosLogRepository insumosLogRepository;
     @Mock
     private LoteRepository loteRepository;
+    @Mock
+    private SolicitudSalidaService solicitudSalidaService;
 
     @InjectMocks
     private procedimientoMedicoService service;
@@ -128,6 +132,7 @@ class procedimientoMedicoServiceTest {
         service.eliminar(5L);
 
         assertEquals(EstadoProcedimientoMedico.ELIMINADO, existente.getEstado());
+        verify(solicitudSalidaService).cancelarPorProcedimiento(5L);
     }
 
     @Test
@@ -269,6 +274,143 @@ class procedimientoMedicoServiceTest {
 
         assertEquals(1, recursos.size());
         assertEquals("Amoxicilina Bayer tabletas de 500 mg", recursos.getFirst().nombre());
+    }
+
+    @Test
+    void crear_debeSincronizarLaSolicitudDeSalida() {
+        when(procedimientoRepository.findById(1L)).thenReturn(Optional.of(tipoProcedimiento(1L, "Sutura")));
+        when(episodioRepository.findById(2L)).thenReturn(Optional.of(
+                EpisodioEntity.builder().id(2L).estado(true).build()));
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, "Dra. Ana López")));
+        when(repository.save(any(procedimientoMedicoEntity.class))).thenAnswer(invocation -> {
+            procedimientoMedicoEntity entity = invocation.getArgument(0);
+            entity.setId(8L);
+            return entity;
+        });
+
+        procedimientoMedicoDTOs.Request request = new procedimientoMedicoDTOs.Request(
+                1L,
+                "Sutura de herida.",
+                "",
+                LocalDateTime.of(2026, 10, 19, 11, 0),
+                null,
+                2L,
+                3L,
+                List.of());
+
+        service.crear(request);
+
+        verify(solicitudSalidaService).sincronizar(any(procedimientoMedicoEntity.class));
+    }
+
+    @Test
+    void actualizar_debeConsultarCantidadesEntregadasYSincronizar() {
+        procedimientoEntity tipo = tipoProcedimiento(1L, "Sutura");
+        procedimientoMedicoEntity existente = procedimientoMedicoEntity.builder()
+                .id(5L)
+                .procedimiento(tipo)
+                .descripcion("Descripción anterior")
+                .resultado("Sin complicaciones.")
+                .inicio(LocalDateTime.of(2026, 10, 19, 11, 0))
+                .fin(LocalDateTime.of(2026, 10, 19, 12, 0))
+                .estado(EstadoProcedimientoMedico.REALIZADO)
+                .episodio(EpisodioEntity.builder().id(2L).estado(true).build())
+                .usuario(usuario(3L, "Dra. Ana López"))
+                .recursos(new ArrayList<>(List.of(procedimientoMedicoRecursoEntity.builder()
+                        .tipo(TipoRecursoProcedimiento.MEDICAMENTO)
+                        .referenciaId(4L)
+                        .nombre("Amoxicilina Bayer tabletas de 500 mg")
+                        .cantidad(2)
+                        .build())))
+                .build();
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(procedimientoRepository.findById(1L)).thenReturn(Optional.of(tipo));
+        when(solicitudSalidaService.obtenerCantidadesEntregadas(5L)).thenReturn(Map.of());
+        when(repository.save(existente)).thenReturn(existente);
+
+        procedimientoMedicoDTOs.Request request = new procedimientoMedicoDTOs.Request(
+                1L,
+                "Descripción corregida",
+                "Sin complicaciones.",
+                LocalDateTime.of(2026, 10, 19, 11, 0),
+                LocalDateTime.of(2026, 10, 19, 12, 0),
+                2L,
+                3L,
+                List.of(new procedimientoMedicoDTOs.RecursoRequest(
+                        TipoRecursoProcedimiento.MEDICAMENTO, 4L, 2)));
+
+        service.actualizar(5L, request);
+
+        verify(solicitudSalidaService).obtenerCantidadesEntregadas(5L);
+        verify(solicitudSalidaService).sincronizar(existente);
+    }
+
+    @Test
+    void actualizar_alAumentarRecursoParcialmenteEntregadoValidaSoloElPendiente() {
+        procedimientoEntity tipo = tipoProcedimiento(1L, "Sutura");
+        procedimientoMedicoEntity existente = procedimientoConMedicamentoParcial(tipo);
+
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(procedimientoRepository.findById(1L)).thenReturn(Optional.of(tipo));
+        when(solicitudSalidaService.obtenerCantidadesEntregadas(5L))
+                .thenReturn(Map.of("MEDICAMENTO#4", 15));
+        when(medicamentoLogRepository.findByIdAndEstado(4L, true)).thenReturn(Optional.of(medicamento(4L)));
+        when(loteRepository.sumDisponibleMedicamento(eq(4L), any(LocalDate.class))).thenReturn(10L);
+        when(repository.save(existente)).thenReturn(existente);
+
+        procedimientoMedicoDTOs.Response response = service.actualizar(5L, requestConMedicamento(25));
+
+        assertEquals(25, response.recursos().getFirst().cantidad());
+    }
+
+    @Test
+    void actualizar_alAumentarRecursoParcialmenteEntregadoRechazaSiElPendienteSuperaStock() {
+        procedimientoEntity tipo = tipoProcedimiento(1L, "Sutura");
+        procedimientoMedicoEntity existente = procedimientoConMedicamentoParcial(tipo);
+
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(procedimientoRepository.findById(1L)).thenReturn(Optional.of(tipo));
+        when(solicitudSalidaService.obtenerCantidadesEntregadas(5L))
+                .thenReturn(Map.of("MEDICAMENTO#4", 15));
+        when(medicamentoLogRepository.findByIdAndEstado(4L, true)).thenReturn(Optional.of(medicamento(4L)));
+        when(loteRepository.sumDisponibleMedicamento(eq(4L), any(LocalDate.class))).thenReturn(9L);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.actualizar(5L, requestConMedicamento(25)));
+        verify(repository, never()).save(any());
+    }
+
+    private procedimientoMedicoEntity procedimientoConMedicamentoParcial(procedimientoEntity tipo) {
+        return procedimientoMedicoEntity.builder()
+                .id(5L)
+                .procedimiento(tipo)
+                .descripcion("Descripción anterior")
+                .resultado("Sin complicaciones.")
+                .inicio(LocalDateTime.of(2026, 10, 19, 11, 0))
+                .fin(LocalDateTime.of(2026, 10, 19, 12, 0))
+                .estado(EstadoProcedimientoMedico.REALIZADO)
+                .episodio(EpisodioEntity.builder().id(2L).estado(true).build())
+                .usuario(usuario(3L, "Dra. Ana López"))
+                .recursos(new ArrayList<>(List.of(procedimientoMedicoRecursoEntity.builder()
+                        .tipo(TipoRecursoProcedimiento.MEDICAMENTO)
+                        .referenciaId(4L)
+                        .nombre("Amoxicilina Bayer tabletas de 500 mg")
+                        .cantidad(20)
+                        .build())))
+                .build();
+    }
+
+    private procedimientoMedicoDTOs.Request requestConMedicamento(int cantidad) {
+        return new procedimientoMedicoDTOs.Request(
+                1L,
+                "Descripción corregida",
+                "Sin complicaciones.",
+                LocalDateTime.of(2026, 10, 19, 11, 0),
+                LocalDateTime.of(2026, 10, 19, 12, 0),
+                2L,
+                3L,
+                List.of(new procedimientoMedicoDTOs.RecursoRequest(
+                        TipoRecursoProcedimiento.MEDICAMENTO, 4L, cantidad)));
     }
 
     private procedimientoEntity tipoProcedimiento(Long id, String nombre) {

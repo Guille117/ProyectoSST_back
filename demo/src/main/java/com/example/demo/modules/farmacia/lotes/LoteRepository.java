@@ -31,6 +31,12 @@ public interface LoteRepository extends JpaRepository<LoteEntity, Long> {
 
     List<LoteEntity> findByCompra_IdIn(List<Long> compraIds);
 
+    List<LoteEntity> findByMedicamentoLog_IdAndEstadoAndDisponibleGreaterThan(
+            Long medicamentoLogId, boolean estado, Integer disponible);
+
+    List<LoteEntity> findByInsumoLog_IdAndEstadoAndDisponibleGreaterThan(
+            Long insumoLogId, boolean estado, Integer disponible);
+
     @Query("SELECT COALESCE(SUM(l.total), 0) FROM LoteEntity l WHERE l.compra.id = :compraId")
     BigDecimal sumTotalesPorCompra(@Param("compraId") Long compraId);
 

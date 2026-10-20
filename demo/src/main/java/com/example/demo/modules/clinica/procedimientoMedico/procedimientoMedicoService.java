@@ -7,6 +7,7 @@ import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -36,6 +37,7 @@ public class procedimientoMedicoService {
     private final medicamentoLogRepository medicamentoLogRepository;
     private final insumosLogRepository insumosLogRepository;
     private final LoteRepository loteRepository;
+    private final SolicitudSalidaService solicitudSalidaService;
 
     @Transactional
     public procedimientoMedicoDTOs.Response crear(procedimientoMedicoDTOs.Request request) {
@@ -46,7 +48,8 @@ public class procedimientoMedicoService {
         procedimientoEntity tipo = buscarTipoProcedimiento(request.tipoProcedimientoId(), null);
         EpisodioEntity episodio = buscarEpisodioAbierto(request.episodioId());
         UsuarioEntity usuario = buscarUsuario(request.usuarioId());
-        List<procedimientoMedicoRecursoEntity> recursos = resolverRecursos(request.recursos(), List.of());
+        List<procedimientoMedicoRecursoEntity> recursos =
+                resolverRecursos(request.recursos(), List.of(), Map.of());
 
         procedimientoMedicoEntity entity = procedimientoMedicoEntity.builder()
                 .procedimiento(tipo)
@@ -60,7 +63,9 @@ public class procedimientoMedicoService {
         entity.setEstado(calcularEstado(entity.getResultado(), entity.getFin()));
         recursos.forEach(entity::agregarRecurso);
 
-        return toResponse(repository.save(entity));
+        procedimientoMedicoEntity guardado = repository.save(entity);
+        solicitudSalidaService.sincronizar(guardado);
+        return toResponse(guardado);
     }
 
     @Transactional
@@ -78,8 +83,10 @@ public class procedimientoMedicoService {
 
         procedimientoEntity tipo = buscarTipoProcedimiento(
                 request.tipoProcedimientoId(), entity.getProcedimiento().getId());
-        List<procedimientoMedicoRecursoEntity> recursos =
-                resolverRecursos(request.recursos(), entity.getRecursos());
+        List<procedimientoMedicoRecursoEntity> recursos = resolverRecursos(
+                request.recursos(),
+                entity.getRecursos(),
+                solicitudSalidaService.obtenerCantidadesEntregadas(id));
 
         entity.setProcedimiento(tipo);
         entity.setDescripcion(StringNormalizer.normalizarTexto(request.descripcion()));
@@ -94,7 +101,9 @@ public class procedimientoMedicoService {
         entity.getRecursos().clear();
         recursos.forEach(entity::agregarRecurso);
 
-        return toResponse(repository.save(entity));
+        procedimientoMedicoEntity guardado = repository.save(entity);
+        solicitudSalidaService.sincronizar(guardado);
+        return toResponse(guardado);
     }
 
     @Transactional(readOnly = true)
@@ -122,6 +131,7 @@ public class procedimientoMedicoService {
                         "Procedimiento médico no encontrado con el ID: " + id));
 
         validarEpisodioAbierto(entity.getEpisodio());
+        solicitudSalidaService.cancelarPorProcedimiento(id);
         entity.setEstado(EstadoProcedimientoMedico.ELIMINADO);
         repository.save(entity);
     }
@@ -164,7 +174,8 @@ public class procedimientoMedicoService {
 
     private List<procedimientoMedicoRecursoEntity> resolverRecursos(
             List<procedimientoMedicoDTOs.RecursoRequest> solicitudes,
-            List<procedimientoMedicoRecursoEntity> existentes) {
+            List<procedimientoMedicoRecursoEntity> existentes,
+            Map<String, Integer> entregados) {
         if (solicitudes == null) {
             throw new IllegalArgumentException("Los recursos son obligatorios");
         }
@@ -195,6 +206,8 @@ public class procedimientoMedicoService {
 
         for (procedimientoMedicoDTOs.RecursoRequest solicitud : agrupados.values()) {
             procedimientoMedicoRecursoEntity existente = buscarRecursoExistente(existentes, solicitud);
+            String clave = solicitud.tipo() + "#" + solicitud.referenciaId();
+            int yaEntregado = entregados == null ? 0 : entregados.getOrDefault(clave, 0);
 
             // Los recursos históricos no se revalidan contra el stock actual si no aumentan.
             if (existente != null && solicitud.cantidad() <= existente.getCantidad()) {
@@ -202,13 +215,18 @@ public class procedimientoMedicoService {
                 continue;
             }
 
+            // Solo debe existir stock para lo que aún falta entregar.
+            int pendiente = solicitud.cantidad() - yaEntregado;
+
             if (solicitud.tipo() == TipoRecursoProcedimiento.MEDICAMENTO) {
                 medicamentoLogEntity medicamento = medicamentoLogRepository
                         .findByIdAndEstado(solicitud.referenciaId(), true)
                         .orElseThrow(() -> new IllegalArgumentException(
                                 "Medicamento no encontrado con el ID: " + solicitud.referenciaId()));
                 String nombre = nombreMedicamento(medicamento);
-                validarCantidad(solicitud.cantidad(), disponibleMedicamento(medicamento.getId()), nombre);
+                if (pendiente > 0) {
+                    validarCantidad(pendiente, disponibleMedicamento(medicamento.getId()), nombre);
+                }
                 recursos.add(nuevoRecurso(solicitud, nombre));
                 continue;
             }
@@ -217,7 +235,9 @@ public class procedimientoMedicoService {
                     .filter(insumosLogEntity::isEstado)
                     .orElseThrow(() -> new IllegalArgumentException(
                             "Insumo no encontrado con el ID: " + solicitud.referenciaId()));
-            validarCantidad(solicitud.cantidad(), disponibleInsumo(insumo.getId()), insumo.getNombre());
+            if (pendiente > 0) {
+                validarCantidad(pendiente, disponibleInsumo(insumo.getId()), insumo.getNombre());
+            }
             recursos.add(nuevoRecurso(solicitud, insumo.getNombre()));
         }
 
@@ -254,7 +274,7 @@ public class procedimientoMedicoService {
         }
         if (cantidad > disponible) {
             throw new IllegalArgumentException(
-                    "La cantidad solicitada de " + nombre + " supera la disponible (" + disponible + ")");
+                    "La cantidad pendiente de " + nombre + " supera la disponible (" + disponible + ")");
         }
     }
 
