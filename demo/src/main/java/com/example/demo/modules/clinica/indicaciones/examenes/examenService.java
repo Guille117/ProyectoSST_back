@@ -75,6 +75,21 @@ public class examenService {
     }
 
     @Transactional
+    public examenDTOs.Response agregarArchivos(Long id, List<MultipartFile> archivos) {
+        examenEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+
+        List<String> rutasGuardadas = new ArrayList<>();
+        try {
+            guardarArchivos(entity, archivos, rutasGuardadas);
+            return toResponse(repository.save(entity));
+        } catch (RuntimeException ex) {
+            eliminarArchivosSilencioso(rutasGuardadas, ex);
+            throw ex;
+        }
+    }
+
+    @Transactional
     public void eliminarArchivo(Long examenId, Long archivoId) {
         examenEntity entity = repository.findById(examenId)
                 .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + examenId));

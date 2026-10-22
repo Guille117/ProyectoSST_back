@@ -32,6 +32,8 @@ class cuidadoControllerTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
+    private static final LocalDateTime FECHA_INICIO = LocalDateTime.of(2026, 10, 16, 11, 0);
+
     @MockitoBean
     private cuidadoService service;
 
@@ -49,22 +51,23 @@ class cuidadoControllerTest {
         when(service.crear(any())).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
                 1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
-                EstadoCuidado.EN_PROCESO));
+                EstadoCuidado.EN_PROCESO, FECHA_INICIO));
 
         mockMvc.perform(post("/api/v1/cuidados")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new cuidadoDTOs.Request(
-                                "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno", 1L, 2L))))
+                                "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno", 1L, 2L, FECHA_INICIO))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(30))
                 .andExpect(jsonPath("$.nombreCuidado").value("Cambio de vendaje"))
-                .andExpect(jsonPath("$.estado").value("EN_PROCESO"));
+                .andExpect(jsonPath("$.estado").value("EN_PROCESO"))
+                .andExpect(jsonPath("$.fechaInicio").value("2026-10-16T11:00:00"));
     }
 
     @Test
     void crear_debeRechazarRequestSinNombre() throws Exception {
         String json = "{\"frecuencia\":12,\"duracion\":5,\"tipoDuracion\":\"DIAS\","
-                + "\"episodioId\":1,\"usuarioId\":2}";
+                + "\"episodioId\":1,\"usuarioId\":2,\"fechaInicio\":\"2026-10-16T11:00:00\"}";
 
         mockMvc.perform(post("/api/v1/cuidados")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -77,7 +80,7 @@ class cuidadoControllerTest {
         when(service.obtenerTodos(EstadoCuidado.EN_PROCESO)).thenReturn(List.of(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
                 1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
-                EstadoCuidado.EN_PROCESO)));
+                EstadoCuidado.EN_PROCESO, FECHA_INICIO)));
 
         mockMvc.perform(get("/api/v1/cuidados"))
                 .andExpect(status().isOk())
@@ -91,7 +94,7 @@ class cuidadoControllerTest {
                 .thenReturn(List.of(new cuidadoDTOs.Response(
                         31L, "Curacion", 8, 3, TipoDuracion.DIAS, null,
                         5L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
-                        EstadoCuidado.EN_PROCESO)));
+                        EstadoCuidado.EN_PROCESO, FECHA_INICIO)));
 
         mockMvc.perform(get("/api/v1/cuidados/buscar").param("episodioId", "5"))
                 .andExpect(status().isOk())
@@ -103,7 +106,7 @@ class cuidadoControllerTest {
         when(service.obtenerPorId(30L)).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
                 1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
-                EstadoCuidado.COMPLETADO));
+                EstadoCuidado.COMPLETADO, FECHA_INICIO));
 
         mockMvc.perform(get("/api/v1/cuidados/30"))
                 .andExpect(status().isOk())
@@ -116,12 +119,12 @@ class cuidadoControllerTest {
         when(service.actualizar(any(), any())).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de sonda", 24, null, TipoDuracion.TIEMPO_INDEFINIDO, "Vigilar",
                 1L, 3L, "Ana Lopez", LocalDateTime.of(2026, 10, 16, 11, 0),
-                EstadoCuidado.EN_PROCESO));
+                EstadoCuidado.EN_PROCESO, FECHA_INICIO));
 
         mockMvc.perform(put("/api/v1/cuidados/30")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(new cuidadoDTOs.Request(
-                                "Cambio de sonda", 24, null, TipoDuracion.TIEMPO_INDEFINIDO, "Vigilar", 1L, 3L))))
+                                "Cambio de sonda", 24, null, TipoDuracion.TIEMPO_INDEFINIDO, "Vigilar", 1L, 3L, FECHA_INICIO))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombreCuidado").value("Cambio de sonda"))
                 .andExpect(jsonPath("$.tipoDuracion").value("TIEMPO_INDEFINIDO"));
@@ -132,7 +135,7 @@ class cuidadoControllerTest {
         when(service.cambiarEstado(30L, EstadoCuidado.COMPLETADO)).thenReturn(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",
                 1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
-                EstadoCuidado.COMPLETADO));
+                EstadoCuidado.COMPLETADO, FECHA_INICIO));
 
         mockMvc.perform(patch("/api/v1/cuidados/30/estado").param("estado", "COMPLETADO"))
                 .andExpect(status().isOk())

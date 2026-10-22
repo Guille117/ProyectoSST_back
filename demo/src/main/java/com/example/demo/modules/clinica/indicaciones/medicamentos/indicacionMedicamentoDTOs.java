@@ -33,7 +33,9 @@ public class indicacionMedicamentoDTOs {
             Long episodioId,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
+            Long usuarioId,
+            @NotNull(message = "La fecha y hora de inicio son obligatorias")
+            LocalDateTime fechaInicio
     ) {
         @AssertTrue(message = "El medicamento es obligatorio")
         public boolean isMedicamentoPresente() {
@@ -57,6 +59,7 @@ public class indicacionMedicamentoDTOs {
             Long usuarioId,
             String usuarioNombre,
             LocalDateTime fecha,
-            EstadoIndicacionMedicamento estado
+            EstadoIndicacionMedicamento estado,
+            LocalDateTime fechaInicio
     ) {}
 }

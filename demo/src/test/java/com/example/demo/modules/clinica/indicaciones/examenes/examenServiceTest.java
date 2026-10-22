@@ -102,6 +102,34 @@ class examenServiceTest {
     }
 
     @Test
+    void agregarArchivos_debeAdjuntarAlExamenExistente() {
+        examenEntity existente = examenEntity.builder()
+                .id(10L)
+                .nombreExamen("Hemograma")
+                .archivos(new ArrayList<>())
+                .episodio(episodio(1L))
+                .usuario(usuario(2L, "Carlos Mendez"))
+                .fecha(LocalDateTime.of(2026, 10, 16, 11, 0))
+                .build();
+
+        when(repository.findById(10L)).thenReturn(Optional.of(existente));
+        when(archivoStorage.guardar(any(), eq(10L))).thenReturn("uploads/examenes/examen-10-nuevo.pdf");
+        when(archivoRepository.save(any(examenArchivoEntity.class))).thenAnswer(invocation -> {
+            examenArchivoEntity entity = invocation.getArgument(0);
+            entity.setId(60L);
+            return entity;
+        });
+        when(repository.save(any(examenEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        examenDTOs.Response response = service.agregarArchivos(10L, List.of(archivo));
+
+        assertEquals(1, response.archivos().size());
+        assertEquals(60L, response.archivos().get(0).id());
+        assertEquals("uploads/examenes/examen-10-nuevo.pdf", response.archivos().get(0).urlArchivo());
+        verify(archivoStorage).guardar(archivo, 10L);
+    }
+
+    @Test
     void crear_debeRechazarNombreVacio() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

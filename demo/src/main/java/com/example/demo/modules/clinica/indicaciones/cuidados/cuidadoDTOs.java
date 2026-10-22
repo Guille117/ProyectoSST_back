@@ -27,7 +27,9 @@ public class cuidadoDTOs {
             Long episodioId,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
+            Long usuarioId,
+            @NotNull(message = "La fecha y hora de inicio son obligatorias")
+            LocalDateTime fechaInicio
     ) {}
 
     public record Response(
@@ -41,6 +43,7 @@ public class cuidadoDTOs {
             Long usuarioId,
             String usuarioNombre,
             LocalDateTime fecha,
-            EstadoCuidado estado
+            EstadoCuidado estado,
+            LocalDateTime fechaInicio
     ) {}
 }

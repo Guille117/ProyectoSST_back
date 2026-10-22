@@ -61,6 +61,35 @@ public class DatabaseSchemaMigration {
         hacerColumnaNullable("indicaciones_medicas", "medicamento_log_id", "BIGINT");
     }
 
+    /** Agrega y rellena la fecha de inicio de las indicaciones médicas y los cuidados. */
+    @PostConstruct
+    public void asegurarFechaInicioIndicaciones() {
+        asegurarFechaInicio("indicaciones_medicas");
+        asegurarFechaInicio("cuidados");
+    }
+
+    private void asegurarFechaInicio(String tabla) {
+        if (!existeTabla(tabla)) {
+            return;
+        }
+
+        Integer existeColumna = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+                  AND COLUMN_NAME = 'fecha_inicio'
+                """, Integer.class, tabla);
+
+        if (existeColumna == null || existeColumna == 0) {
+            jdbcTemplate.execute(
+                    "ALTER TABLE " + tabla + " ADD COLUMN fecha_inicio DATETIME(6) NULL AFTER fecha");
+        }
+
+        jdbcTemplate.execute("UPDATE " + tabla + " SET fecha_inicio = fecha WHERE fecha_inicio IS NULL");
+        jdbcTemplate.execute("ALTER TABLE " + tabla + " MODIFY COLUMN fecha_inicio DATETIME(6) NOT NULL");
+    }
+
     private void hacerColumnaNullable(String tabla, String columna, String tipoSql) {
         String nulable = jdbcTemplate.queryForObject("""
                 SELECT IS_NULLABLE

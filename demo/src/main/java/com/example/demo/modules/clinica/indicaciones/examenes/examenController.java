@@ -51,6 +51,13 @@ public class examenController {
         return ResponseEntity.ok(service.actualizar(id, request, archivos));
     }
 
+    @PostMapping(value = "/{id}/archivos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<examenDTOs.Response> agregarArchivos(
+            @PathVariable("id") Long id,
+            @RequestPart("archivos") List<MultipartFile> archivos) {
+        return ResponseEntity.ok(service.agregarArchivos(id, archivos));
+    }
+
     @PatchMapping("/{id}/estado")
     public ResponseEntity<examenDTOs.Response> cambiarEstado(
             @PathVariable("id") Long id,

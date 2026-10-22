@@ -23,6 +23,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class cuidadoServiceTest {
 
+    private static final LocalDateTime FECHA_INICIO = LocalDateTime.of(2026, 10, 16, 11, 0);
+
     @Mock
     private cuidadoRepository repository;
 
@@ -46,7 +48,7 @@ class cuidadoServiceTest {
         });
 
         cuidadoDTOs.Response response = service.crear(new cuidadoDTOs.Request(
-                "  Cambio de vendaje ", 12, 5, TipoDuracion.DIAS, "  Cada turno ", 1L, 2L));
+                "  Cambio de vendaje ", 12, 5, TipoDuracion.DIAS, "  Cada turno ", 1L, 2L, FECHA_INICIO));
 
         assertEquals(30L, response.id());
         assertEquals("Cambio de vendaje", response.nombreCuidado());
@@ -56,6 +58,7 @@ class cuidadoServiceTest {
         assertEquals("Cada turno", response.observacion());
         assertEquals("Carlos Mendez", response.usuarioNombre());
         assertNotNull(response.fecha());
+        assertEquals(FECHA_INICIO, response.fechaInicio());
         assertEquals(EstadoCuidado.EN_PROCESO, response.estado());
     }
 
@@ -64,7 +67,7 @@ class cuidadoServiceTest {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.crear(new cuidadoDTOs.Request(
-                        "Curacion", 12, null, TipoDuracion.DIAS, null, 1L, 2L)));
+                        "Curacion", 12, null, TipoDuracion.DIAS, null, 1L, 2L, FECHA_INICIO)));
 
         assertEquals("La duración es obligatoria cuando el tipo es DIAS", exception.getMessage());
         verify(repository, never()).save(any());
@@ -75,7 +78,7 @@ class cuidadoServiceTest {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
                 () -> service.crear(new cuidadoDTOs.Request(
-                        "   ", 12, 5, TipoDuracion.DIAS, null, 1L, 2L)));
+                        "   ", 12, 5, TipoDuracion.DIAS, null, 1L, 2L, FECHA_INICIO)));
 
         assertEquals("El nombre del cuidado es obligatorio", exception.getMessage());
         verify(repository, never()).save(any());
@@ -90,7 +93,7 @@ class cuidadoServiceTest {
         when(repository.save(any(cuidadoEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         cuidadoDTOs.Response response = service.actualizar(6L, new cuidadoDTOs.Request(
-                "Cambio de sonda", 24, null, TipoDuracion.TIEMPO_INDEFINIDO, "Vigilar", 1L, 3L));
+                "Cambio de sonda", 24, null, TipoDuracion.TIEMPO_INDEFINIDO, "Vigilar", 1L, 3L, FECHA_INICIO));
 
         assertEquals("Cambio de sonda", response.nombreCuidado());
         assertEquals(24, response.frecuencia());
@@ -155,6 +158,7 @@ class cuidadoServiceTest {
                 .episodio(episodio(1L))
                 .usuario(usuario(2L, "Carlos Mendez"))
                 .fecha(LocalDateTime.of(2026, 10, 16, 11, 0))
+                .fechaInicio(FECHA_INICIO)
                 .estado(estado)
                 .build();
     }

@@ -45,6 +45,7 @@ public class indicacionMedicamentoService {
                 .episodio(buscarEpisodio(request.episodioId()))
                 .usuario(buscarUsuario(request.usuarioId()))
                 .fecha(LocalDateTime.now())
+                .fechaInicio(validarFechaInicio(request.fechaInicio()))
                 .build();
 
         return toResponse(repository.save(entity));
@@ -69,6 +70,7 @@ public class indicacionMedicamentoService {
         entity.setObservaciones(StringNormalizer.normalizarNullable(request.observaciones()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
         entity.setUsuario(buscarUsuario(request.usuarioId()));
+        entity.setFechaInicio(validarFechaInicio(request.fechaInicio()));
 
         return toResponse(repository.save(entity));
     }
@@ -138,6 +140,13 @@ public class indicacionMedicamentoService {
             throw new IllegalArgumentException("La frecuencia debe ser mayor a 0");
         }
         return frecuencia;
+    }
+
+    private LocalDateTime validarFechaInicio(LocalDateTime fechaInicio) {
+        if (fechaInicio == null) {
+            throw new IllegalArgumentException("La fecha y hora de inicio son obligatorias");
+        }
+        return fechaInicio;
     }
 
     /** El medicamento puede venir del catálogo o escribirse libremente si no está registrado. */
@@ -210,6 +219,7 @@ public class indicacionMedicamentoService {
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 entity.getFecha(),
-                entity.getEstado());
+                entity.getEstado(),
+                entity.getFechaInicio());
     }
 }

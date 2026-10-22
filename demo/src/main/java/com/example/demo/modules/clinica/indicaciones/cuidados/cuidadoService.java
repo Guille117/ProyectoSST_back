@@ -36,6 +36,7 @@ public class cuidadoService {
                 .episodio(buscarEpisodio(request.episodioId()))
                 .usuario(buscarUsuario(request.usuarioId()))
                 .fecha(LocalDateTime.now())
+                .fechaInicio(validarFechaInicio(request.fechaInicio()))
                 .build();
 
         return toResponse(repository.save(entity));
@@ -57,6 +58,7 @@ public class cuidadoService {
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
         entity.setUsuario(buscarUsuario(request.usuarioId()));
+        entity.setFechaInicio(validarFechaInicio(request.fechaInicio()));
 
         return toResponse(repository.save(entity));
     }
@@ -126,6 +128,13 @@ public class cuidadoService {
         return frecuencia;
     }
 
+    private LocalDateTime validarFechaInicio(LocalDateTime fechaInicio) {
+        if (fechaInicio == null) {
+            throw new IllegalArgumentException("La fecha y hora de inicio son obligatorias");
+        }
+        return fechaInicio;
+    }
+
     private EpisodioEntity buscarEpisodio(Long episodioId) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
@@ -165,6 +174,7 @@ public class cuidadoService {
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 entity.getFecha(),
-                entity.getEstado());
+                entity.getEstado(),
+                entity.getFechaInicio());
     }
 }

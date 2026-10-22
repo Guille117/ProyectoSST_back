@@ -69,6 +69,22 @@ class examenControllerTest {
     }
 
     @Test
+    void agregarArchivos_debeRetornarElExamenActualizado() throws Exception {
+        when(service.agregarArchivos(any(), any())).thenReturn(new examenDTOs.Response(
+                30L, "Hemograma", "En ayunas",
+                List.of(new examenDTOs.ArchivoResponse(60L, "hemograma.pdf", "uploads/examenes/examen-30-b.pdf", 123L)),
+                1L, 2L, "Carlos Mendez", FECHA, EstadoExamen.ACTIVO));
+
+        MockMultipartFile archivo = new MockMultipartFile("archivos", "hemograma.pdf",
+                "application/pdf", "%PDF-1.7\ncontenido".getBytes());
+
+        mockMvc.perform(multipart("/api/v1/examenes/30/archivos").file(archivo))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.archivos[0].id").value(60))
+                .andExpect(jsonPath("$.archivos[0].urlArchivo").value("uploads/examenes/examen-30-b.pdf"));
+    }
+
+    @Test
     void crear_debeRechazarRequestSinNombreDeExamen() throws Exception {
         MockMultipartFile requestPart = new MockMultipartFile("request", "", "application/json",
                 "{\"episodioId\":1,\"usuarioId\":2}".getBytes());
