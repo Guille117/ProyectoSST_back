@@ -7,6 +7,8 @@ import com.example.demo.modules.pacientes.tipoCama.tipoCamaEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "camas", uniqueConstraints = @UniqueConstraint(name = "uk_cama_codigo", columnNames = "codigo"))
 @Getter
@@ -33,6 +35,9 @@ public class camasEntity {
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "area_id", nullable = false)
     private areaEntity area;
+
+    @Column(precision = 12, scale = 2)
+    private BigDecimal precio;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paciente_id", unique = true)

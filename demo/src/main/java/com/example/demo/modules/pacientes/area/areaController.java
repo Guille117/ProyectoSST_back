@@ -1,5 +1,7 @@
 package com.example.demo.modules.pacientes.area;
 
+import com.example.demo.modules.pacientes.alergia.alergiaService;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadService;
 import com.example.demo.modules.pacientes.habitaciones.habitacionesService;
 import com.example.demo.modules.pacientes.institucion.institucionService;
 import com.example.demo.modules.pacientes.parentesco.parentescoService;
@@ -22,6 +24,8 @@ public class areaController {
     private final institucionService institucionService;
     private final parentescoService parentescoService;
     private final tipoCamaService tipoCamaService;
+    private final alergiaService alergiaService;
+    private final enfermedadService enfermedadService;
 
     public record ConteoCatalogoResponse(String tabla, long total) {}
 
@@ -63,7 +67,9 @@ public class areaController {
             new ConteoCatalogoResponse("instituciones", institucionService.contarActivas()),
                 new ConteoCatalogoResponse("habitaciones", habitacionesService.contarActivos()),
             new ConteoCatalogoResponse("tipos_cama", tipoCamaService.contarActivos()),
-            new ConteoCatalogoResponse("parentescos", parentescoService.contarActivos())
+            new ConteoCatalogoResponse("parentescos", parentescoService.contarActivos()),
+            new ConteoCatalogoResponse("alergias", alergiaService.contarActivos()),
+            new ConteoCatalogoResponse("enfermedades", enfermedadService.contarActivos())
         ));
     }
 }

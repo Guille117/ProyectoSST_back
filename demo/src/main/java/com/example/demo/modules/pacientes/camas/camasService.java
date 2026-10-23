@@ -81,7 +81,8 @@ public class camasService {
         return new camasDTOs.ReferenciasResponse(
             cama.getHabitacion().getId(),
             cama.getArea().getId(),
-            cama.getTipo().getId());
+            cama.getTipo().getId(),
+            cama.getPrecio());
         }
 
     @Transactional
@@ -92,6 +93,9 @@ public class camasService {
         existente.setHabitacion(actualizada.getHabitacion());
         existente.setTipo(actualizada.getTipo());
         existente.setArea(actualizada.getArea());
+        if (request.precio() != null) {
+            existente.setPrecio(request.precio());
+        }
         // el estado solo se cambia si el request lo trae explícito; si no, se conserva el actual
         EstadoCama nuevoEstado = request.estado() != null ? request.estado() : existente.getEstado();
         if (nuevoEstado == EstadoCama.OCUPADA && existente.getPaciente() == null) {
@@ -136,6 +140,7 @@ public class camasService {
                 .orElseThrow(() -> new RuntimeException("Tipo de cama no encontrado con el ID: " + request.tipoId())));
         entidad.setArea(areaRepository.findById(request.areaId())
                 .orElseThrow(() -> new RuntimeException("Área no encontrada con el ID: " + request.areaId())));
+        entidad.setPrecio(request.precio());
         entidad.setEstado(request.estado() != null ? request.estado() : EstadoCama.DISPONIBLE);
         entidad.setActivo(request.activo() != null ? request.activo() : existente == null || existente.isActivo());
         return entidad;
@@ -155,12 +160,12 @@ public class camasService {
                 new camasDTOs.CatalogoResponse(cama.getHabitacion().getId(), cama.getHabitacion().getNombre()),
                 new camasDTOs.CatalogoResponse(cama.getTipo().getId(), cama.getTipo().getNombre()),
                 new camasDTOs.CatalogoResponse(cama.getArea().getId(), cama.getArea().getNombre()),
-                cama.getEstado(), cama.isActivo());
+                cama.getEstado(), cama.isActivo(), cama.getPrecio());
     }
 
     private camasDTOs.ListResponse toListResponse(camasEntity cama) {
         return new camasDTOs.ListResponse(cama.getId(), cama.getCodigo(), cama.getEstado(),
             cama.getHabitacion().getNombre(), cama.getArea().getNombre(), cama.getTipo().getNombre(),
-            cama.isActivo());
+            cama.isActivo(), cama.getPrecio());
     }
 }

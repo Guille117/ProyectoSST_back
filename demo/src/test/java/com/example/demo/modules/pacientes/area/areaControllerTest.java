@@ -1,5 +1,7 @@
 package com.example.demo.modules.pacientes.area;
 
+import com.example.demo.modules.pacientes.alergia.alergiaService;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadService;
 import com.example.demo.modules.pacientes.habitaciones.habitacionesService;
 import com.example.demo.modules.pacientes.institucion.institucionService;
 import com.example.demo.modules.pacientes.parentesco.parentescoService;
@@ -39,6 +41,12 @@ class areaControllerTest {
     private tipoCamaService tipoCamaService;
 
     @MockitoBean
+    private alergiaService alergiaService;
+
+    @MockitoBean
+    private enfermedadService enfermedadService;
+
+    @MockitoBean
     private com.example.demo.security.JwtUtil jwtUtil;
 
     @MockitoBean
@@ -53,15 +61,21 @@ class areaControllerTest {
         when(habitacionesService.contarActivos()).thenReturn(6L);
         when(tipoCamaService.contarActivos()).thenReturn(3L);
         when(parentescoService.contarActivos()).thenReturn(8L);
+        when(alergiaService.contarActivos()).thenReturn(5L);
+        when(enfermedadService.contarActivos()).thenReturn(2L);
 
         mockMvc.perform(get("/api/v1/areas/conteo-catalogos"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(4)))
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(6)))
                 .andExpect(jsonPath("$[0].tabla").value("instituciones"))
                 .andExpect(jsonPath("$[0].total").value(4))
                 .andExpect(jsonPath("$[1].tabla").value("habitaciones"))
                 .andExpect(jsonPath("$[2].tabla").value("tipos_cama"))
                 .andExpect(jsonPath("$[3].tabla").value("parentescos"))
-                .andExpect(jsonPath("$[3].total").value(8));
+                .andExpect(jsonPath("$[3].total").value(8))
+                .andExpect(jsonPath("$[4].tabla").value("alergias"))
+                .andExpect(jsonPath("$[4].total").value(5))
+                .andExpect(jsonPath("$[5].tabla").value("enfermedades"))
+                .andExpect(jsonPath("$[5].total").value(2));
     }
 }
