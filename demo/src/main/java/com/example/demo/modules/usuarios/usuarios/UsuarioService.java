@@ -14,9 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
+import java.text.Normalizer;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.HashSet;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -189,11 +191,13 @@ public class UsuarioService {
     }
 
     @Transactional(readOnly = true)
-    public List<UsuarioDTOs.Response> buscarPorCriterio(String criterio, Boolean activos) {
+    public List<UsuarioDTOs.ListResponse> buscarPorCriterio(String criterio, Boolean activos) {
         if (criterio == null || criterio.isBlank()) {
             return List.of();
         }
-        String c = criterio.trim().toLowerCase();
+
+        String c = normalizarBusqueda(criterio);
+        String codigoBuscado = normalizarCodigo(criterio);
 
         List<UsuarioEntity> base;
         if (activos == null) {
@@ -205,21 +209,44 @@ public class UsuarioService {
         return base.stream()
                 .filter(u -> {
                     PersonaEntity p = u.getPersona();
-                    return (p != null && (
-                            p.getCui() != null && p.getCui().toLowerCase().contains(c) ||
-                            p.getNombres() != null && p.getNombres().toLowerCase().contains(c) ||
-                            p.getApellidos() != null && p.getApellidos().toLowerCase().contains(c)
-                    )) ||
-                    (u.getUsername() != null && u.getUsername().toLowerCase().contains(c)) ||
-                    (u.getCodigo() != null && u.getCodigo().toLowerCase().contains(c));
+                    String nombre = p == null ? "" : normalizarBusqueda(p.getNombreCompleto());
+                    String cui = p == null ? "" : normalizarBusqueda(p.getCui());
+                    String username = normalizarBusqueda(u.getUsername());
+                    String codigo = normalizarCodigo(u.getCodigo());
+
+                    return nombre.contains(c)
+                            || cui.contains(c)
+                            || username.contains(c)
+                            || codigo.contains(codigoBuscado)
+                            || codigo.contains(c);
                 })
-                .map(mapper::toDTO)
+                .map(mapper::toListDTO)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<UsuarioDTOs.Response> buscarPorNombre(String nombre, Boolean activos) {
+    public List<UsuarioDTOs.ListResponse> buscarPorNombre(String nombre, Boolean activos) {
         return buscarPorCriterio(nombre, activos);
+    }
+
+    /** Normaliza texto para búsquedas: sin mayúsculas, espacios sobrantes ni tildes. */
+    private String normalizarBusqueda(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        return Normalizer.normalize(valor, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(Locale.ROOT)
+                .trim();
+    }
+
+    /** Normaliza códigos: sin separadores y sin ceros a la izquierda de cada número. */
+    private String normalizarCodigo(String valor) {
+        if (valor == null) {
+            return "";
+        }
+        String limpio = normalizarBusqueda(valor).replaceAll("[^a-z0-9]", "");
+        return limpio.replaceAll("0+(?=\\d)", "");
     }
 
     @Transactional

@@ -31,7 +31,7 @@ public class UsuarioController {
     }
 
     @GetMapping("/buscar")
-    public ResponseEntity<List<UsuarioDTOs.Response>> buscar(
+    public ResponseEntity<List<UsuarioDTOs.ListResponse>> buscar(
             @RequestParam(name = "criterio") String criterio,
             @RequestParam(required = false, name = "activos") Boolean activos) {
         return ResponseEntity.ok(service.buscarPorCriterio(criterio, activos));

@@ -213,19 +213,15 @@ class UsuarioControllerTest {
 
     @Test
     void buscar_DeberiaRetornarOk() throws Exception {
-        UsuarioDTOs.Response response = new UsuarioDTOs.Response(
-                1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
-                LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
-                1L, "Director",
-                1L, "HOR-01", "Diurno",
-                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
-                "jperez", true
+        UsuarioDTOs.ListResponse response = new UsuarioDTOs.ListResponse(
+                1L, "USR-01", "Juan Perez", "12345678", List.of("Admin"), true,
+                new UsuarioDTOs.EspecialidadResponse(1L, "Cardiología")
         );
 
         when(usuarioService.buscarPorCriterio(eq("Juan"), any())).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/v1/usuarios/buscar").param("criterio", "Juan"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].nombres").value("Juan"));
+                .andExpect(jsonPath("$[0].nombreCompleto").value("Juan Perez"));
     }
 }

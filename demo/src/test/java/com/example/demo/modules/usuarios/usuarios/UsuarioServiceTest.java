@@ -174,6 +174,45 @@ class UsuarioServiceTest {
     }
 
     @Test
+    void buscarPorCriterio_EncuentraPorNombreSinImportarMayusculas() {
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("flopez").estado(true)
+                .persona(PersonaEntity.builder()
+                        .primerNombre("Fernando")
+                        .primerApellido("Lopez")
+                        .build())
+                .build();
+        UsuarioDTOs.ListResponse listado = new UsuarioDTOs.ListResponse(
+                1L, "USR-01", "Fernando Lopez", null, List.of(), true, null);
+
+        when(repository.findByEstado(true)).thenReturn(List.of(usuario));
+        when(mapper.toListDTO(usuario)).thenReturn(listado);
+
+        assertEquals(List.of(listado), service.buscarPorCriterio("ferNando", true));
+        assertEquals(List.of(listado), service.buscarPorCriterio("FERNANDO", true));
+    }
+
+    @Test
+    void buscarPorCriterio_EncuentraPorCodigoSinImportarFormato() {
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("flopez").estado(true)
+                .persona(PersonaEntity.builder()
+                        .primerNombre("Fernando")
+                        .primerApellido("Lopez")
+                        .build())
+                .build();
+        UsuarioDTOs.ListResponse listado = new UsuarioDTOs.ListResponse(
+                1L, "USR-01", "Fernando Lopez", null, List.of(), true, null);
+
+        when(repository.findByEstado(true)).thenReturn(List.of(usuario));
+        when(mapper.toListDTO(usuario)).thenReturn(listado);
+
+        assertEquals(List.of(listado), service.buscarPorCriterio("usr-01", true));
+        assertEquals(List.of(listado), service.buscarPorCriterio("usr-1", true));
+        assertEquals(List.of(listado), service.buscarPorCriterio("uSr-1", true));
+    }
+
+    @Test
     void obtenerPorId_Exitoso() {
         UsuarioEntity entity = UsuarioEntity.builder().id(1L).codigo("USR-01").username("jperez").estado(true).build();
         entity.setPersona(PersonaEntity.builder().cui("1234567890123").nombres("Juan").build());
