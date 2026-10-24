@@ -119,6 +119,53 @@ class procedimientoMedicoServiceTest {
     }
 
     @Test
+    void crear_conFinSinResultado_debeRegistrarProcedimientoRealizado() {
+        when(procedimientoRepository.findById(1L)).thenReturn(Optional.of(tipoProcedimiento(1L, "Sutura")));
+        when(episodioRepository.findById(2L)).thenReturn(Optional.of(new EpisodioEntity()));
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, "Dra. Ana López")));
+        when(repository.save(any(procedimientoMedicoEntity.class))).thenAnswer(invocation -> {
+            procedimientoMedicoEntity entity = invocation.getArgument(0);
+            entity.setId(10L);
+            return entity;
+        });
+
+        procedimientoMedicoDTOs.Request request = new procedimientoMedicoDTOs.Request(
+                1L,
+                "Sutura de herida en el antebrazo.",
+                null,
+                LocalDateTime.of(2026, 10, 19, 11, 0),
+                LocalDateTime.of(2026, 10, 19, 12, 0),
+                2L,
+                3L,
+                List.of());
+
+        procedimientoMedicoDTOs.Response response = service.crear(request);
+
+        assertEquals(EstadoProcedimientoMedico.REALIZADO, response.estado());
+    }
+
+    @Test
+    void buscarPorEpisodio_conFinDebeDevolverRealizadoAunqueElEstadoGuardadoSeaPendiente() {
+        procedimientoMedicoEntity existente = procedimientoMedicoEntity.builder()
+                .id(5L)
+                .procedimiento(tipoProcedimiento(1L, "Sutura"))
+                .descripcion("Sutura de herida.")
+                .resultado(null)
+                .inicio(LocalDateTime.of(2026, 10, 19, 11, 0))
+                .fin(LocalDateTime.of(2026, 10, 19, 12, 0))
+                .estado(EstadoProcedimientoMedico.PENDIENTE)
+                .episodio(EpisodioEntity.builder().id(2L).estado(true).build())
+                .usuario(usuario(3L, "Dra. Ana López"))
+                .recursos(new ArrayList<>())
+                .build();
+        when(repository.findByEpisodio_IdOrderByInicioDesc(2L)).thenReturn(List.of(existente));
+
+        List<procedimientoMedicoDTOs.Response> responses = service.buscarPorEpisodio(2L);
+
+        assertEquals(EstadoProcedimientoMedico.REALIZADO, responses.getFirst().estado());
+    }
+
+    @Test
     void eliminar_debeMarcarElProcedimientoComoEliminado() {
         procedimientoMedicoEntity existente = procedimientoMedicoEntity.builder()
                 .id(5L)

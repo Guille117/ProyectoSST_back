@@ -13,5 +13,7 @@ public interface EpisodioRepository extends JpaRepository<EpisodioEntity, Long> 
 
 	Optional<EpisodioEntity> findFirstByPaciente_IdOrderByIdDesc(Long pacienteId);
 
+	List<EpisodioEntity> findByPaciente_IdOrderByIdDesc(Long pacienteId);
+
 	boolean existsByPaciente_IdAndEstadoTrue(Long pacienteId);
 }

@@ -60,7 +60,7 @@ public class procedimientoMedicoService {
                 .episodio(episodio)
                 .usuario(usuario)
                 .build();
-        entity.setEstado(calcularEstado(entity.getResultado(), entity.getFin()));
+        entity.setEstado(calcularEstado(entity.getFin()));
         recursos.forEach(entity::agregarRecurso);
 
         procedimientoMedicoEntity guardado = repository.save(entity);
@@ -95,7 +95,7 @@ public class procedimientoMedicoService {
         entity.setFin(request.fin());
 
         if (entity.getEstado() != EstadoProcedimientoMedico.ELIMINADO) {
-            entity.setEstado(calcularEstado(entity.getResultado(), entity.getFin()));
+            entity.setEstado(calcularEstado(entity.getFin()));
         }
 
         entity.getRecursos().clear();
@@ -321,8 +321,8 @@ public class procedimientoMedicoService {
                         "Usuario no encontrado con el ID: " + usuarioId));
     }
 
-    private EstadoProcedimientoMedico calcularEstado(String resultado, LocalDateTime fin) {
-        return resultado != null && fin != null
+    private EstadoProcedimientoMedico calcularEstado(LocalDateTime fin) {
+        return fin != null
                 ? EstadoProcedimientoMedico.REALIZADO
                 : EstadoProcedimientoMedico.PENDIENTE;
     }
@@ -377,6 +377,11 @@ public class procedimientoMedicoService {
                         recurso.getCantidad()))
                 .toList();
 
+        // Los registros antiguos pueden tener el estado PENDIENTE guardado aunque ya tengan fin.
+        EstadoProcedimientoMedico estado = entity.getEstado() == EstadoProcedimientoMedico.ELIMINADO
+                ? EstadoProcedimientoMedico.ELIMINADO
+                : calcularEstado(entity.getFin());
+
         return new procedimientoMedicoDTOs.Response(
                 entity.getId(),
                 entity.getProcedimiento().getId(),
@@ -388,7 +393,7 @@ public class procedimientoMedicoService {
                 entity.getEpisodio().getId(),
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
-                entity.getEstado(),
+                estado,
                 recursos);
     }
 }

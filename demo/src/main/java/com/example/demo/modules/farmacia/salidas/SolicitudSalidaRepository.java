@@ -55,4 +55,7 @@ public interface SolicitudSalidaRepository extends JpaRepository<SolicitudSalida
             "detalles"
     })
     List<SolicitudSalidaEntity> findByEstadoOrderByFechaSolicitudDesc(EstadoSolicitudSalida estado);
+
+    @EntityGraph(attributePaths = {"detalles"})
+    List<SolicitudSalidaEntity> findByEpisodio_IdOrderByFechaSolicitudAsc(Long episodioId);
 }
