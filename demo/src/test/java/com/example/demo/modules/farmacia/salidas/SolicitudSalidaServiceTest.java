@@ -7,10 +7,13 @@ import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoE
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRecursoEntity;
 import com.example.demo.modules.farmacia.lotes.LoteEntity;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
+import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
+import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
 import com.example.demo.modules.farmacia.motivoBaja.motivoBajaEntity;
 import com.example.demo.modules.farmacia.motivoBaja.motivoBajaRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
+import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.pacientes.paciente.PacienteEntity;
 import com.example.demo.modules.pacientes.paciente.TipoAtencion;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
@@ -31,6 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,6 +57,12 @@ class SolicitudSalidaServiceTest {
     private UsuarioRepository usuarioRepository;
     @Mock
     private motivoBajaRepository motivoBajaRepository;
+    @Mock
+    private EpisodioRepository episodioRepository;
+    @Mock
+    private medicamentoLogRepository medicamentoLogRepository;
+    @Mock
+    private insumosLogRepository insumosLogRepository;
 
     @InjectMocks
     private SolicitudSalidaService service;
@@ -387,6 +397,71 @@ class SolicitudSalidaServiceTest {
         assertEquals(1, resultado.getFirst().medicamentos());
         assertEquals(0, resultado.getFirst().insumos());
         assertEquals(1, resultado.getFirst().pendientes());
+    }
+
+    @Test
+    void crearDirecta_creaSalidaCompletadaYDescuentaLote() {
+        EpisodioEntity episodio = episodio();
+        UsuarioEntity usuario = usuario(1L);
+        medicamentoLogEntity medicamento = medicamento(4L);
+        LoteEntity lote = lote(50L, medicamento);
+        lote.setDisponible(10);
+
+        SolicitudSalidaEntity[] guardada = new SolicitudSalidaEntity[1];
+        when(episodioRepository.findById(10L)).thenReturn(Optional.of(episodio));
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(medicamentoLogRepository.findByIdAndEstado(4L, true))
+                .thenReturn(Optional.of(medicamento));
+        when(repository.saveAndFlush(any(SolicitudSalidaEntity.class))).thenAnswer(inv -> {
+            SolicitudSalidaEntity solicitud = inv.getArgument(0);
+            solicitud.setId(100L);
+            long detalleId = 200L;
+            for (SolicitudSalidaDetalleEntity detalle : solicitud.getDetalles()) {
+                detalle.setId(detalleId++);
+            }
+            guardada[0] = solicitud;
+            return solicitud;
+        });
+        when(repository.findByIdForUpdate(100L)).thenAnswer(inv -> Optional.of(guardada[0]));
+        when(repository.save(any(SolicitudSalidaEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(loteRepository.findByIdForUpdate(50L)).thenReturn(Optional.of(lote));
+        when(movimientoRepository.save(any(SolicitudSalidaMovimientoEntity.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+        when(movimientoRepository.findByDetalle_Solicitud_IdOrderByFechaHoraAsc(100L))
+                .thenReturn(List.of());
+
+        SolicitudSalidaDTOs.Response respuesta = service.crearDirecta(
+                new SolicitudSalidaDTOs.SalidaDirectaRequest(10L, 1L, List.of(
+                        new SolicitudSalidaDTOs.SalidaDirectaLineaRequest(
+                                TipoRecursoProcedimiento.MEDICAMENTO, 4L, 3, 50L))));
+
+        assertEquals("SAL-M00100", respuesta.codigo());
+        assertEquals(EstadoSolicitudSalida.COMPLETADA, respuesta.estado());
+        assertEquals(7, lote.getDisponible());
+        assertEquals(3, guardada[0].getDetalles().getFirst().getCantidadEntregada());
+        assertNull(guardada[0].getProcedimientoMedico());
+    }
+
+    @Test
+    void historial_devuelveMovimientosConProductoYLote() {
+        SolicitudSalidaDetalleEntity detalle =
+                detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L, "Amoxicilina", 10, 5);
+        LoteEntity lote = lote(50L, medicamento(4L));
+        SolicitudSalidaMovimientoEntity movimiento =
+                movimiento(detalle, lote, TipoMovimientoSalida.ENTREGA, 5, null);
+
+        when(repository.existsById(100L)).thenReturn(true);
+        when(movimientoRepository.findByDetalle_Solicitud_IdOrderByFechaHoraAsc(100L))
+                .thenReturn(List.of(movimiento));
+
+        List<SolicitudSalidaDTOs.HistorialResponse> historial = service.historial(100L);
+
+        assertEquals(1, historial.size());
+        assertEquals("Amoxicilina", historial.getFirst().producto());
+        assertEquals("LOTE-50", historial.getFirst().lote());
+        assertEquals(5, historial.getFirst().cantidad());
+        assertEquals(TipoMovimientoSalida.ENTREGA, historial.getFirst().tipoMovimiento());
     }
 
     private SolicitudSalidaDTOs.EntregaRequest entrega(

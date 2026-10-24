@@ -70,6 +70,29 @@ class SolicitudSalidaControllerTest {
     }
 
     @Test
+    void historial_debeRetornarLosMovimientos() throws Exception {
+        when(service.historial(1L)).thenReturn(List.of(
+                new SolicitudSalidaDTOs.HistorialResponse(
+                        5L,
+                        LocalDateTime.of(2026, 10, 19, 11, 0),
+                        TipoMovimientoSalida.ENTREGA,
+                        TipoRecursoProcedimiento.MEDICAMENTO,
+                        "Amoxicilina",
+                        "LOTE-20",
+                        3,
+                        null,
+                        null,
+                        "Carlos Méndez",
+                        null)));
+
+        mockMvc.perform(get("/api/v1/solicitudesSalida/1/historial"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].tipoMovimiento").value("ENTREGA"))
+                .andExpect(jsonPath("$[0].producto").value("Amoxicilina"))
+                .andExpect(jsonPath("$[0].cantidad").value(3));
+    }
+
+    @Test
     void entregar_debeRetornarLaSolicitudActualizada() throws Exception {
         when(service.entregar(eq(1L), any())).thenReturn(respuesta());
 
@@ -150,6 +173,7 @@ class SolicitudSalidaControllerTest {
                 1L,
                 "SOL-00001",
                 "Ana López",
+                "Dra. María Pérez",
                 "EMERGENCIA",
                 "Sutura",
                 LocalDateTime.of(2026, 10, 19, 10, 0),

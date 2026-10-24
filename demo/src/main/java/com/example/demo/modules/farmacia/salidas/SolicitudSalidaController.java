@@ -26,6 +26,12 @@ public class SolicitudSalidaController {
         return ResponseEntity.ok(service.obtener(id));
     }
 
+    @GetMapping("/{id}/historial")
+    public ResponseEntity<List<SolicitudSalidaDTOs.HistorialResponse>> historial(
+            @PathVariable("id") Long id) {
+        return ResponseEntity.ok(service.historial(id));
+    }
+
     @PostMapping("/{id}/entregas")
     public ResponseEntity<SolicitudSalidaDTOs.Response> entregar(
             @PathVariable("id") Long id,

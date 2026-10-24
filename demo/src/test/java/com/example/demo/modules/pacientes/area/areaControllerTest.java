@@ -56,17 +56,18 @@ class areaControllerTest {
     private com.example.demo.security.CustomUserDetailsService customUserDetailsService;
 
     @Test
-    void contarCatalogosActivos_debeIncluirInstitucionesYParentescos() throws Exception {
+    void contarCatalogosActivos_debeIncluirAreasYCatalogosDePacientes() throws Exception {
         when(institucionService.contarActivas()).thenReturn(4L);
         when(habitacionesService.contarActivos()).thenReturn(6L);
         when(tipoCamaService.contarActivos()).thenReturn(3L);
         when(parentescoService.contarActivos()).thenReturn(8L);
         when(alergiaService.contarActivos()).thenReturn(5L);
         when(enfermedadService.contarActivos()).thenReturn(2L);
+        when(areaService.contarActivos()).thenReturn(1L);
 
         mockMvc.perform(get("/api/v1/areas/conteo-catalogos"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(6)))
+                .andExpect(jsonPath("$", org.hamcrest.Matchers.hasSize(7)))
                 .andExpect(jsonPath("$[0].tabla").value("instituciones"))
                 .andExpect(jsonPath("$[0].total").value(4))
                 .andExpect(jsonPath("$[1].tabla").value("habitaciones"))
@@ -76,6 +77,8 @@ class areaControllerTest {
                 .andExpect(jsonPath("$[4].tabla").value("alergias"))
                 .andExpect(jsonPath("$[4].total").value(5))
                 .andExpect(jsonPath("$[5].tabla").value("enfermedades"))
-                .andExpect(jsonPath("$[5].total").value(2));
+                .andExpect(jsonPath("$[5].total").value(2))
+                .andExpect(jsonPath("$[6].tabla").value("areas"))
+                .andExpect(jsonPath("$[6].total").value(1));
     }
 }

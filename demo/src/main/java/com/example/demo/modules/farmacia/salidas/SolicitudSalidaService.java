@@ -4,10 +4,16 @@ import com.example.demo.modules.clinica.procedimientoMedico.EstadoProcedimientoM
 import com.example.demo.modules.clinica.procedimientoMedico.TipoRecursoProcedimiento;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoEntity;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRecursoEntity;
+import com.example.demo.modules.farmacia.insumosLog.insumosLogEntity;
+import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
 import com.example.demo.modules.farmacia.lotes.LoteEntity;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
+import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
+import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
 import com.example.demo.modules.farmacia.motivoBaja.motivoBajaEntity;
 import com.example.demo.modules.farmacia.motivoBaja.motivoBajaRepository;
+import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
+import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.utils.StringNormalizer;
@@ -25,6 +31,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,6 +43,9 @@ public class SolicitudSalidaService {
     private final LoteRepository loteRepository;
     private final UsuarioRepository usuarioRepository;
     private final motivoBajaRepository motivoBajaRepository;
+    private final EpisodioRepository episodioRepository;
+    private final medicamentoLogRepository medicamentoLogRepository;
+    private final insumosLogRepository insumosLogRepository;
 
     // ------------------- SINCRONIZACIÓN CON EL PROCEDIMIENTO -------------------
 
@@ -225,6 +235,178 @@ public class SolicitudSalidaService {
         return toResponse(solicitud);
     }
 
+    @Transactional(readOnly = true)
+    public List<SolicitudSalidaDTOs.HistorialResponse> historial(Long id) {
+        if (id == null || !repository.existsById(id)) {
+            throw new IllegalArgumentException(
+                    "Solicitud de salida no encontrada con el ID: " + id);
+        }
+
+        return movimientoRepository.findByDetalle_Solicitud_IdOrderByFechaHoraAsc(id).stream()
+                .map(this::toHistorial)
+                .toList();
+    }
+
+    // ------------------- SALIDAS DIRECTAS -------------------
+
+    /**
+     * Registra una salida directa de Farmacia ligada al episodio. No crea una
+     * solicitud pendiente: reutiliza la entrega para descontar el lote elegido
+     * y deja la salida completada en la misma transacción.
+     */
+    @Transactional
+    public SolicitudSalidaDTOs.Response crearDirecta(
+            SolicitudSalidaDTOs.SalidaDirectaRequest request) {
+        if (request == null || request.episodioId() == null || request.usuarioId() == null) {
+            throw new IllegalArgumentException("El episodio y el usuario son obligatorios");
+        }
+        if (request.lineas() == null || request.lineas().isEmpty()) {
+            throw new IllegalArgumentException("Debe indicar al menos un producto para la salida");
+        }
+
+        EpisodioEntity episodio = episodioRepository.findById(request.episodioId())
+                .filter(EpisodioEntity::isEstado)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "El episodio no existe o está cerrado."));
+        UsuarioEntity usuario = usuarioRepository.findById(request.usuarioId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Usuario no encontrado con el ID: " + request.usuarioId()));
+
+        Map<String, LineaDirectaAgrupada> agrupadas = new LinkedHashMap<>();
+        for (SolicitudSalidaDTOs.SalidaDirectaLineaRequest linea : request.lineas()) {
+            if (linea == null || linea.tipo() == null || linea.referenciaId() == null
+                    || linea.cantidad() == null || linea.cantidad() <= 0
+                    || linea.loteId() == null) {
+                throw new IllegalArgumentException("Los datos de la salida son obligatorios");
+            }
+
+            String clave = clave(linea.tipo(), linea.referenciaId());
+            LineaDirectaAgrupada previa = agrupadas.get(clave);
+            if (previa == null) {
+                agrupadas.put(clave, new LineaDirectaAgrupada(
+                        linea.tipo(), linea.referenciaId(), linea.cantidad()));
+            } else {
+                agrupadas.put(clave, new LineaDirectaAgrupada(
+                        previa.tipo(),
+                        previa.referenciaId(),
+                        Math.addExact(previa.cantidad(), linea.cantidad())));
+            }
+        }
+
+        SolicitudSalidaEntity solicitud = SolicitudSalidaEntity.builder()
+                .codigo("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8))
+                .procedimientoMedico(null)
+                .episodio(episodio)
+                .usuarioSolicita(usuario)
+                .fechaSolicitud(LocalDateTime.now())
+                .estado(EstadoSolicitudSalida.PENDIENTE)
+                .detalles(new ArrayList<>())
+                .build();
+
+        Map<String, SolicitudSalidaDetalleEntity> detalles = new LinkedHashMap<>();
+        for (LineaDirectaAgrupada linea : agrupadas.values()) {
+            String clave = clave(linea.tipo(), linea.referenciaId());
+            SolicitudSalidaDetalleEntity detalle = SolicitudSalidaDetalleEntity.builder()
+                    .tipo(linea.tipo())
+                    .referenciaId(linea.referenciaId())
+                    .nombre(nombreProducto(linea.tipo(), linea.referenciaId()))
+                    .cantidadSolicitada(linea.cantidad())
+                    .cantidadEntregada(0)
+                    .estado(EstadoDetalleSalida.PENDIENTE)
+                    .build();
+            solicitud.agregarDetalle(detalle);
+            detalles.put(clave, detalle);
+        }
+
+        SolicitudSalidaEntity guardada = repository.saveAndFlush(solicitud);
+        guardada.setCodigo(String.format("SAL-M%05d", guardada.getId()));
+        repository.save(guardada);
+
+        List<SolicitudSalidaDTOs.EntregaLineaRequest> lineasEntrega = new ArrayList<>();
+        for (SolicitudSalidaDTOs.SalidaDirectaLineaRequest linea : request.lineas()) {
+            SolicitudSalidaDetalleEntity detalle =
+                    detalles.get(clave(linea.tipo(), linea.referenciaId()));
+            lineasEntrega.add(new SolicitudSalidaDTOs.EntregaLineaRequest(
+                    detalle.getId(), linea.loteId(), linea.cantidad()));
+        }
+
+        return entregar(guardada.getId(), new SolicitudSalidaDTOs.EntregaRequest(
+                usuario.getId(), lineasEntrega));
+    }
+
+    private String nombreProducto(TipoRecursoProcedimiento tipo, Long referenciaId) {
+        if (tipo == TipoRecursoProcedimiento.MEDICAMENTO) {
+            medicamentoLogEntity medicamento = medicamentoLogRepository
+                    .findByIdAndEstado(referenciaId, true)
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "Medicamento no encontrado con el ID: " + referenciaId));
+            return nombreMedicamento(medicamento);
+        }
+
+        insumosLogEntity insumo = insumosLogRepository.findById(referenciaId)
+                .filter(insumosLogEntity::isEstado)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Insumo no encontrado con el ID: " + referenciaId));
+        return insumo.getNombre();
+    }
+
+    private String nombreMedicamento(medicamentoLogEntity medicamento) {
+        List<String> partes = new ArrayList<>();
+        if (medicamento.getNombre() != null && !medicamento.getNombre().isBlank()) {
+            partes.add(medicamento.getNombre().trim());
+        }
+        if (medicamento.getMarca() != null && medicamento.getMarca().getNombre() != null
+                && !medicamento.getMarca().getNombre().isBlank()) {
+            partes.add(medicamento.getMarca().getNombre().trim());
+        }
+        if (medicamento.getPresentacion() != null && medicamento.getPresentacion().getNombre() != null
+                && !medicamento.getPresentacion().getNombre().isBlank()) {
+            partes.add(medicamento.getPresentacion().getNombre().trim());
+        }
+
+        String nombre = String.join(" ", partes);
+        if (medicamento.getDosis() == null) {
+            return nombre;
+        }
+
+        String dosis = medicamento.getDosis().stripTrailingZeros().toPlainString();
+        String unidad = medicamento.getUnidadMedida() == null
+                || medicamento.getUnidadMedida().getAbreviatura() == null
+                ? ""
+                : medicamento.getUnidadMedida().getAbreviatura().trim();
+        return nombre + " de " + dosis + (unidad.isBlank() ? "" : " " + unidad);
+    }
+
+    private SolicitudSalidaDTOs.HistorialResponse toHistorial(
+            SolicitudSalidaMovimientoEntity movimiento) {
+        SolicitudSalidaDetalleEntity detalle = movimiento.getDetalle();
+        LoteEntity lote = movimiento.getLote();
+
+        return new SolicitudSalidaDTOs.HistorialResponse(
+                movimiento.getId(),
+                movimiento.getFechaHora(),
+                movimiento.getTipoMovimiento(),
+                detalle == null ? null : detalle.getTipo(),
+                detalle == null ? "" : detalle.getNombre(),
+                lote == null ? "" : lote.getCodigoLote(),
+                movimiento.getCantidad(),
+                movimiento.getCondicion(),
+                movimiento.getMotivoBaja() == null ? null : movimiento.getMotivoBaja().getNombre(),
+                nombreUsuario(movimiento.getUsuario()),
+                movimiento.getObservacion());
+    }
+
+    private String nombreUsuario(UsuarioEntity usuario) {
+        if (usuario == null) {
+            return "";
+        }
+
+        String nombre = usuario.getPersona() == null
+                ? null
+                : usuario.getPersona().getNombreCompleto();
+        return nombre == null || nombre.isBlank() ? usuario.getUsername() : nombre;
+    }
+
     // ------------------- DESPACHO -------------------
 
     @Transactional
@@ -248,15 +430,15 @@ public class SolicitudSalidaService {
                         detalle -> detalle,
                         (primero, segundo) -> primero));
 
-        Set<Long> procesados = new HashSet<>();
+        Set<String> procesados = new HashSet<>();
         for (SolicitudSalidaDTOs.EntregaLineaRequest linea : request.lineas()) {
             if (linea == null || linea.detalleId() == null || linea.loteId() == null
                     || linea.cantidad() == null || linea.cantidad() <= 0) {
                 throw new IllegalArgumentException("Los datos de la entrega son obligatorios");
             }
-            if (!procesados.add(linea.detalleId())) {
+            if (!procesados.add(linea.detalleId() + "#" + linea.loteId())) {
                 throw new IllegalArgumentException(
-                        "No se puede repetir el mismo detalle en una entrega");
+                        "No se puede repetir el mismo detalle y lote en una entrega");
             }
 
             SolicitudSalidaDetalleEntity detalle = detalles.get(linea.detalleId());
@@ -704,6 +886,7 @@ public class SolicitudSalidaService {
                 solicitud.getId(),
                 solicitud.getCodigo(),
                 nombrePaciente(solicitud),
+                nombreUsuario(solicitud.getUsuarioSolicita()),
                 tipoAtencion(solicitud),
                 nombreProcedimiento(solicitud),
                 solicitud.getFechaSolicitud(),
@@ -762,6 +945,12 @@ public class SolicitudSalidaService {
             TipoRecursoProcedimiento tipo,
             Long referenciaId,
             String nombre,
+            Integer cantidad
+    ) {}
+
+    private record LineaDirectaAgrupada(
+            TipoRecursoProcedimiento tipo,
+            Long referenciaId,
             Integer cantidad
     ) {}
 }

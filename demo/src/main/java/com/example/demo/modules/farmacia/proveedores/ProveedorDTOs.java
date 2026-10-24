@@ -11,7 +11,7 @@ public class ProveedorDTOs {
 
             // NIT Guatemala: dígitos con guion antes del dígito verificador, o CF
             @Pattern(
-                regexp = "^(|CF|[0-9]{7,8}-[0-9Kk])$",
+                regexp = "(?i)^\\s*(|CF|[0-9]{7,8}-[0-9Kk])\\s*$",
                 message = "NIT inválido. Use 7 u 8 dígitos, guion y verificador numérico/K, o CF"
             )
             String nit,

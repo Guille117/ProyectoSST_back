@@ -10,6 +10,7 @@ import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.presentacion.presentacionEntity;
 import com.example.demo.modules.farmacia.proveedores.ProveedorEntity;
 import com.example.demo.modules.farmacia.proveedores.ProveedorRepository;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaMovimientoRepository;
 import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaEntity;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -51,6 +52,9 @@ class CompraServiceTest {
 
     @Mock
     private LoteRepository loteRepository;
+
+    @Mock
+    private SolicitudSalidaMovimientoRepository solicitudSalidaMovimientoRepository;
 
     @InjectMocks
     private CompraService service;
@@ -470,6 +474,24 @@ class CompraServiceTest {
                 .hasMessageContaining("ya se han usado productos");
 
         verify(repository, never()).delete(any());
+        verify(comprobanteStorage, never()).eliminar(any());
+    }
+
+    @Test
+    void eliminar_debeRechazarCompraConLotesDespachadosAunqueTenganStockCompleto() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        LoteEntity lote = loteMedicamentoDeCompra(entity, 1L, "LOTE-A", 10);
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of(lote));
+        when(solicitudSalidaMovimientoRepository.existsByLote_Compra_Id(1L)).thenReturn(true);
+
+        assertThatThrownBy(() -> service.eliminar(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ya se han usado productos");
+
+        verify(repository, never()).delete(any());
+        verify(loteRepository, never()).deleteAll(any());
         verify(comprobanteStorage, never()).eliminar(any());
     }
 

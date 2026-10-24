@@ -8,6 +8,7 @@ import com.example.demo.modules.farmacia.lotes.LoteService;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.proveedores.ProveedorEntity;
 import com.example.demo.modules.farmacia.proveedores.ProveedorRepository;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaMovimientoRepository;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -43,6 +44,7 @@ public class CompraService {
      * medicamento (dosis, unidad de medida, marca, presentación) ni el detalle del insumo.
      */
     private final LoteRepository loteRepository;
+    private final SolicitudSalidaMovimientoRepository solicitudSalidaMovimientoRepository;
 
     @Transactional
     public CompraDTOs.Response crear(MultipartFile comprobante, CompraDTOs.Request req) {
@@ -405,13 +407,16 @@ public class CompraService {
         }
     }
 
-    /** Bloquea eliminar o cambiar el estado de una compra cuyos lotes ya registran unidades usadas. */
+    /** Bloquea eliminar o cambiar el estado de una compra cuyos lotes ya registran unidades usadas o despachadas. */
     private void validarCompraSinUso(CompraEntity compra, String accion) {
-        boolean tieneUso = loteRepository.findByCompra_Id(compra.getId()).stream()
+        boolean tieneStockUsado = loteRepository.findByCompra_Id(compra.getId()).stream()
                 .anyMatch(lote -> lote.getDisponible() != null
                         && lote.getCantidad() != null
                         && lote.getDisponible() < lote.getCantidad());
-        if (tieneUso) {
+        boolean tieneLotesDespachados =
+                solicitudSalidaMovimientoRepository.existsByLote_Compra_Id(compra.getId());
+
+        if (tieneStockUsado || tieneLotesDespachados) {
             throw new IllegalArgumentException(
                     "No se puede " + accion + " la compra porque ya se han usado productos de sus lotes");
         }

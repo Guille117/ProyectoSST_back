@@ -14,4 +14,6 @@ public interface SolicitudSalidaMovimientoRepository
     List<SolicitudSalidaMovimientoEntity> findByDetalle_IdOrderByFechaHoraAsc(Long detalleId);
 
     boolean existsByDetalle_Id(Long detalleId);
+
+    boolean existsByLote_Compra_Id(Long compraId);
 }

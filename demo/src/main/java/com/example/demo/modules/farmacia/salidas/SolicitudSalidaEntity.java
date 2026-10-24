@@ -28,8 +28,9 @@ public class SolicitudSalidaEntity {
     @Column(nullable = false, unique = true, length = 20)
     private String codigo;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "procedimiento_medico_id", nullable = false, unique = true)
+    /** Opcional: una salida directa de Farmacia o una solicitud de Enfermería no tiene procedimiento. */
+    @OneToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "procedimiento_medico_id", nullable = true, unique = true)
     private procedimientoMedicoEntity procedimientoMedico;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

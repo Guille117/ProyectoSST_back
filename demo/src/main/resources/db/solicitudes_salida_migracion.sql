@@ -1,10 +1,11 @@
 -- ============================================================
 -- solicitudes_salida_migracion.sql
 -- Propósito: Crear las tablas del despacho de Farmacia → Salidas.
---            Una solicitud se genera desde un procedimiento médico
---            con medicamentos o insumos. El detalle guarda lo
---            solicitado y lo entregado; los movimientos registran
---            cada entrega o devolución por lote.
+--            Una salida puede originarse en un procedimiento médico, en
+--            una solicitud de Enfermería o directamente en Farmacia; por
+--            eso el procedimiento es opcional y el registro queda ligado
+--            al episodio. El detalle guarda lo solicitado y lo entregado;
+--            los movimientos registran cada entrega o devolución por lote.
 -- Uso:       Ejecutar UNA sola vez en MySQL (sst_db).
 --            ddl-auto=update también crea las tablas, pero este
 --            script deja explícitas las FK, únicas e índices.
@@ -17,7 +18,7 @@
 CREATE TABLE IF NOT EXISTS solicitudes_salida (
     id BIGINT NOT NULL AUTO_INCREMENT,
     codigo VARCHAR(20) NOT NULL,
-    procedimiento_medico_id BIGINT NOT NULL,
+    procedimiento_medico_id BIGINT NULL,
     episodio_id BIGINT NOT NULL,
     usuario_solicita_id BIGINT NOT NULL,
     fecha_solicitud DATETIME(6) NOT NULL,

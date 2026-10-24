@@ -60,6 +60,48 @@ public class SolicitudSalidaDTOs {
             List<@Valid DevolucionLineaRequest> lineas
     ) {}
 
+    /** Línea de una salida directa: producto, lote elegido y cantidad que sale del inventario. */
+    public record SalidaDirectaLineaRequest(
+            @NotNull(message = "El tipo de recurso es obligatorio")
+            TipoRecursoProcedimiento tipo,
+            @NotNull(message = "El producto es obligatorio")
+            @Positive(message = "El producto debe ser un ID válido")
+            Long referenciaId,
+            @NotNull(message = "La cantidad es obligatoria")
+            @Positive(message = "La cantidad debe ser mayor a 0")
+            Integer cantidad,
+            @NotNull(message = "El lote es obligatorio")
+            @Positive(message = "El lote debe ser un ID válido")
+            Long loteId
+    ) {}
+
+    /** Salida directa de Farmacia, ligada al episodio y sin procedimiento médico. */
+    public record SalidaDirectaRequest(
+            @NotNull(message = "El episodio es obligatorio")
+            @Positive(message = "El episodio debe ser un ID válido")
+            Long episodioId,
+            @NotNull(message = "El usuario es obligatorio")
+            @Positive(message = "El usuario debe ser un ID válido")
+            Long usuarioId,
+            @NotEmpty(message = "Debe indicar al menos un producto para la salida")
+            List<@Valid SalidaDirectaLineaRequest> lineas
+    ) {}
+
+    /** Movimiento histórico de una salida: entrega o devolución agrupada por fecha y lote. */
+    public record HistorialResponse(
+            Long id,
+            LocalDateTime fechaHora,
+            TipoMovimientoSalida tipoMovimiento,
+            TipoRecursoProcedimiento tipo,
+            String producto,
+            String lote,
+            Integer cantidad,
+            CondicionDevolucion condicion,
+            String motivoBaja,
+            String usuario,
+            String observacion
+    ) {}
+
     public record LoteDisponibleResponse(
             Long id,
             String codigoLote,
@@ -106,6 +148,7 @@ public class SolicitudSalidaDTOs {
             Long id,
             String codigo,
             String paciente,
+            String solicitante,
             String tipoAtencion,
             String procedimiento,
             LocalDateTime fecha,

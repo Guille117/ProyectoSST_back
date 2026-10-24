@@ -69,7 +69,8 @@ public class areaController {
             new ConteoCatalogoResponse("tipos_cama", tipoCamaService.contarActivos()),
             new ConteoCatalogoResponse("parentescos", parentescoService.contarActivos()),
             new ConteoCatalogoResponse("alergias", alergiaService.contarActivos()),
-            new ConteoCatalogoResponse("enfermedades", enfermedadService.contarActivos())
+            new ConteoCatalogoResponse("enfermedades", enfermedadService.contarActivos()),
+            new ConteoCatalogoResponse("areas", service.contarActivos())
         ));
     }
 }
