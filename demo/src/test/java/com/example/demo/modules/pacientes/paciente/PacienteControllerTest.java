@@ -44,7 +44,7 @@ class PacienteControllerTest {
                 "1234567890123", "Ana", "Lopez", LocalDate.of(1990, 1, 1), Sexo.FEMENINO,
                 "12345678", null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
-                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null),
+                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
                 5L);
         when(service.crear(any())).thenReturn(new PacienteDTOs.Response(1L, 2L, 3L, java.time.LocalDateTime.now(), null, null, false));
@@ -74,7 +74,7 @@ class PacienteControllerTest {
                 "1234567890123", "Ana", "Lopez", LocalDate.of(2015, 1, 1), Sexo.FEMENINO,
                 null, null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
-                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null),
+                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
                 5L);
         when(service.crear(any())).thenThrow(new IllegalArgumentException("El responsable es obligatorio"));
@@ -91,7 +91,7 @@ class PacienteControllerTest {
         PacienteDTOs.PersonaRequest persona = new PacienteDTOs.PersonaRequest(
                 null, "Ana", "Lopez", LocalDate.of(1990, 1, 1), Sexo.FEMENINO, null, null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
-                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null),
+                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
                 5L);
         when(service.crear(any())).thenReturn(new PacienteDTOs.Response(1L, 2L, 3L, java.time.LocalDateTime.now(), null, null, false));
@@ -139,7 +139,7 @@ class PacienteControllerTest {
                 "1234567890123", "Ana", "Lopez", LocalDate.of(1990, 1, 1), Sexo.FEMENINO,
                 "12345678", null);
         return new PacienteDTOs.Request(
-                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null),
+                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null,
                         new PacienteDTOs.ReferenciaRequest(8L, "Evaluacion")),
                 5L);
@@ -187,7 +187,9 @@ class PacienteControllerTest {
                                 "1234567890123", LocalDate.of(1990, 1, 1), 36, Sexo.FEMENINO,
                                 "12345678", null, EstadoCivil.SOLTERO, null, null, true,
                                 42L, TipoAtencion.EMERGENCIA, "Ingreso", java.time.LocalDateTime.now(),
-                                5L, "Dr. Juan Perez", null, null, null, null));
+                                5L, "Dr. Juan Perez", null, null, null, null,
+                                java.util.List.of(new PacienteDTOs.CatalogoDetalle(2L, "Penicilina")),
+                                java.util.List.of(new PacienteDTOs.CatalogoDetalle(1L, "Diabetes"))));
 
                 mockMvc.perform(get("/api/v1/pacientes/20"))
                                 .andExpect(status().isOk())
@@ -198,7 +200,11 @@ class PacienteControllerTest {
                                 .andExpect(jsonPath("$.edad").value(36))
                                 .andExpect(jsonPath("$.sexo").value("FEMENINO"))
                                 .andExpect(jsonPath("$.episodioId").value(42))
-                                .andExpect(jsonPath("$.medicoNombre").value("Dr. Juan Perez"));
+                                .andExpect(jsonPath("$.medicoNombre").value("Dr. Juan Perez"))
+                                .andExpect(jsonPath("$.alergias[0].id").value(2))
+                                .andExpect(jsonPath("$.alergias[0].nombre").value("Penicilina"))
+                                .andExpect(jsonPath("$.enfermedades[0].id").value(1))
+                                .andExpect(jsonPath("$.enfermedades[0].nombre").value("Diabetes"));
         }
 
         @Test
@@ -207,7 +213,7 @@ class PacienteControllerTest {
                                 "1234567890123", "Ana", "Lopez", LocalDate.of(1990, 1, 1), Sexo.FEMENINO,
                                 "12345678", null);
                 PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
-                                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null),
+                                new PacienteDTOs.PacienteRequest(null, persona, null, null, null, null, null, null),
                                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
                                 5L);
                 MockMultipartFile requestPart = new MockMultipartFile("request", "", "application/json",

@@ -6,6 +6,7 @@ import jakarta.validation.constraints.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public class PacienteDTOs {
 
@@ -25,7 +26,9 @@ public class PacienteDTOs {
             EstadoCivil estadoCivil,
             @Size(max = 255) String direccion,
             @Size(max = 100) String ocupacion,
-            @Positive Long camaId
+            @Positive Long camaId,
+            List<@Positive Long> alergiaIds,
+            List<@Positive Long> enfermedadIds
     ) {}
 
     public record ResponsableRequest(
@@ -100,6 +103,9 @@ public class PacienteDTOs {
             String motivoReferencia
     ) {}
 
+    /** Elemento de un catálogo clínico asociado al paciente. */
+    public record CatalogoDetalle(Long id, String nombre) {}
+
     /** Detalle del paciente con su episodio activo y los datos necesarios para editarlo. */
     public record DetalleResponse(
             Long pacienteId,
@@ -126,7 +132,9 @@ public class PacienteDTOs {
             Long camaId,
             String camaCodigo,
             ResponsableDetalle responsable,
-            ReferenciaDetalle referencia
+            ReferenciaDetalle referencia,
+            List<CatalogoDetalle> alergias,
+            List<CatalogoDetalle> enfermedades
     ) {}
 
     /** Actualización de un paciente; el episodio es opcional para pacientes sin atención activa. */

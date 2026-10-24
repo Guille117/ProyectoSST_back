@@ -12,6 +12,10 @@ import com.example.demo.modules.pacientes.institucion.institucionRepository;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.camas.EstadoCama;
+import com.example.demo.modules.pacientes.alergia.alergiaEntity;
+import com.example.demo.modules.pacientes.alergia.alergiaRepository;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadEntity;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -44,6 +48,8 @@ class PacienteServiceTest {
     @Mock private parentescoRepository parentescoRepository;
     @Mock private institucionRepository institucionRepository;
     @Mock private camasRepository camasRepository;
+    @Mock private alergiaRepository alergiaRepository;
+    @Mock private enfermedadRepository enfermedadRepository;
     @Mock private DocumentoEpisodioService documentoEpisodioService;
 
     @InjectMocks private PacienteService service;
@@ -57,7 +63,7 @@ class PacienteServiceTest {
                                             PacienteDTOs.ResponsableRequest responsable,
                                             PacienteDTOs.ReferenciaRequest referencia) {
         return new PacienteDTOs.Request(
-            new PacienteDTOs.PacienteRequest(null, persona("1234567890123", nacimiento), null, null, null, null),
+            new PacienteDTOs.PacienteRequest(null, persona("1234567890123", nacimiento), null, null, null, null, null, null),
                 new PacienteDTOs.EpisodioRequest(tipo, "Ingreso", 5L, responsable, referencia),
                 5L);
     }
@@ -87,6 +93,105 @@ class PacienteServiceTest {
     }
 
     @Test
+    void crear_asignaAlergiasYEnfermedadesDelCatalogo() {
+        prepararGuardado();
+        when(alergiaRepository.findAllById(List.of(2L, 3L)))
+                .thenReturn(List.of(alergia(2L, "Penicilina"), alergia(3L, "Lactosa")));
+        when(enfermedadRepository.findAllById(List.of(1L)))
+                .thenReturn(List.of(enfermedad(1L, "Diabetes")));
+        PacienteDTOs.Request request = new PacienteDTOs.Request(
+                new PacienteDTOs.PacienteRequest(null, persona("1234567890123", HOY.minusYears(30)),
+                        null, null, null, null, List.of(2L, 3L), List.of(1L)),
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
+
+        service.crear(request, HOY);
+
+        ArgumentCaptor<PacienteEntity> guardado = ArgumentCaptor.forClass(PacienteEntity.class);
+        verify(pacienteRepository).save(guardado.capture());
+        assertEquals(List.of(2L, 3L), guardado.getValue().getAlergias().stream()
+                .map(alergiaEntity::getId).toList());
+        assertEquals(List.of(1L), guardado.getValue().getEnfermedades().stream()
+                .map(enfermedadEntity::getId).toList());
+    }
+
+    @Test
+    void crear_rechazaAlergiaInexistenteAntesDeGuardar() {
+        when(alergiaRepository.findAllById(List.of(99L))).thenReturn(List.of());
+        PacienteDTOs.Request request = new PacienteDTOs.Request(
+                new PacienteDTOs.PacienteRequest(null, persona("1234567890123", HOY.minusYears(30)),
+                        null, null, null, null, List.of(99L), null),
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.crear(request, HOY));
+
+        assertTrue(error.getMessage().contains("Alergia no encontrada"));
+        verify(pacienteRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_reemplazaAlergiasYEnfermedades() {
+        PersonaEntity persona = PersonaEntity.builder()
+                .id(10L).cui("1234567890123").sexo(Sexo.FEMENINO)
+                .fechaNacimiento(HOY.minusYears(30)).primerNombre("Ana").primerApellido("Lopez")
+                .build();
+        PacienteEntity paciente = PacienteEntity.builder()
+                .id(20L).persona(persona).estado(true)
+                .alergias(new java.util.LinkedHashSet<>(List.of(alergia(9L, "Anterior"))))
+                .enfermedades(new java.util.LinkedHashSet<>(List.of(enfermedad(8L, "Anterior"))))
+                .build();
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(persona));
+        when(personaRepository.save(any(PersonaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(pacienteRepository.save(any(PacienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(alergiaRepository.findAllById(List.of(2L)))
+                .thenReturn(List.of(alergia(2L, "Penicilina")));
+        when(enfermedadRepository.findAllById(List.of())).thenReturn(List.of());
+        PacienteDTOs.PersonaRequest datosPersona = persona("1234567890123", HOY.minusYears(30));
+        PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
+                new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, null,
+                        List.of(2L), List.of()),
+                null,
+                5L);
+
+        service.actualizar(20L, request, null);
+
+        assertEquals(List.of(2L), paciente.getAlergias().stream()
+                .map(alergiaEntity::getId).toList());
+        assertTrue(paciente.getEnfermedades().isEmpty());
+    }
+
+    @Test
+    void obtenerDetalle_incluyeAlergiasYEnfermedadesOrdenadas() {
+        PersonaEntity persona = PersonaEntity.builder()
+                .id(10L).sexo(Sexo.FEMENINO).fechaNacimiento(HOY.minusYears(30))
+                .primerNombre("Ana").primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder()
+                .id(20L).persona(persona).estado(true)
+                .alergias(new java.util.LinkedHashSet<>(List.of(
+                        alergia(3L, "Lactosa"), alergia(2L, "Penicilina"))))
+                .enfermedades(new java.util.LinkedHashSet<>(List.of(
+                        enfermedad(1L, "Diabetes"), enfermedad(4L, "Asma"))))
+                .build();
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
+                .thenReturn(Optional.empty());
+        when(episodioRepository.findFirstByPaciente_IdOrderByIdDesc(20L))
+                .thenReturn(Optional.empty());
+        when(camasRepository.findByPaciente_IdAndActivoTrue(20L)).thenReturn(Optional.empty());
+        when(expedienteRepository.findByPacienteId(20L)).thenReturn(Optional.empty());
+
+        PacienteDTOs.DetalleResponse detalle = service.obtenerDetalle(20L);
+
+        assertEquals(List.of("Lactosa", "Penicilina"), detalle.alergias().stream()
+                .map(PacienteDTOs.CatalogoDetalle::nombre).toList());
+        assertEquals(List.of("Asma", "Diabetes"), detalle.enfermedades().stream()
+                .map(PacienteDTOs.CatalogoDetalle::nombre).toList());
+    }
+
+    @Test
     void emergenciaMenorRequiereResponsableAntesDeGuardar() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> service.crear(solicitud(HOY.minusYears(18).plusDays(1), TipoAtencion.EMERGENCIA,
@@ -112,7 +217,7 @@ class PacienteServiceTest {
         PacienteDTOs.PersonaRequest personaSinDatosOpcionales = new PacienteDTOs.PersonaRequest(
             null, "Ana", "Lopez", HOY.minusYears(30), Sexo.FEMENINO, null, null);
         PacienteDTOs.Request request = new PacienteDTOs.Request(
-            new PacienteDTOs.PacienteRequest(null, personaSinDatosOpcionales, null, null, null, null),
+            new PacienteDTOs.PacienteRequest(null, personaSinDatosOpcionales, null, null, null, null, null, null),
             new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
             5L);
 
@@ -335,7 +440,7 @@ class PacienteServiceTest {
         when(camasRepository.save(cama)).thenReturn(cama);
         PacienteDTOs.PersonaRequest datosPersona = persona("1234567890123", HOY.minusYears(30));
         PacienteDTOs.Request request = new PacienteDTOs.Request(
-                new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, 9L),
+                new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, 9L, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
                 5L);
 
@@ -355,7 +460,7 @@ class PacienteServiceTest {
         when(camasRepository.findById(9L)).thenReturn(Optional.of(cama));
         PacienteDTOs.Request request = new PacienteDTOs.Request(
                 new PacienteDTOs.PacienteRequest(null, persona("1234567890123", HOY.minusYears(30)),
-                        null, null, null, 9L),
+                        null, null, null, 9L, null, null),
                 new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
                 5L);
 
@@ -497,7 +602,7 @@ class PacienteServiceTest {
 
         PacienteDTOs.Request request = new PacienteDTOs.Request(
             new PacienteDTOs.PacienteRequest(20L, persona(null, HOY.minusYears(30)),
-                null, null, null, null),
+                null, null, null, null, null, null),
             new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Control", 5L, null, null),
             5L);
 
@@ -659,7 +764,7 @@ class PacienteServiceTest {
         PacienteDTOs.ReferenciaRequest datosReferencia = new PacienteDTOs.ReferenciaRequest(8L, "Nueva evaluación");
         PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
             new PacienteDTOs.PacienteRequest(null, datosPersona, EstadoCivil.CASADO, "Nueva dirección",
-                "Nueva ocupación", 70L),
+                "Nueva ocupación", 70L, null, null),
             new PacienteDTOs.EpisodioRequest(TipoAtencion.HOSPITALIZACION, "Nueva descripción", 5L,
                 datosResponsable, datosReferencia),
             5L);
@@ -730,7 +835,7 @@ class PacienteServiceTest {
             "1234567890123", "Ana", "Lopez", LocalDate.now().minusYears(30),
             Sexo.FEMENINO, "11111111", null);
         PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
-            new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, null),
+            new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, null, null, null),
             new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Control", 5L, null, null),
             5L);
 
@@ -760,5 +865,19 @@ class PacienteServiceTest {
         institucion.setNombre(nombre);
         institucion.setEstado(estado);
         return institucion;
+    }
+
+    private alergiaEntity alergia(Long id, String nombre) {
+        alergiaEntity alergia = new alergiaEntity();
+        alergia.setId(id);
+        alergia.setNombre(nombre);
+        return alergia;
+    }
+
+    private enfermedadEntity enfermedad(Long id, String nombre) {
+        enfermedadEntity enfermedad = new enfermedadEntity();
+        enfermedad.setId(id);
+        enfermedad.setNombre(nombre);
+        return enfermedad;
     }
 }

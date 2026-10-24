@@ -1,8 +1,13 @@
 package com.example.demo.modules.pacientes.paciente;
 
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
+import com.example.demo.modules.pacientes.alergia.alergiaEntity;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadEntity;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "pacientes")
@@ -34,4 +39,20 @@ public class PacienteEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "paciente_alergias",
+            joinColumns = @JoinColumn(name = "paciente_id"),
+            inverseJoinColumns = @JoinColumn(name = "alergia_id"))
+    @Builder.Default
+    private Set<alergiaEntity> alergias = new LinkedHashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "paciente_enfermedades",
+            joinColumns = @JoinColumn(name = "paciente_id"),
+            inverseJoinColumns = @JoinColumn(name = "enfermedad_id"))
+    @Builder.Default
+    private Set<enfermedadEntity> enfermedades = new LinkedHashSet<>();
 }

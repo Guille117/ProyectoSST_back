@@ -11,6 +11,11 @@ import com.example.demo.modules.pacientes.institucion.institucionRepository;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.camas.EstadoCama;
+import com.example.demo.modules.pacientes.alergia.alergiaEntity;
+import com.example.demo.modules.pacientes.alergia.alergiaRepository;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadEntity;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadRepository;
+import com.example.demo.modules.catalogo.entityBase;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,10 +25,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +48,8 @@ public class PacienteService {
         private final parentescoRepository parentescoRepository;
         private final institucionRepository institucionRepository;
         private final camasRepository camasRepository;
+        private final alergiaRepository alergiaRepository;
+        private final enfermedadRepository enfermedadRepository;
         private final DocumentoEpisodioService documentoEpisodioService;
 
     @Transactional
@@ -97,6 +108,8 @@ public class PacienteService {
         PacienteDTOs.EpisodioRequest datosEpisodio = request.episodio();
         String cui = StringNormalizer.normalizarNullable(datosPersona.cui());
         Long pacienteId = request.paciente().pacienteId();
+        Set<alergiaEntity> alergias = cargarAlergias(request.paciente().alergiaIds());
+        Set<enfermedadEntity> enfermedades = cargarEnfermedades(request.paciente().enfermedadIds());
 
         PersonaEntity persona;
         PacienteEntity paciente;
@@ -174,9 +187,11 @@ public class PacienteService {
             paciente.setDireccion(StringNormalizer.normalizarNullable(request.paciente().direccion()));
             paciente.setOcupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()));
             paciente.setEstado(true);
+            aplicarCatalogos(paciente, alergias, enfermedades);
             pacienteRepository.save(paciente);
         } else if (paciente != null) {
             // Reutilización por CUI: se conservan los datos existentes y se reactiva el paciente.
+            aplicarCatalogos(paciente, alergias, enfermedades);
             if (!paciente.isEstado()) {
                 paciente.setEstado(true);
                 pacienteRepository.save(paciente);
@@ -189,6 +204,8 @@ public class PacienteService {
                     .direccion(StringNormalizer.normalizarNullable(request.paciente().direccion()))
                     .ocupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()))
                     .estado(true)
+                    .alergias(alergias != null ? alergias : new LinkedHashSet<>())
+                    .enfermedades(enfermedades != null ? enfermedades : new LinkedHashSet<>())
                     .build());
         }
         asignarCama(cama, paciente);
@@ -401,7 +418,9 @@ public class PacienteService {
                 cama != null ? cama.getId() : null,
                 cama != null ? cama.getCodigo() : null,
                 responsableDetalle(episodioConResponsable),
-                referenciaDetalle(episodioConResponsable));
+                referenciaDetalle(episodioConResponsable),
+                mapearCatalogo(paciente.getAlergias()),
+                mapearCatalogo(paciente.getEnfermedades()));
     }
 
     /**
@@ -419,6 +438,8 @@ public class PacienteService {
         PacienteEntity paciente = buscarPaciente(pacienteId);
         PersonaEntity persona = paciente.getPersona();
         PacienteDTOs.PersonaRequest datosPersona = request.paciente().persona();
+        Set<alergiaEntity> alergias = cargarAlergias(request.paciente().alergiaIds());
+        Set<enfermedadEntity> enfermedades = cargarEnfermedades(request.paciente().enfermedadIds());
 
         if (datosPersona.fechaNacimiento() == null || datosPersona.fechaNacimiento().isAfter(LocalDate.now())) {
             throw new IllegalArgumentException("La fecha de nacimiento del paciente no es válida");
@@ -444,6 +465,7 @@ public class PacienteService {
         paciente.setEstadoCivil(request.paciente().estadoCivil());
         paciente.setDireccion(StringNormalizer.normalizarNullable(request.paciente().direccion()));
         paciente.setOcupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()));
+        aplicarCatalogos(paciente, alergias, enfermedades);
         pacienteRepository.save(paciente);
 
         EpisodioEntity episodio = episodioRepository
@@ -657,6 +679,65 @@ public class PacienteService {
                 referencia.getInstitucion() != null ? referencia.getInstitucion().getId() : null,
                 referencia.getInstitucion() != null ? referencia.getInstitucion().getNombre() : null,
                 referencia.getMotivoReferencia());
+    }
+
+    private Set<alergiaEntity> cargarAlergias(List<Long> ids) {
+        if (ids == null) {
+            return null;
+        }
+        List<Long> solicitados = ids.stream().filter(id -> id != null).distinct().toList();
+        Map<Long, alergiaEntity> encontrados = new HashMap<>();
+        alergiaRepository.findAllById(solicitados)
+                .forEach(alergia -> encontrados.put(alergia.getId(), alergia));
+        Set<alergiaEntity> resultado = new LinkedHashSet<>();
+        for (Long id : solicitados) {
+            alergiaEntity alergia = encontrados.get(id);
+            if (alergia == null) {
+                throw new IllegalArgumentException("Alergia no encontrada con el ID: " + id);
+            }
+            resultado.add(alergia);
+        }
+        return resultado;
+    }
+
+    private Set<enfermedadEntity> cargarEnfermedades(List<Long> ids) {
+        if (ids == null) {
+            return null;
+        }
+        List<Long> solicitados = ids.stream().filter(id -> id != null).distinct().toList();
+        Map<Long, enfermedadEntity> encontrados = new HashMap<>();
+        enfermedadRepository.findAllById(solicitados)
+                .forEach(enfermedad -> encontrados.put(enfermedad.getId(), enfermedad));
+        Set<enfermedadEntity> resultado = new LinkedHashSet<>();
+        for (Long id : solicitados) {
+            enfermedadEntity enfermedad = encontrados.get(id);
+            if (enfermedad == null) {
+                throw new IllegalArgumentException("Enfermedad no encontrada con el ID: " + id);
+            }
+            resultado.add(enfermedad);
+        }
+        return resultado;
+    }
+
+    private void aplicarCatalogos(
+            PacienteEntity paciente,
+            Set<alergiaEntity> alergias,
+            Set<enfermedadEntity> enfermedades) {
+        if (alergias != null) {
+            paciente.getAlergias().clear();
+            paciente.getAlergias().addAll(alergias);
+        }
+        if (enfermedades != null) {
+            paciente.getEnfermedades().clear();
+            paciente.getEnfermedades().addAll(enfermedades);
+        }
+    }
+
+    private List<PacienteDTOs.CatalogoDetalle> mapearCatalogo(Collection<? extends entityBase> items) {
+        return items.stream()
+                .sorted(Comparator.comparing(entityBase::getNombre, String.CASE_INSENSITIVE_ORDER))
+                .map(item -> new PacienteDTOs.CatalogoDetalle(item.getId(), item.getNombre()))
+                .toList();
     }
 
     private PacienteEntity buscarPaciente(Long pacienteId) {
