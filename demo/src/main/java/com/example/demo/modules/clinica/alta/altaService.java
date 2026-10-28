@@ -3,6 +3,9 @@ package com.example.demo.modules.clinica.alta;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
+import com.example.demo.modules.pacientes.camas.EstadoCama;
+import com.example.demo.modules.pacientes.camas.camasEntity;
+import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.institucion.institucionEntity;
 import com.example.demo.modules.pacientes.institucion.institucionRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
@@ -34,6 +37,7 @@ public class altaService {
     private final UsuarioRepository usuarioRepository;
     private final condicionEgresoRepository condicionEgresoRepository;
     private final institucionRepository institucionRepository;
+    private final camasRepository camasRepository;
 
     @Transactional
     public altaDTOs.Response crear(altaDTOs.Request request) {
@@ -90,6 +94,7 @@ public class altaService {
         altaEntity guardada = repository.save(entity);
 
         episodio.setEstado(false);
+        liberarCama(episodio);
         episodioRepository.save(episodio);
 
         return toResponse(guardada);
@@ -140,8 +145,10 @@ public class altaService {
 
         altaEntity guardada = repository.save(entity);
 
-        entity.getEpisodio().setEstado(false);
-        episodioRepository.save(entity.getEpisodio());
+        EpisodioEntity episodio = entity.getEpisodio();
+        episodio.setEstado(false);
+        liberarCama(episodio);
+        episodioRepository.save(episodio);
 
         return toResponse(guardada);
     }
@@ -195,7 +202,49 @@ public class altaService {
         repository.save(entity);
 
         episodio.setEstado(true);
+        restaurarCama(episodio);
         episodioRepository.save(episodio);
+    }
+
+    /** Deja la cama del episodio en limpieza y la libera del paciente al registrar el alta. */
+    private void liberarCama(EpisodioEntity episodio) {
+        if (episodio == null || episodio.getPaciente() == null) {
+            return;
+        }
+
+        camasEntity cama = episodio.getCama();
+        if (cama == null) {
+            cama = camasRepository.findByPaciente_Id(episodio.getPaciente().getId()).orElse(null);
+            if (cama == null) {
+                return;
+            }
+            episodio.setCama(cama);
+        }
+
+        if (cama.getPaciente() == null
+                || !cama.getPaciente().getId().equals(episodio.getPaciente().getId())) {
+            return;
+        }
+
+        cama.setPaciente(null);
+        cama.setEstado(EstadoCama.LIMPIEZA);
+        camasRepository.save(cama);
+    }
+
+    /** Devuelve la cama al paciente al anular el alta, solo si sigue libre. */
+    private void restaurarCama(EpisodioEntity episodio) {
+        if (episodio == null || episodio.getPaciente() == null) {
+            return;
+        }
+
+        camasEntity cama = episodio.getCama();
+        if (cama == null || !cama.isActivo() || cama.getPaciente() != null) {
+            return;
+        }
+
+        cama.setPaciente(episodio.getPaciente());
+        cama.setEstado(EstadoCama.OCUPADA);
+        camasRepository.save(cama);
     }
 
     private void validarSeccion(TipoAlta tipo, altaDTOs.Request request) {

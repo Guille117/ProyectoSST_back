@@ -1,18 +1,11 @@
 package com.example.demo.modules.usuarios.roles;
 
 import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
 
 import java.util.List;
 
 @Mapper(componentModel = "spring")
 public interface RolMapper {
-
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "codigo", ignore = true)
-    @Mapping(target = "estado", expression = "java(request.estado() != null ? request.estado() : true)")
-    @Mapping(target = "permisos", ignore = true)
-    RolEntity toEntity(RolDTOs.Request request);
 
     RolDTOs.Response toDTO(RolEntity entity);
 

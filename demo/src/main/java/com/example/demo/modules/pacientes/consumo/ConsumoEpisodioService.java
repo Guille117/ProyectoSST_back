@@ -149,8 +149,10 @@ public class ConsumoEpisodioService {
             return null;
         }
 
-        camasEntity cama = camasRepository.findByPaciente_Id(episodio.getPaciente().getId())
-                .orElse(null);
+        camasEntity cama = episodio.getCama();
+        if (cama == null) {
+            cama = camasRepository.findByPaciente_Id(episodio.getPaciente().getId()).orElse(null);
+        }
         if (cama == null) {
             return null;
         }
@@ -162,7 +164,13 @@ public class ConsumoEpisodioService {
                 .orElseGet(LocalDateTime::now);
 
         int dias = diasUso(episodio.getFechaHoraIngreso(), fin);
-        BigDecimal precio = cama.getPrecio() == null ? BigDecimal.ZERO : cama.getPrecio();
+        if (dias <= 0) {
+            return null;
+        }
+
+        BigDecimal precio = episodio.getPrecioCama() != null
+                ? episodio.getPrecioCama()
+                : (cama.getPrecio() == null ? BigDecimal.ZERO : cama.getPrecio());
         BigDecimal subtotal = precio.multiply(BigDecimal.valueOf(dias))
                 .setScale(2, RoundingMode.HALF_UP);
 
@@ -178,14 +186,15 @@ public class ConsumoEpisodioService {
 
     private int diasUso(LocalDateTime inicio, LocalDateTime fin) {
         if (inicio == null || fin == null || !fin.isAfter(inicio)) {
-            return 1;
+            return 0;
         }
 
-        long minutos = Duration.between(inicio, fin).toMinutes();
-        if (minutos <= 0) {
-            return 1;
+        Duration duracion = Duration.between(inicio, fin);
+        if (duracion.compareTo(Duration.ofHours(1)) <= 0) {
+            return 0;
         }
 
+        long minutos = duracion.toMinutes();
         return Math.max(1, (int) Math.ceil(minutos / (double) MINUTOS_POR_DIA));
     }
 

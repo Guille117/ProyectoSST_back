@@ -28,14 +28,47 @@ class PuestoServiceTest {
     private puestoService service;
 
     @Test
-    void guardar_rechazaNombreParecidoAUnPuestoDelSistema() {
+    void guardar_permiteCrearPuestoDelSistemaCuandoNoExiste() {
         puestoEntity puesto = new puestoEntity();
-        puesto.setNombre("PuestoMedico");
+        puesto.setNombre("Medico");
+        when(repository.findByNombreIgnoreCase("Medico")).thenReturn(Optional.empty());
+        when(repository.save(puesto)).thenReturn(puesto);
 
-        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.guardar(puesto));
+        puestoEntity guardado = service.guardar(puesto);
 
-        assertEquals("El puesto 'Médico' es un elemento del sistema y no se puede alterar ni duplicar.", error.getMessage());
-        verify(repository, never()).save(puesto);
+        assertEquals("Medico", guardado.getNombre());
+        verify(repository).save(puesto);
+    }
+
+    @Test
+    void guardar_rechazaDuplicarUnPuestoExistente() {
+        puestoEntity existente = new puestoEntity();
+        existente.setId(1L);
+        existente.setNombre("Medico");
+        existente.setEstado(true);
+        puestoEntity nuevo = new puestoEntity();
+        nuevo.setNombre("Medico");
+
+        when(repository.findByNombreIgnoreCase("Medico")).thenReturn(Optional.of(existente));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class, () -> service.guardar(nuevo));
+
+        assertEquals("Ya existe un registro activo con el nombre: Medico", error.getMessage());
+        verify(repository, never()).save(nuevo);
+    }
+
+    @Test
+    void guardar_permitePuestoCompuestoConNombreDeRol() {
+        puestoEntity puesto = new puestoEntity();
+        puesto.setNombre("Médico General");
+        when(repository.findByNombreIgnoreCase("Médico General")).thenReturn(Optional.empty());
+        when(repository.save(puesto)).thenReturn(puesto);
+
+        puestoEntity guardado = service.guardar(puesto);
+
+        assertEquals("Médico General", guardado.getNombre());
+        verify(repository).save(puesto);
     }
 
     @Test

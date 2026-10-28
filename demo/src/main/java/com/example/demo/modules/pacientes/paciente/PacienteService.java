@@ -222,6 +222,8 @@ public class PacienteService {
                 .medico(medico)
                 .personaResponsable(responsable)
                 .referencia(referencia)
+                .cama(cama)
+                .precioCama(cama != null ? cama.getPrecio() : null)
                 .build());
 
         Map<TipoDocumentoEpisodio, List<MultipartFile>> documentos = new HashMap<>();
@@ -388,7 +390,8 @@ public class PacienteService {
         EpisodioEntity episodioConResponsable = episodio != null
                 ? episodio
                 : episodioRepository.findFirstByPaciente_IdOrderByIdDesc(pacienteId).orElse(null);
-        camasEntity cama = camasRepository.findByPaciente_IdAndActivoTrue(pacienteId).orElse(null);
+        camasEntity cama = camasRepository.findByPaciente_IdAndActivoTrue(pacienteId)
+                .orElseGet(() -> episodioConResponsable != null ? episodioConResponsable.getCama() : null);
         ExpedienteEntity expediente = expedienteRepository.findByPacienteId(pacienteId).orElse(null);
 
         return new PacienteDTOs.DetalleResponse(
@@ -538,9 +541,12 @@ public class PacienteService {
         episodio.setMedico(medico);
         actualizarResponsable(episodio, datos.responsable(), parentesco);
         actualizarReferencia(episodio, datos.referencia(), institucion);
-        episodioRepository.save(episodio);
-
+        episodio.setCama(camaSolicitada);
+        if (episodio.getPrecioCama() == null && camaSolicitada != null) {
+            episodio.setPrecioCama(camaSolicitada.getPrecio());
+        }
         actualizarCama(paciente, camaSolicitada);
+        episodioRepository.save(episodio);
 
         if (archivoReferencia != null) {
             Long usuarioId = request.usuarioId() != null ? request.usuarioId() : datos.medicoId();

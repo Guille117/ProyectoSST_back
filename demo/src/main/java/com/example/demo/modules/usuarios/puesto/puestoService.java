@@ -54,7 +54,6 @@ public class puestoService extends serviceBase<puestoEntity>{
 
     @Override
     public puestoEntity guardar(puestoEntity entidad) {
-        validarNombreNoReservado(entidad.getNombre());
         return super.guardar(entidad);
     }
 
@@ -65,7 +64,6 @@ public class puestoService extends serviceBase<puestoEntity>{
             return Optional.empty();
         }
         validarPuestoNoProtegido(existente.get());
-        validarNombreNoReservado(nombre);
         return super.actualizar(id, nombre);
     }
 
@@ -81,33 +79,18 @@ public class puestoService extends serviceBase<puestoEntity>{
 
     private void validarPuestoNoProtegido(puestoEntity puesto) {
         PUESTOS_DEL_SISTEMA.stream()
-                .filter(protegido -> esNombreSimilar(puesto.getNombre(), protegido.variantes()))
+                .filter(protegido -> esNombreReservado(puesto.getNombre(), protegido.variantes()))
                 .findFirst()
                 .ifPresent(protegido -> lanzarPuestoDelSistema(protegido.nombre()));
     }
 
-    private void validarNombreNoReservado(String nombre) {
-        PUESTOS_DEL_SISTEMA.stream()
-                .filter(protegido -> esNombreSimilar(nombre, protegido.variantes()))
-                .findFirst()
-                .ifPresent(protegido -> lanzarPuestoDelSistema(protegido.nombre()));
-    }
-
-    private static boolean esNombreSimilar(String nombre, List<String> variantes) {
-        String texto = normalizar(nombre).replace(" ", "");
-        String[] palabras = normalizar(nombre).split(" ");
-        for (String palabra : palabras) {
-            for (String variante : variantes) {
-                if (texto.contains(variante)) {
-                    return true;
-                }
-                int distanciaMaxima = variante.length() <= 6 ? 1 : 2;
-                if (distancia(palabra, variante) <= distanciaMaxima) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    /**
+     * Solo bloquea el nombre exacto del rol del sistema o sus sinónimos exactos. Nombres compuestos
+     * como "Médico General" son puestos distintos y deben poder registrarse.
+     */
+    private static boolean esNombreReservado(String nombre, List<String> variantes) {
+        String normalizado = normalizar(nombre);
+        return variantes.stream().anyMatch(variante -> normalizado.equals(normalizar(variante)));
     }
 
     private static String normalizar(String nombre) {
@@ -116,26 +99,6 @@ public class puestoService extends serviceBase<puestoEntity>{
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9]+", " ")
                 .trim();
-    }
-
-    private static int distancia(String primero, String segundo) {
-        int[] anterior = new int[segundo.length() + 1];
-        for (int indice = 0; indice <= segundo.length(); indice++) {
-            anterior[indice] = indice;
-        }
-
-        for (int fila = 1; fila <= primero.length(); fila++) {
-            int[] actual = new int[segundo.length() + 1];
-            actual[0] = fila;
-            for (int columna = 1; columna <= segundo.length(); columna++) {
-                int costo = primero.charAt(fila - 1) == segundo.charAt(columna - 1) ? 0 : 1;
-                actual[columna] = Math.min(
-                        Math.min(actual[columna - 1] + 1, anterior[columna] + 1),
-                        anterior[columna - 1] + costo);
-            }
-            anterior = actual;
-        }
-        return anterior[segundo.length()];
     }
 
     private static void lanzarPuestoDelSistema(String nombre) {

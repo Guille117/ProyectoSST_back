@@ -3,6 +3,7 @@ package com.example.demo.modules.farmacia.medicamentoLog;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
 import com.example.demo.modules.farmacia.marca.marcaEntity;
 import com.example.demo.modules.farmacia.marca.marcaRepository;
+import com.example.demo.modules.farmacia.motivoBaja.motivoBajaRepository;
 import com.example.demo.modules.farmacia.presentacion.presentacionEntity;
 import com.example.demo.modules.farmacia.presentacion.presentacionRepository;
 import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaEntity;
@@ -41,6 +42,8 @@ class medicamentoLogServiceTest {
     @Mock
     private presentacionRepository presentacionRepository;
     @Mock
+    private motivoBajaRepository motivoBajaRepository;
+    @Mock
     private LoteRepository loteRepository;
 
     @InjectMocks
@@ -68,6 +71,23 @@ class medicamentoLogServiceTest {
         presentacion.setNombre("Tableta");
         lenient().when(presentacionRepository.findById(1L)).thenReturn(Optional.of(presentacion));
 
+    }
+
+    @Test
+    void obtenerConteoCatalogosFarmacia_debeContarLosCincoCatalogos() {
+        when(unidadMedidaRepository.count()).thenReturn(3L);
+        when(marcaRepository.count()).thenReturn(4L);
+        when(viaAdminRepository.count()).thenReturn(5L);
+        when(presentacionRepository.count()).thenReturn(6L);
+        when(motivoBajaRepository.count()).thenReturn(7L);
+
+        var conteo = service.obtenerConteoCatalogosFarmacia();
+
+        assertEquals(3L, conteo.get("unidad_medidas"));
+        assertEquals(4L, conteo.get("marcas"));
+        assertEquals(5L, conteo.get("vias_admin"));
+        assertEquals(6L, conteo.get("presentaciones"));
+        assertEquals(7L, conteo.get("motivoBaja"));
     }
 
     @Test

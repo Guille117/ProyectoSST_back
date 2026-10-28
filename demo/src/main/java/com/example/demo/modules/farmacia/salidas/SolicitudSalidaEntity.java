@@ -13,7 +13,10 @@ import java.util.List;
 @Entity
 @Table(name = "solicitudes_salida", uniqueConstraints = @UniqueConstraint(
         name = "uk_solicitud_salida_procedimiento",
-        columnNames = "procedimiento_medico_id"))
+        columnNames = "procedimiento_medico_id"), indexes = {
+        @Index(name = "idx_solicitud_salida_estado", columnList = "estado"),
+        @Index(name = "idx_solicitud_salida_fecha", columnList = "fecha_solicitud")
+})
 @Getter
 @Setter
 @NoArgsConstructor

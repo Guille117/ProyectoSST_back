@@ -5,6 +5,7 @@ import com.example.demo.modules.farmacia.insumosLog.insumosLogEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.Check;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -12,6 +13,8 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "lotes", uniqueConstraints = @UniqueConstraint(
         name = "uk_lote_codigo_compra", columnNames = {"codigo_lote", "compra_id"}))
+@Check(constraints = "(insumo_log_id IS NOT NULL AND medicamento_log_id IS NULL) OR "
+        + "(insumo_log_id IS NULL AND medicamento_log_id IS NOT NULL)")
 @Getter
 @Setter
 @NoArgsConstructor

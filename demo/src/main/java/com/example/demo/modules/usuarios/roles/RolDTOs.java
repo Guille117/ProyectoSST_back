@@ -1,29 +1,8 @@
 package com.example.demo.modules.usuarios.roles;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-
 import java.util.List;
 
 public class RolDTOs {
-
-    public record Request(
-            @NotBlank(message = "El nombre es obligatorio") String nombre,
-
-            Boolean estado,
-
-            @Valid List<PermisoRequest> permisos
-    ) {}
-
-    public record PermisoRequest(
-            @NotNull(message = "El submoduloId es obligatorio") Long submoduloId,
-
-            Boolean puedeLeer,
-            Boolean puedeCrear,
-            Boolean puedeEditar,
-            Boolean puedeEliminar
-    ) {}
 
     public record Response(
             Long id,

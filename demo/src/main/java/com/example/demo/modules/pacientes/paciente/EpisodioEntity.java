@@ -1,9 +1,11 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,6 +53,15 @@ public class EpisodioEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "referencia_id")
     private ReferenciaEntity referencia;
+
+    /** Cama utilizada durante el episodio; se conserva aunque el paciente ya haya egresado. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cama_id")
+    private camasEntity cama;
+
+    /** Precio diario de la cama congelado al momento de asignarla al episodio. */
+    @Column(name = "precio_cama", precision = 12, scale = 2)
+    private BigDecimal precioCama;
 
     @Column(nullable = false)
     @Builder.Default

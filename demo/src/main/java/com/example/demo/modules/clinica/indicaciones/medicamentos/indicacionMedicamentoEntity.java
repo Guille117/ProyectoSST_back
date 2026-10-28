@@ -59,7 +59,7 @@ public class indicacionMedicamentoEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime fecha;
 
-    @Column(name = "fecha_inicio")
+    @Column(name = "fecha_inicio", nullable = false)
     private LocalDateTime fechaInicio;
 
     @Enumerated(EnumType.STRING)

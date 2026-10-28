@@ -61,14 +61,14 @@ class ConsumoEpisodioServiceTest {
 
     @ParameterizedTest(name = "{0} horas de estancia => {1} día(s)")
     @CsvSource({
-            "1, 1",
+            "2, 1",
             "24, 1",
             "25, 2",
             "26, 2",
             "48, 2",
             "49, 3"
     })
-    void calcularConsumo_camaRedondeaPorDiaDe24Horas(long horas, int diasEsperados) {
+    void calcularConsumo_camaCobraDesdeMasDeUnaHora(long horas, int diasEsperados) {
         when(episodioRepository.findById(EPISODIO_ID)).thenReturn(Optional.of(episodio()));
         when(camasRepository.findByPaciente_Id(PACIENTE_ID)).thenReturn(Optional.of(cama()));
         when(altaRepository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
@@ -87,6 +87,46 @@ class ConsumoEpisodioServiceTest {
         assertEquals(new BigDecimal("250.00"), cama.precioUnitario());
         assertEquals(new BigDecimal("250.00").multiply(BigDecimal.valueOf(diasEsperados)),
                 cama.subtotal());
+    }
+
+    @Test
+    void calcularConsumo_noCobraCamaConUnaHoraOMenos() {
+        when(episodioRepository.findById(EPISODIO_ID)).thenReturn(Optional.of(episodio()));
+        when(camasRepository.findByPaciente_Id(PACIENTE_ID)).thenReturn(Optional.of(cama()));
+        when(altaRepository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                EPISODIO_ID, EstadoAlta.VIGENTE))
+                .thenReturn(Optional.of(alta(INGRESO.plusHours(1))));
+        when(solicitudSalidaRepository.findByEpisodio_IdOrderByFechaSolicitudAsc(EPISODIO_ID))
+                .thenReturn(List.of());
+
+        ConsumoEpisodioDTOs.Response respuesta = service.obtenerConsumo(EPISODIO_ID);
+
+        assertEquals(0, respuesta.items().size());
+        assertEquals(new BigDecimal("0.00"), respuesta.total());
+    }
+
+    @Test
+    void obtenerConsumo_usaCamaYPrecioDelEpisodioAunqueYaNoEsteVinculada() {
+        EpisodioEntity episodio = episodio();
+        camasEntity cama = cama();
+        episodio.setCama(cama);
+        episodio.setPrecioCama(new BigDecimal("300.00"));
+
+        when(episodioRepository.findById(EPISODIO_ID)).thenReturn(Optional.of(episodio));
+        when(altaRepository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                EPISODIO_ID, EstadoAlta.VIGENTE))
+                .thenReturn(Optional.of(alta(INGRESO.plusHours(2))));
+        when(solicitudSalidaRepository.findByEpisodio_IdOrderByFechaSolicitudAsc(EPISODIO_ID))
+                .thenReturn(List.of());
+
+        ConsumoEpisodioDTOs.Response respuesta = service.obtenerConsumo(EPISODIO_ID);
+
+        assertEquals(1, respuesta.items().size());
+        ConsumoEpisodioDTOs.ItemResponse camaItem = respuesta.items().get(0);
+        assertEquals("Cama", camaItem.tipo());
+        assertEquals(1, camaItem.cantidad());
+        assertEquals(new BigDecimal("300.00"), camaItem.precioUnitario());
+        assertEquals(new BigDecimal("300.00"), camaItem.subtotal());
     }
 
     @Test

@@ -3,6 +3,9 @@ package com.example.demo.modules.clinica.alta;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
+import com.example.demo.modules.pacientes.camas.EstadoCama;
+import com.example.demo.modules.pacientes.camas.camasEntity;
+import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.institucion.institucionRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
@@ -47,6 +50,9 @@ class altaServiceTest {
     @Mock
     private institucionRepository institucionRepository;
 
+    @Mock
+    private camasRepository camasRepository;
+
     @InjectMocks
     private altaService service;
 
@@ -76,6 +82,78 @@ class altaServiceTest {
         assertEquals(1, response.tratamientos().size());
         assertFalse(episodio.isEstado());
         verify(episodioRepository).save(episodio);
+    }
+
+    @Test
+    void crear_debeDejarLaCamaEnLimpiezaYLiberarAlPaciente() {
+        EpisodioEntity episodio = episodio(1L, true);
+        camasEntity cama = camasEntity.builder()
+                .id(9L)
+                .codigo("CAMA-09")
+                .estado(EstadoCama.OCUPADA)
+                .paciente(episodio.getPaciente())
+                .activo(true)
+                .build();
+        episodio.setCama(cama);
+
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(condicionEgresoRepository.findById(2L)).thenReturn(Optional.of(condicion(2L, "Estable")));
+        when(repository.save(any(altaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.crear(requestIndicacionMedica());
+
+        assertEquals(EstadoCama.LIMPIEZA, cama.getEstado());
+        assertNull(cama.getPaciente());
+        verify(camasRepository).save(cama);
+    }
+
+    @Test
+    void anular_debeRestaurarLaCamaSiEstaLibre() {
+        altaEntity existente = entidad(5L, EstadoAlta.VIGENTE);
+        EpisodioEntity episodio = existente.getEpisodio();
+        camasEntity cama = camasEntity.builder()
+                .id(9L)
+                .codigo("CAMA-09")
+                .estado(EstadoCama.LIMPIEZA)
+                .activo(true)
+                .build();
+        episodio.setCama(cama);
+
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(episodioRepository.existsByPaciente_IdAndEstadoTrue(1L)).thenReturn(false);
+
+        service.anular(5L);
+
+        assertEquals(EstadoCama.OCUPADA, cama.getEstado());
+        assertEquals(episodio.getPaciente(), cama.getPaciente());
+        verify(camasRepository).save(cama);
+    }
+
+    @Test
+    void anular_noRobaUnaCamaOcupadaPorOtroPaciente() {
+        altaEntity existente = entidad(5L, EstadoAlta.VIGENTE);
+        EpisodioEntity episodio = existente.getEpisodio();
+        PacienteEntity otroPaciente = PacienteEntity.builder().id(99L).build();
+        camasEntity cama = camasEntity.builder()
+                .id(9L)
+                .codigo("CAMA-09")
+                .estado(EstadoCama.OCUPADA)
+                .paciente(otroPaciente)
+                .activo(true)
+                .build();
+        episodio.setCama(cama);
+
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(episodioRepository.existsByPaciente_IdAndEstadoTrue(1L)).thenReturn(false);
+
+        service.anular(5L);
+
+        assertEquals(EstadoCama.OCUPADA, cama.getEstado());
+        assertEquals(otroPaciente, cama.getPaciente());
+        verify(camasRepository, never()).save(cama);
     }
 
     @Test

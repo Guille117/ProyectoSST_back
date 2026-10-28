@@ -24,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -436,6 +437,7 @@ class PacienteServiceTest {
         cama.setId(9L);
         cama.setEstado(EstadoCama.DISPONIBLE);
         cama.setActivo(true);
+        cama.setPrecio(new BigDecimal("175.00"));
         when(camasRepository.findById(9L)).thenReturn(Optional.of(cama));
         when(camasRepository.save(cama)).thenReturn(cama);
         PacienteDTOs.PersonaRequest datosPersona = persona("1234567890123", HOY.minusYears(30));
@@ -449,6 +451,11 @@ class PacienteServiceTest {
         assertEquals(20L, cama.getPaciente().getId());
         assertEquals(EstadoCama.OCUPADA, cama.getEstado());
         verify(camasRepository).save(cama);
+
+        ArgumentCaptor<EpisodioEntity> episodioCaptor = ArgumentCaptor.forClass(EpisodioEntity.class);
+        verify(episodioRepository).save(episodioCaptor.capture());
+        assertEquals(cama, episodioCaptor.getValue().getCama());
+        assertEquals(new BigDecimal("175.00"), episodioCaptor.getValue().getPrecioCama());
     }
 
     @Test
@@ -698,6 +705,33 @@ class PacienteServiceTest {
         }
 
         @Test
+        void obtenerDetalle_usaCamaDelUltimoEpisodioSiYaNoEstaVinculada() {
+        PersonaEntity persona = PersonaEntity.builder()
+            .id(10L).cui("1234567890123").sexo(Sexo.FEMENINO)
+            .fechaNacimiento(LocalDate.now().minusYears(30))
+            .primerNombre("Ana").primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder().id(20L).persona(persona).estado(true).build();
+        camasEntity cama = camasEntity.builder()
+            .id(60L).codigo("A-105").estado(EstadoCama.LIMPIEZA).activo(true).build();
+        EpisodioEntity ultimoEpisodio = EpisodioEntity.builder()
+            .id(42L).paciente(paciente).tipoAtencion(TipoAtencion.HOSPITALIZACION)
+            .descripcion("Ingreso").fechaHoraIngreso(LocalDateTime.of(2026, 10, 10, 8, 30))
+            .cama(cama).estado(false).build();
+
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
+            .thenReturn(Optional.empty());
+        when(episodioRepository.findFirstByPaciente_IdOrderByIdDesc(20L))
+            .thenReturn(Optional.of(ultimoEpisodio));
+        when(camasRepository.findByPaciente_IdAndActivoTrue(20L)).thenReturn(Optional.empty());
+        when(expedienteRepository.findByPacienteId(20L)).thenReturn(Optional.empty());
+
+        PacienteDTOs.DetalleResponse detalle = service.obtenerDetalle(20L);
+
+        assertEquals("A-105", detalle.camaCodigo());
+        }
+
+        @Test
         void obtenerDetalle_lanzaCuandoElPacienteNoExiste() {
         when(pacienteRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -735,7 +769,8 @@ class PacienteServiceTest {
             .id(60L).codigo("A-105").paciente(paciente)
             .estado(EstadoCama.OCUPADA).activo(true).build();
         camasEntity camaNueva = camasEntity.builder()
-            .id(70L).codigo("A-106").estado(EstadoCama.DISPONIBLE).activo(true).build();
+            .id(70L).codigo("A-106").precio(new BigDecimal("200.00"))
+            .estado(EstadoCama.DISPONIBLE).activo(true).build();
 
         when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
         when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
@@ -788,6 +823,8 @@ class PacienteServiceTest {
         assertEquals(EstadoCama.DISPONIBLE, camaActual.getEstado());
         assertEquals(paciente, camaNueva.getPaciente());
         assertEquals(EstadoCama.OCUPADA, camaNueva.getEstado());
+        assertEquals(camaNueva, episodio.getCama());
+        assertEquals(new BigDecimal("200.00"), episodio.getPrecioCama());
         }
 
         @Test

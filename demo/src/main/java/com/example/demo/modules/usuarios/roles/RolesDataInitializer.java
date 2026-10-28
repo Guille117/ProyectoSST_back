@@ -7,15 +7,17 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 @Order(1)
 public class RolesDataInitializer implements CommandLineRunner {
-
-    private static final List<String> ROLES_DEL_SISTEMA = List.of(
-            "Administrador", "Médico", "Enfermera", "Director", "Farmaceutico");
 
     private final ModuloRepository moduloRepository;
     private final SubmoduloRepository submoduloRepository;
@@ -24,95 +26,108 @@ public class RolesDataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        // Farmacia - proveedores, compras, salidas, devoluciones
-        ModuloEntity farmacia = crearModulo("FARMACIA", "Farmacia");
-        crearSubmodulo(farmacia, "PROVEEDORES", "Proveedores");
-        crearSubmodulo(farmacia, "COMPRAS", "Compras");
-        crearSubmodulo(farmacia, "SALIDAS", "Salidas");
-        crearSubmodulo(farmacia, "DEVOLUCIONES", "Devoluciones");
-        crearSubmodulo(farmacia, "UNIDADMEDIDA", "Unidades de medida");
-
-        // Usuarios - usuarios, roles, horarios
-        ModuloEntity usuarios = crearModulo("USUARIOS", "Usuarios");
-        crearSubmodulo(usuarios, "USUARIOS", "Usuarios");
-        crearSubmodulo(usuarios, "ROLES", "Roles");
-        crearSubmodulo(usuarios, "HORARIOS", "Horarios");
-
-        // Pacientes - catálogos de tipo de cama y área
-        ModuloEntity pacientes = crearModulo("PACIENTES", "Pacientes");
-        crearSubmodulo(pacientes, "PACIENTES", "Pacientes");
-        crearSubmodulo(pacientes, "TIPOS-CAMA", "Tipos de cama");
-        crearSubmodulo(pacientes, "AREAS", "Áreas");
-        crearSubmodulo(pacientes, "HABITACIONES", "Habitaciones");
-        crearSubmodulo(pacientes, "CAMAS", "Camas");
-        crearSubmodulo(pacientes, "INSTITUCIONES", "Instituciones");
-
-        crearRolesDelSistema();
+        Map<String, ModuloEntity> modulos = crearModulos();
+        Map<String, SubmoduloEntity> submodulos = crearSubmodulos(modulos);
+        sincronizarRolesDelSistema(submodulos);
+        desactivarRolesAjenos();
     }
 
-    private void crearRolesDelSistema() {
-        List<SubmoduloEntity> submodulos = submoduloRepository.findAll();
+    private Map<String, ModuloEntity> crearModulos() {
+        Map<String, ModuloEntity> modulos = new LinkedHashMap<>();
+        for (PermisosSistema.DefinicionSubmodulo definicion : PermisosSistema.submodulos()) {
+            modulos.computeIfAbsent(definicion.moduloCodigo(),
+                    codigo -> crearModulo(codigo, definicion.moduloNombre()));
+        }
+        return modulos;
+    }
 
-        for (String nombre : ROLES_DEL_SISTEMA) {
-                RolEntity rol = rolRepository.findByNombreIgnoreCase(nombre)
-                    .or(() -> nombre.equals("Médico") ? rolRepository.findByNombreIgnoreCase("Medico") : java.util.Optional.empty())
-                    .orElseGet(() -> RolEntity.builder()
-                    .codigo(generarCodigoRol())
-                    .nombre(nombre)
-                    .estado(true)
-                    .build());
-            rol.setNombre(nombre);
-            rol.setEstado(true);
-            if (nombre.equalsIgnoreCase("Administrador")) {
-                sincronizarPermisosAdministrador(rol, submodulos);
-            } else {
-                limpiarPermisos(rol);
-            }
+    private Map<String, SubmoduloEntity> crearSubmodulos(Map<String, ModuloEntity> modulos) {
+        Map<String, SubmoduloEntity> submodulos = new LinkedHashMap<>();
+        for (PermisosSistema.DefinicionSubmodulo definicion : PermisosSistema.submodulos()) {
+            ModuloEntity modulo = modulos.get(definicion.moduloCodigo());
+            submodulos.put(definicion.codigo(),
+                    crearSubmodulo(modulo, definicion.codigo(), definicion.nombre()));
+        }
+        return submodulos;
+    }
+
+    private void sincronizarRolesDelSistema(Map<String, SubmoduloEntity> submodulos) {
+        Map<String, List<PermisosSistema.DefinicionPermiso>> permisosPorRol = PermisosSistema.permisosPorRol();
+        for (String nombre : PermisosSistema.rolesDelSistema()) {
+            RolEntity rol = buscarOCrearRol(nombre);
+            sincronizarPermisosRol(rol, permisosPorRol.getOrDefault(nombre, List.of()), submodulos);
             rolRepository.save(rol);
         }
-
-        for (RolEntity rol : rolRepository.findAll()) {
-            if (ROLES_DEL_SISTEMA.stream().noneMatch(nombre -> nombre.equalsIgnoreCase(rol.getNombre()))) {
-                rol.setEstado(false);
-                limpiarPermisos(rol);
-                rolRepository.save(rol);
-            }
-        }
     }
 
-    private void sincronizarPermisosAdministrador(RolEntity administrador, List<SubmoduloEntity> submodulos) {
-        if (administrador.getPermisos() == null) {
-            administrador.setPermisos(new ArrayList<>());
+    private RolEntity buscarOCrearRol(String nombre) {
+        Optional<RolEntity> existente = rolRepository.findByNombreIgnoreCase(nombre);
+        if (existente.isEmpty() && PermisosSistema.ROL_MEDICO.equals(nombre)) {
+            existente = rolRepository.findByNombreIgnoreCase("Medico");
         }
-
-        for (SubmoduloEntity submodulo : submodulos) {
-            RolPermisoEntity permiso = administrador.getPermisos().stream()
-                    .filter(actual -> actual.getSubmodulo() != null
-                            && actual.getSubmodulo().getId().equals(submodulo.getId()))
-                    .findFirst()
-                    .orElseGet(() -> {
-                        RolPermisoEntity nuevo = RolPermisoEntity.builder()
-                                .rol(administrador)
-                                .submodulo(submodulo)
-                                .build();
-                        administrador.getPermisos().add(nuevo);
-                        return nuevo;
-                    });
-            permiso.setPuedeLeer(true);
-            permiso.setPuedeCrear(true);
-            permiso.setPuedeEditar(true);
-            permiso.setPuedeEliminar(true);
-        }
-
-        administrador.getPermisos().removeIf(permiso -> permiso.getSubmodulo() == null
-                || submodulos.stream().noneMatch(submodulo -> submodulo.getId().equals(permiso.getSubmodulo().getId())));
+        RolEntity rol = existente.orElseGet(() -> RolEntity.builder()
+                .codigo(generarCodigoRol())
+                .nombre(nombre)
+                .estado(true)
+                .build());
+        rol.setNombre(nombre);
+        rol.setEstado(true);
+        return rol;
     }
 
-    private void limpiarPermisos(RolEntity rol) {
+    private void sincronizarPermisosRol(RolEntity rol,
+            List<PermisosSistema.DefinicionPermiso> definiciones,
+            Map<String, SubmoduloEntity> submodulos) {
         if (rol.getPermisos() == null) {
             rol.setPermisos(new ArrayList<>());
-        } else {
-            rol.getPermisos().clear();
+        }
+
+        Map<Long, RolPermisoEntity> permisosExistentes = rol.getPermisos().stream()
+                .filter(permiso -> permiso.getSubmodulo() != null)
+                .collect(Collectors.toMap(permiso -> permiso.getSubmodulo().getId(), permiso -> permiso,
+                        (primero, segundo) -> primero));
+
+        for (PermisosSistema.DefinicionPermiso definicion : definiciones) {
+            SubmoduloEntity submodulo = submodulos.get(definicion.submoduloCodigo());
+            if (submodulo == null) {
+                continue;
+            }
+            RolPermisoEntity permiso = permisosExistentes.computeIfAbsent(submodulo.getId(), id -> {
+                RolPermisoEntity nuevo = RolPermisoEntity.builder()
+                        .rol(rol)
+                        .submodulo(submodulo)
+                        .build();
+                rol.getPermisos().add(nuevo);
+                return nuevo;
+            });
+            permiso.setPuedeLeer(definicion.leer());
+            permiso.setPuedeCrear(definicion.crear());
+            permiso.setPuedeEditar(definicion.editar());
+            permiso.setPuedeEliminar(definicion.eliminar());
+        }
+
+        Set<Long> idsPermitidos = definiciones.stream()
+                .map(PermisosSistema.DefinicionPermiso::submoduloCodigo)
+                .map(submodulos::get)
+                .filter(java.util.Objects::nonNull)
+                .map(SubmoduloEntity::getId)
+                .collect(Collectors.toSet());
+        rol.getPermisos().removeIf(permiso -> permiso.getSubmodulo() == null
+                || !idsPermitidos.contains(permiso.getSubmodulo().getId()));
+    }
+
+    private void desactivarRolesAjenos() {
+        for (RolEntity rol : rolRepository.findAll()) {
+            if (PermisosSistema.rolesDelSistema().stream()
+                    .noneMatch(nombre -> nombre.equalsIgnoreCase(rol.getNombre()))) {
+                rol.setEstado(false);
+                if (rol.getPermisos() == null) {
+                    rol.setPermisos(new ArrayList<>());
+                } else {
+                    rol.getPermisos().clear();
+                }
+                rolRepository.save(rol);
+            }
         }
     }
 
@@ -125,29 +140,28 @@ public class RolesDataInitializer implements CommandLineRunner {
         return codigo;
     }
 
-
-
     private ModuloEntity crearModulo(String codigo, String nombre) {
-        return moduloRepository.findByCodigo(codigo).orElseGet(() -> {
-            ModuloEntity modulo = ModuloEntity.builder()
-                    .codigo(codigo)
-                    .nombre(nombre)
-                    .estado(true)
-                    .build();
-            return moduloRepository.save(modulo);
-        });
-    }
-
-    private void crearSubmodulo(ModuloEntity modulo, String codigo, String nombre) {
-        if (submoduloRepository.existsByCodigo(codigo)) {
-            return;
-        }
-        SubmoduloEntity sub = SubmoduloEntity.builder()
-                .modulo(modulo)
+        ModuloEntity modulo = moduloRepository.findByCodigo(codigo).orElseGet(() -> ModuloEntity.builder()
                 .codigo(codigo)
                 .nombre(nombre)
                 .estado(true)
-                .build();
-        submoduloRepository.save(sub);
+                .build());
+        modulo.setNombre(nombre);
+        modulo.setEstado(true);
+        return moduloRepository.save(modulo);
+    }
+
+    private SubmoduloEntity crearSubmodulo(ModuloEntity modulo, String codigo, String nombre) {
+        SubmoduloEntity submodulo = submoduloRepository.findByCodigo(codigo)
+                .orElseGet(() -> SubmoduloEntity.builder()
+                        .modulo(modulo)
+                        .codigo(codigo)
+                        .nombre(nombre)
+                        .estado(true)
+                        .build());
+        submodulo.setModulo(modulo);
+        submodulo.setNombre(nombre);
+        submodulo.setEstado(true);
+        return submoduloRepository.save(submodulo);
     }
 }
