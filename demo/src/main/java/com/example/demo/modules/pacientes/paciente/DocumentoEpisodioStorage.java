@@ -1,5 +1,7 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
@@ -31,8 +33,9 @@ public class DocumentoEpisodioStorage {
     private final Path directory;
     private final Path legacyDirectory;
 
-    public DocumentoEpisodioStorage() {
-        this(Path.of(RELATIVE_DIRECTORY), Path.of(LEGACY_DIRECTORY));
+    @Autowired
+    public DocumentoEpisodioStorage(@Value("${app.uploads.dir:uploads}") String baseDir) {
+        this(Path.of(baseDir).resolve("documentos"), Path.of(baseDir).resolve("referencias"));
     }
 
     DocumentoEpisodioStorage(Path directory) {

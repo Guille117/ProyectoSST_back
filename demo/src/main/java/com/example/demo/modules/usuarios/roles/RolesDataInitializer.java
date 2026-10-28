@@ -2,6 +2,7 @@ package com.example.demo.modules.usuarios.roles;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,12 +12,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 @Order(1)
+@ConditionalOnProperty(name = "app.seed.enabled", havingValue = "true")
 public class RolesDataInitializer implements CommandLineRunner {
 
     private final ModuloRepository moduloRepository;
@@ -29,7 +30,6 @@ public class RolesDataInitializer implements CommandLineRunner {
         Map<String, ModuloEntity> modulos = crearModulos();
         Map<String, SubmoduloEntity> submodulos = crearSubmodulos(modulos);
         sincronizarRolesDelSistema(submodulos);
-        desactivarRolesAjenos();
     }
 
     private Map<String, ModuloEntity> crearModulos() {
@@ -64,15 +64,15 @@ public class RolesDataInitializer implements CommandLineRunner {
         Optional<RolEntity> existente = rolRepository.findByNombreIgnoreCase(nombre);
         if (existente.isEmpty() && PermisosSistema.ROL_MEDICO.equals(nombre)) {
             existente = rolRepository.findByNombreIgnoreCase("Medico");
+            if (existente.isPresent() && !nombre.equals(existente.get().getNombre())) {
+                existente.get().setNombre(nombre);
+            }
         }
-        RolEntity rol = existente.orElseGet(() -> RolEntity.builder()
+        return existente.orElseGet(() -> RolEntity.builder()
                 .codigo(generarCodigoRol())
                 .nombre(nombre)
                 .estado(true)
                 .build());
-        rol.setNombre(nombre);
-        rol.setEstado(true);
-        return rol;
     }
 
     private void sincronizarPermisosRol(RolEntity rol,
@@ -89,45 +89,19 @@ public class RolesDataInitializer implements CommandLineRunner {
 
         for (PermisosSistema.DefinicionPermiso definicion : definiciones) {
             SubmoduloEntity submodulo = submodulos.get(definicion.submoduloCodigo());
-            if (submodulo == null) {
+            if (submodulo == null || permisosExistentes.containsKey(submodulo.getId())) {
                 continue;
             }
-            RolPermisoEntity permiso = permisosExistentes.computeIfAbsent(submodulo.getId(), id -> {
-                RolPermisoEntity nuevo = RolPermisoEntity.builder()
-                        .rol(rol)
-                        .submodulo(submodulo)
-                        .build();
-                rol.getPermisos().add(nuevo);
-                return nuevo;
-            });
-            permiso.setPuedeLeer(definicion.leer());
-            permiso.setPuedeCrear(definicion.crear());
-            permiso.setPuedeEditar(definicion.editar());
-            permiso.setPuedeEliminar(definicion.eliminar());
-        }
-
-        Set<Long> idsPermitidos = definiciones.stream()
-                .map(PermisosSistema.DefinicionPermiso::submoduloCodigo)
-                .map(submodulos::get)
-                .filter(java.util.Objects::nonNull)
-                .map(SubmoduloEntity::getId)
-                .collect(Collectors.toSet());
-        rol.getPermisos().removeIf(permiso -> permiso.getSubmodulo() == null
-                || !idsPermitidos.contains(permiso.getSubmodulo().getId()));
-    }
-
-    private void desactivarRolesAjenos() {
-        for (RolEntity rol : rolRepository.findAll()) {
-            if (PermisosSistema.rolesDelSistema().stream()
-                    .noneMatch(nombre -> nombre.equalsIgnoreCase(rol.getNombre()))) {
-                rol.setEstado(false);
-                if (rol.getPermisos() == null) {
-                    rol.setPermisos(new ArrayList<>());
-                } else {
-                    rol.getPermisos().clear();
-                }
-                rolRepository.save(rol);
-            }
+            RolPermisoEntity permiso = RolPermisoEntity.builder()
+                    .rol(rol)
+                    .submodulo(submodulo)
+                    .puedeLeer(definicion.leer())
+                    .puedeCrear(definicion.crear())
+                    .puedeEditar(definicion.editar())
+                    .puedeEliminar(definicion.eliminar())
+                    .build();
+            rol.getPermisos().add(permiso);
+            permisosExistentes.put(submodulo.getId(), permiso);
         }
     }
 
@@ -141,27 +115,25 @@ public class RolesDataInitializer implements CommandLineRunner {
     }
 
     private ModuloEntity crearModulo(String codigo, String nombre) {
-        ModuloEntity modulo = moduloRepository.findByCodigo(codigo).orElseGet(() -> ModuloEntity.builder()
-                .codigo(codigo)
-                .nombre(nombre)
-                .estado(true)
-                .build());
-        modulo.setNombre(nombre);
-        modulo.setEstado(true);
-        return moduloRepository.save(modulo);
+        return moduloRepository.findByCodigo(codigo).orElseGet(() -> {
+            ModuloEntity modulo = ModuloEntity.builder()
+                    .codigo(codigo)
+                    .nombre(nombre)
+                    .estado(true)
+                    .build();
+            return moduloRepository.save(modulo);
+        });
     }
 
     private SubmoduloEntity crearSubmodulo(ModuloEntity modulo, String codigo, String nombre) {
-        SubmoduloEntity submodulo = submoduloRepository.findByCodigo(codigo)
-                .orElseGet(() -> SubmoduloEntity.builder()
-                        .modulo(modulo)
-                        .codigo(codigo)
-                        .nombre(nombre)
-                        .estado(true)
-                        .build());
-        submodulo.setModulo(modulo);
-        submodulo.setNombre(nombre);
-        submodulo.setEstado(true);
-        return submoduloRepository.save(submodulo);
+        return submoduloRepository.findByCodigo(codigo).orElseGet(() -> {
+            SubmoduloEntity submodulo = SubmoduloEntity.builder()
+                    .modulo(modulo)
+                    .codigo(codigo)
+                    .nombre(nombre)
+                    .estado(true)
+                    .build();
+            return submoduloRepository.save(submodulo);
+        });
     }
 }

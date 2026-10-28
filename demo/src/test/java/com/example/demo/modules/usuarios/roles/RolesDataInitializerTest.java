@@ -33,7 +33,7 @@ class RolesDataInitializerTest {
     private RolRepository rolRepository;
 
     @Test
-    void run_siembraLaMatrizNativaEsIdempotenteYDesactivaRolesAjenos() {
+    void run_siembraLaMatrizNativaEsIdempotenteYSinDesactivarRolesAjenos() {
         Map<String, ModuloEntity> modulos = new HashMap<>();
         Map<String, SubmoduloEntity> submodulos = new HashMap<>();
         List<RolEntity> roles = new ArrayList<>();
@@ -48,7 +48,7 @@ class RolesDataInitializerTest {
                 .id(99L).modulo(moduloAntiguo).codigo("ANTIGUO").nombre("Antiguo").build();
 
         RolEntity administrador = RolEntity.builder()
-                .id(1L).codigo("ROL-01").nombre("Administrador").estado(false)
+                .id(1L).codigo("ROL-01").nombre("Administrador").estado(true)
                 .permisos(new ArrayList<>(List.of(
                         RolPermisoEntity.builder().submodulo(usuarios).puedeLeer(false).build(),
                         RolPermisoEntity.builder().submodulo(submoduloObsoleto).puedeLeer(true).build())))
@@ -106,7 +106,6 @@ class RolesDataInitializerTest {
             }
             return rol;
         });
-        when(rolRepository.findAll()).thenAnswer(invocation -> new ArrayList<>(roles));
 
         RolesDataInitializer initializer = new RolesDataInitializer(moduloRepository, submoduloRepository, rolRepository);
         initializer.run();
@@ -116,20 +115,27 @@ class RolesDataInitializerTest {
                 .filter(RolEntity::isEstado)
                 .map(RolEntity::getNombre)
                 .collect(Collectors.toSet());
-        assertEquals(Set.of("Administrador", "Médico", "Enfermera", "Director", "Farmaceutico"), rolesActivos);
+        assertEquals(Set.of("Administrador", "Super Usuario", "Director", "Enfermera", "Farmaceutico"), rolesActivos);
         assertTrue(administrador.isEstado());
         assertEquals(3L, medicoExistente.getId());
         assertEquals("Médico", medicoExistente.getNombre());
-        assertTrue(medicoExistente.isEstado());
-        assertFalse(superUsuario.isEstado());
-        assertTrue(superUsuario.getPermisos().isEmpty());
+        assertFalse(medicoExistente.isEstado());
+        assertTrue(superUsuario.isEstado());
+        assertEquals(1, superUsuario.getPermisos().size());
 
-        assertEquals(PermisosSistema.submodulos().size(), administrador.getPermisos().size());
+        assertEquals(PermisosSistema.submodulos().size() + 1, administrador.getPermisos().size());
+        RolPermisoEntity permisoUsuarios = administrador.getPermisos().stream()
+                .filter(permiso -> permiso.getSubmodulo().getCodigo().equals("USUARIOS"))
+                .findFirst()
+                .orElseThrow();
+        assertFalse(permisoUsuarios.isPuedeLeer());
         assertTrue(administrador.getPermisos().stream()
+                .anyMatch(permiso -> permiso.getSubmodulo().getCodigo().equals("ANTIGUO")));
+        assertTrue(administrador.getPermisos().stream()
+                .filter(permiso -> !permiso.getSubmodulo().getCodigo().equals("USUARIOS"))
+                .filter(permiso -> !permiso.getSubmodulo().getCodigo().equals("ANTIGUO"))
                 .allMatch(permiso -> permiso.isPuedeLeer() && permiso.isPuedeCrear()
                         && permiso.isPuedeEditar() && permiso.isPuedeEliminar()));
-        assertTrue(administrador.getPermisos().stream()
-                .noneMatch(permiso -> permiso.getSubmodulo().getCodigo().equals("ANTIGUO")));
 
         RolEntity director = roles.stream()
                 .filter(rol -> rol.getNombre().equals("Director"))

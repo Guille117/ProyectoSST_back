@@ -3,7 +3,9 @@ package com.example.demo.modules.usuarios.horarios;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,7 +43,7 @@ class HorariosDataInitializerTest {
     }
 
     @Test
-    void run_reactivaHorarioExistenteYConservaElRegistro() {
+    void run_noModificaHorarioExistente() {
         HorarioEntity existente = HorarioEntity.builder()
                 .id(7L).codigo("HOR-07").nombre("Sin limite").estado(false).build();
         when(repository.findByNombreIgnoreCase("Sin limite")).thenReturn(Optional.of(existente));
@@ -49,8 +51,8 @@ class HorariosDataInitializerTest {
         new HorariosDataInitializer(repository).run();
 
         assertEquals("Sin limite", existente.getNombre());
-        assertTrue(existente.isEstado());
+        assertFalse(existente.isEstado());
         assertFalse(existente.isEsRotativo());
-        verify(repository).save(existente);
+        verify(repository, never()).save(any());
     }
 }

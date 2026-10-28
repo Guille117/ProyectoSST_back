@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Optional;
@@ -43,7 +45,7 @@ class UsuarioSistemaDataInitializerTest {
     private PasswordEncoder passwordEncoder;
 
     @Test
-    void run_creaUsuarioSistemaSinDatosPersonalesSensibles() {
+    void run_creaUsuarioSistemaCuandoNoExiste() {
         puestoEntity puesto = new puestoEntity();
         puesto.setId(1L);
         puesto.setNombre("Administrador");
@@ -53,21 +55,21 @@ class UsuarioSistemaDataInitializerTest {
         when(puestoRepository.findByNombreIgnoreCase("Administrador")).thenReturn(Optional.of(puesto));
         when(horarioRepository.findByNombreIgnoreCase("Sin limite")).thenReturn(Optional.of(horario));
         when(rolRepository.findByNombreIgnoreCase("Administrador")).thenReturn(Optional.of(rol));
-        when(usuarioRepository.findByUsernameIgnoreCase("guille117")).thenReturn(Optional.empty());
+        when(usuarioRepository.findByUsernameIgnoreCase("admin")).thenReturn(Optional.empty());
         when(usuarioRepository.count()).thenReturn(0L);
         when(usuarioRepository.existsByCodigo(anyString())).thenReturn(false);
-        when(passwordEncoder.encode(anyString())).thenReturn("encoded-password");
+        when(passwordEncoder.encode("test-password")).thenReturn("encoded-password");
         when(usuarioRepository.save(any(UsuarioEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         new UsuarioSistemaDataInitializer(usuarioRepository, puestoRepository, horarioRepository,
-                rolRepository, passwordEncoder).run();
+                rolRepository, passwordEncoder, "admin", "test-password").run();
 
         ArgumentCaptor<UsuarioEntity> captor = ArgumentCaptor.forClass(UsuarioEntity.class);
         verify(usuarioRepository).save(captor.capture());
         UsuarioEntity sistema = captor.getValue();
         PersonaEntity persona = sistema.getPersona();
 
-        assertEquals("guille117", sistema.getUsername());
+        assertEquals("admin", sistema.getUsername());
         assertEquals("encoded-password", sistema.getPassword());
         assertTrue(sistema.isEstado());
         assertEquals(puesto, sistema.getPuesto());
@@ -80,5 +82,31 @@ class UsuarioSistemaDataInitializerTest {
         assertNull(persona.getFechaNacimiento());
         assertNull(persona.getTelefono());
         assertNull(persona.getEmail());
+    }
+
+    @Test
+    void run_noModificaUsuarioExistente() {
+        UsuarioEntity existente = UsuarioEntity.builder()
+                .id(99L)
+                .username("admin")
+                .password("hash-existente")
+                .estado(true)
+                .build();
+        when(usuarioRepository.findByUsernameIgnoreCase("admin")).thenReturn(Optional.of(existente));
+
+        new UsuarioSistemaDataInitializer(usuarioRepository, puestoRepository, horarioRepository,
+                rolRepository, passwordEncoder, "admin", "nueva-password").run();
+
+        assertEquals("hash-existente", existente.getPassword());
+        verify(usuarioRepository, never()).save(any());
+        verifyNoInteractions(puestoRepository, horarioRepository, rolRepository, passwordEncoder);
+    }
+
+    @Test
+    void run_sinCredencialesNoCreaUsuario() {
+        new UsuarioSistemaDataInitializer(usuarioRepository, puestoRepository, horarioRepository,
+                rolRepository, passwordEncoder, "", "").run();
+
+        verifyNoInteractions(usuarioRepository, puestoRepository, horarioRepository, rolRepository, passwordEncoder);
     }
 }
