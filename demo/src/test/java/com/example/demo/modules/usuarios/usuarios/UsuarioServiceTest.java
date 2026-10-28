@@ -1,0 +1,364 @@
+package com.example.demo.modules.usuarios.usuarios;
+
+import com.example.demo.modules.usuarios.horarios.HorarioEntity;
+import com.example.demo.modules.usuarios.horarios.HorarioRepository;
+import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
+import com.example.demo.modules.usuarios.especialidad.especialidadRepository;
+import com.example.demo.modules.usuarios.puesto.puestoEntity;
+import com.example.demo.modules.usuarios.puesto.puestoRepository;
+import com.example.demo.modules.usuarios.roles.RolEntity;
+import com.example.demo.modules.usuarios.roles.RolRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.*;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class UsuarioServiceTest {
+
+    @Mock
+    private UsuarioRepository repository;
+
+    @Mock
+    private PersonaRepository personaRepository;
+
+    @Mock
+    private puestoRepository puestoRepository;
+
+    @Mock
+    private especialidadRepository especialidadRepository;
+
+    @Mock
+    private HorarioRepository horarioRepository;
+
+    @Mock
+    private RolRepository rolRepository;
+
+    @Mock
+    private UsuarioMapper mapper;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
+
+    @Mock
+    private UsuarioPinRepository pinRepository;
+
+    @InjectMocks
+    private UsuarioService service;
+
+    private UsuarioDTOs.Request buildRequest() {
+        return new UsuarioDTOs.Request(
+            new UsuarioDTOs.PersonaRequest(
+                "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
+                LocalDate.of(1990, 1, 1), "12345678", "juan@test.com"
+            ),
+                1L,
+                1L,
+                List.of(1L, 2L),
+                "jperez",
+                1L,
+                true
+        );
+    }
+
+    private puestoEntity crearPuesto(Long id, String nombre) {
+        puestoEntity p = new puestoEntity();
+        p.setId(id);
+        p.setNombre(nombre);
+        p.setEstado(true);
+        return p;
+    }
+
+    @Test
+    void crear_Exitoso() {
+        UsuarioDTOs.Request req = buildRequest();
+
+        puestoEntity puesto = crearPuesto(1L, "Director");
+        especialidadEntity especialidad = new especialidadEntity();
+        especialidad.setId(1L);
+        especialidad.setNombre("Cardiología");
+        HorarioEntity horario = HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build();
+        RolEntity rol = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build();
+        RolEntity segundoRol = RolEntity.builder().id(2L).codigo("ROL-02").nombre("Auditor").build();
+
+        UsuarioEntity guardado = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("jperez").estado(true).build();
+        PersonaEntity persona = PersonaEntity.builder().cui("1234567890123").nombres("Juan").apellidos("Perez").build();
+        guardado.setPersona(persona);
+        guardado.setPuesto(puesto);
+        guardado.setHorario(horario);
+        guardado.setRoles(Set.of(rol));
+
+        UsuarioDTOs.Response response = new UsuarioDTOs.Response(
+                1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
+                LocalDate.of(1990, 1, 1), "12345678", "juan@test.com",
+                1L, "Director",
+                1L, "HOR-01", "Diurno",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
+                "jperez", true
+        );
+
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.empty());
+        when(repository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(1L)).thenReturn(Optional.of(puesto));
+        when(especialidadRepository.findById(1L)).thenReturn(Optional.of(especialidad));
+        when(horarioRepository.findById(1L)).thenReturn(Optional.of(horario));
+        when(rolRepository.findAllById(List.of(1L, 2L))).thenReturn(List.of(rol, segundoRol));
+        when(repository.count()).thenReturn(0L);
+        when(repository.save(any(UsuarioEntity.class))).thenReturn(guardado);
+        when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        String resultado = service.crear(req);
+
+        assertNotNull(resultado);
+        assertEquals(6, resultado.length());
+        ArgumentCaptor<UsuarioEntity> usuarioCaptor = ArgumentCaptor.forClass(UsuarioEntity.class);
+        verify(repository).save(usuarioCaptor.capture());
+        assertEquals(2, usuarioCaptor.getValue().getRoles().size());
+        assertEquals(especialidad, usuarioCaptor.getValue().getEspecialidad());
+        PersonaEntity personaGuardada = usuarioCaptor.getValue().getPersona();
+        assertEquals("Juan", personaGuardada.getNombres());
+        assertEquals("Perez", personaGuardada.getApellidos());
+        assertEquals("Juan", personaGuardada.getPrimerNombre());
+        assertNull(personaGuardada.getSegundoNombre());
+        assertNull(personaGuardada.getOtrosNombres());
+        assertEquals("Perez", personaGuardada.getPrimerApellido());
+        assertNull(personaGuardada.getSegundoApellido());
+        verify(pinRepository).save(any(UsuarioPinEntity.class));
+    }
+
+    @Test
+    void crear_LanzaExcepcion_CuandoDatoDuplicado() {
+        UsuarioDTOs.Request req = buildRequest();
+
+        PersonaEntity personaDup = PersonaEntity.builder().cui("1234567890123").build();
+        UsuarioEntity usuarioDup = UsuarioEntity.builder().id(99L).codigo("USR-99").username("otro").estado(true).persona(personaDup).build();
+
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(personaDup));
+        when(repository.findAll()).thenReturn(List.of(usuarioDup));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
+        assertTrue(ex.getMessage().contains("CUI"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_IgnoraUsuarioSinCuiAlBuscarDuplicados() {
+        UsuarioDTOs.Request req = buildRequest();
+        PersonaEntity personaSinCui = PersonaEntity.builder().build();
+        PersonaEntity personaDuplicada = PersonaEntity.builder().cui("1234567890123").build();
+        UsuarioEntity usuarioSistema = UsuarioEntity.builder()
+                .id(1L).username("guille117").persona(personaSinCui).estado(true).build();
+        UsuarioEntity usuarioConCuiDuplicado = UsuarioEntity.builder()
+                .id(2L).username("otro").persona(personaDuplicada).estado(true).build();
+
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(personaDuplicada));
+        when(repository.findAll()).thenReturn(List.of(usuarioSistema, usuarioConCuiDuplicado));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
+
+        assertTrue(error.getMessage().contains("Ya existe un usuario activo con el CUI"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void buscarPorCriterio_EncuentraPorNombreSinImportarMayusculas() {
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("flopez").estado(true)
+                .persona(PersonaEntity.builder()
+                        .primerNombre("Fernando")
+                        .primerApellido("Lopez")
+                        .build())
+                .build();
+        UsuarioDTOs.ListResponse listado = new UsuarioDTOs.ListResponse(
+                1L, "USR-01", "Fernando Lopez", null, List.of(), true, null);
+
+        when(repository.findByEstado(true)).thenReturn(List.of(usuario));
+        when(mapper.toListDTO(usuario)).thenReturn(listado);
+
+        assertEquals(List.of(listado), service.buscarPorCriterio("ferNando", true));
+        assertEquals(List.of(listado), service.buscarPorCriterio("FERNANDO", true));
+    }
+
+    @Test
+    void buscarPorCriterio_EncuentraPorCodigoSinImportarFormato() {
+        UsuarioEntity usuario = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("flopez").estado(true)
+                .persona(PersonaEntity.builder()
+                        .primerNombre("Fernando")
+                        .primerApellido("Lopez")
+                        .build())
+                .build();
+        UsuarioDTOs.ListResponse listado = new UsuarioDTOs.ListResponse(
+                1L, "USR-01", "Fernando Lopez", null, List.of(), true, null);
+
+        when(repository.findByEstado(true)).thenReturn(List.of(usuario));
+        when(mapper.toListDTO(usuario)).thenReturn(listado);
+
+        assertEquals(List.of(listado), service.buscarPorCriterio("usr-01", true));
+        assertEquals(List.of(listado), service.buscarPorCriterio("usr-1", true));
+        assertEquals(List.of(listado), service.buscarPorCriterio("uSr-1", true));
+    }
+
+    @Test
+    void obtenerPorId_Exitoso() {
+        UsuarioEntity entity = UsuarioEntity.builder().id(1L).codigo("USR-01").username("jperez").estado(true).build();
+        entity.setPersona(PersonaEntity.builder().cui("1234567890123").nombres("Juan").build());
+        entity.setPuesto(crearPuesto(1L, "Director"));
+        entity.setHorario(HorarioEntity.builder().codigo("HOR-01").nombre("Diurno").build());
+        entity.setRoles(Set.of(RolEntity.builder().codigo("ROL-01").nombre("Admin").build()));
+
+        UsuarioDTOs.Response response = new UsuarioDTOs.Response(
+                1L, "USR-01", "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
+                LocalDate.of(1990, 1, 1), null, null,
+                1L, "Director",
+                1L, "HOR-01", "Diurno",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
+                "jperez", true
+        );
+
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(mapper.toDTO(entity)).thenReturn(response);
+
+        UsuarioDTOs.Response result = service.obtenerPorId(1L);
+        assertEquals(response, result);
+    }
+
+    @Test
+    void obtenerPorId_LanzaExcepcion_CuandoNoExiste() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> service.obtenerPorId(99L));
+        assertTrue(ex.getMessage().contains("Usuario no encontrado"));
+    }
+
+    @Test
+    void obtenerMedicosActivos_DevuelveSoloElListadoDePuestosMedicos() {
+        UsuarioEntity medico = UsuarioEntity.builder().id(5L).estado(true).build();
+        UsuarioDTOs.ListResponse listado = new UsuarioDTOs.ListResponse(
+            5L, "USR-05", "Ana Lopez", "12345678", List.of("Doctor"), true,
+            new UsuarioDTOs.EspecialidadResponse(7L, "Cardiología"));
+        UsuarioDTOs.MedicoResponse response = new UsuarioDTOs.MedicoResponse(5L, "Ana Lopez", "Cardiología");
+        when(repository.findMedicosActivos(List.of("doctor", "doctora", "medico", "m\u00e9dico")))
+                .thenReturn(List.of(medico));
+        when(mapper.toListDTO(medico)).thenReturn(listado);
+
+        assertEquals(List.of(response), service.obtenerMedicosActivos());
+        verify(repository).findMedicosActivos(List.of("doctor", "doctora", "medico", "m\u00e9dico"));
+    }
+
+    @Test
+    void actualizar_Exitoso() {
+        UsuarioEntity existente = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("jperez").password("old").estado(true).build();
+        PersonaEntity persona = PersonaEntity.builder().id(10L).cui("1234567890123").nombres("Juan").apellidos("Perez").sexo(Sexo.MASCULINO).fechaNacimiento(LocalDate.of(1990, 1, 1)).build();
+        persona.asignarNombres("Juan Carlos Alberto", "Perez Lopez");
+        existente.setPersona(persona);
+        existente.setPuesto(crearPuesto(1L, "Director"));
+        existente.setHorario(HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build());
+        existente.setRoles(Set.of(RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build()));
+
+        UsuarioDTOs.UpdateRequest req = new UsuarioDTOs.UpdateRequest(
+            new UsuarioDTOs.PersonaRequest("1234567890123", "Juan Carlos", "Perez Lopez", Sexo.MASCULINO,
+                LocalDate.of(1990, 1, 1), "87654321", "juan2@test.com"),
+            2L, 1L, List.of(1L), "jperez2", "newpass123", "newpass123", 1L, true
+        );
+
+        puestoEntity nuevoPuesto = crearPuesto(2L, "Doctor");
+        especialidadEntity especialidad = new especialidadEntity();
+        especialidad.setId(1L);
+        especialidad.setNombre("Pediatría");
+        HorarioEntity horario = HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build();
+        RolEntity rol = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Admin").build();
+
+        UsuarioEntity actualizado = UsuarioEntity.builder().id(1L).codigo("USR-01").username("jperez2").password("newpass123").estado(true).build();
+        actualizado.setPersona(persona);
+        actualizado.setPuesto(nuevoPuesto);
+
+        UsuarioDTOs.Response response = new UsuarioDTOs.Response(
+                1L, "USR-01", "1234567890123", "Juan Carlos", "Perez Lopez", Sexo.MASCULINO,
+                LocalDate.of(1990, 1, 1), "87654321", "juan2@test.com",
+                2L, "Doctor",
+                1L, "HOR-01", "Diurno",
+                List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
+                "jperez2", true
+        );
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(persona));
+        // findAll will not find duplicate because same id
+        when(repository.findAll()).thenReturn(List.of(existente));
+        when(repository.findByUsernameIgnoreCase("jperez2")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(2L)).thenReturn(Optional.of(nuevoPuesto));
+        when(especialidadRepository.findById(1L)).thenReturn(Optional.of(especialidad));
+        when(horarioRepository.findById(1L)).thenReturn(Optional.of(horario));
+        when(rolRepository.findAllById(List.of(1L))).thenReturn(List.of(rol));
+        when(passwordEncoder.encode("newpass123")).thenReturn("encodedNew");
+        when(repository.save(any(UsuarioEntity.class))).thenReturn(actualizado);
+        when(mapper.toDTO(actualizado)).thenReturn(response);
+
+        UsuarioDTOs.Response resultado = service.actualizar(1L, req);
+
+        assertEquals(response, resultado);
+        ArgumentCaptor<UsuarioEntity> usuarioCaptor = ArgumentCaptor.forClass(UsuarioEntity.class);
+        verify(repository).save(usuarioCaptor.capture());
+        PersonaEntity personaGuardada = usuarioCaptor.getValue().getPersona();
+        assertEquals(especialidad, usuarioCaptor.getValue().getEspecialidad());
+        assertEquals("Juan Carlos", personaGuardada.getNombres());
+        assertEquals("Perez Lopez", personaGuardada.getApellidos());
+        assertEquals("Juan", personaGuardada.getPrimerNombre());
+        assertEquals("Carlos", personaGuardada.getSegundoNombre());
+        assertNull(personaGuardada.getOtrosNombres());
+        assertEquals("Perez", personaGuardada.getPrimerApellido());
+        assertEquals("Lopez", personaGuardada.getSegundoApellido());
+    }
+
+    @Test
+    void cambiarEstado_Exitoso() {
+        UsuarioEntity entity = UsuarioEntity.builder().id(1L).username("jperez").estado(true).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any(UsuarioEntity.class))).thenReturn(entity);
+
+        service.cambiarEstado(1L);
+
+        assertFalse(entity.isEstado());
+        verify(repository).save(entity);
+    }
+
+    @Test
+    void actualizar_LanzaExcepcion_CuandoEsUsuarioDelSistema() {
+        UsuarioEntity sistema = UsuarioEntity.builder().id(2L).username("guille117").estado(true).build();
+        when(repository.findById(2L)).thenReturn(Optional.of(sistema));
+        UsuarioDTOs.UpdateRequest request = new UsuarioDTOs.UpdateRequest(
+                null, null, null, null, null, null, null, null);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.actualizar(2L, request));
+
+        assertEquals("El usuario del sistema no se puede editar, desactivar ni eliminar.", error.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void cambiarEstado_LanzaExcepcion_CuandoEsUsuarioDelSistema() {
+        UsuarioEntity sistema = UsuarioEntity.builder().id(2L).username("GUILLE117").estado(true).build();
+        when(repository.findById(2L)).thenReturn(Optional.of(sistema));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.cambiarEstado(2L));
+
+        assertEquals("El usuario del sistema no se puede editar, desactivar ni eliminar.", error.getMessage());
+        verify(repository, never()).save(any());
+    }
+}

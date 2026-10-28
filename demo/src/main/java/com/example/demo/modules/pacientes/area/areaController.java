@@ -1,0 +1,76 @@
+package com.example.demo.modules.pacientes.area;
+
+import com.example.demo.modules.pacientes.alergia.alergiaService;
+import com.example.demo.modules.pacientes.enfermedad.enfermedadService;
+import com.example.demo.modules.pacientes.habitaciones.habitacionesService;
+import com.example.demo.modules.pacientes.institucion.institucionService;
+import com.example.demo.modules.pacientes.parentesco.parentescoService;
+import com.example.demo.modules.pacientes.tipoCama.tipoCamaService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/areas")
+@RequiredArgsConstructor
+public class areaController {
+
+    private final areaService service;
+    private final habitacionesService habitacionesService;
+    private final institucionService institucionService;
+    private final parentescoService parentescoService;
+    private final tipoCamaService tipoCamaService;
+    private final alergiaService alergiaService;
+    private final enfermedadService enfermedadService;
+
+    public record ConteoCatalogoResponse(String tabla, long total) {}
+
+    @PostMapping
+    public ResponseEntity<areaEntity> crear(@Valid @RequestBody areaEntity request) {
+        request.setId(null);
+        request.setEstado(true);
+        return new ResponseEntity<>(service.guardar(request), HttpStatus.CREATED);
+    }
+
+    @GetMapping
+    public ResponseEntity<List<areaEntity>> obtenerTodos(@RequestParam(name = "activos", required = false) Boolean activos) {
+        return ResponseEntity.ok(activos == null ? service.listarTodos() : service.listarPorEstado(activos));
+    }
+
+    @GetMapping("/buscar")
+    public ResponseEntity<List<areaEntity>> buscar(@RequestParam String nombre) {
+        return ResponseEntity.ok(service.buscarPorNombre(nombre));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<areaEntity> obtenerPorId(@PathVariable("id") Long id) {
+        return service.buscarPorId(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<areaEntity> actualizar(@PathVariable("id") Long id, @RequestBody areaEntity request) {
+        return ResponseEntity.ok(service.actualizarConDescripcion(id, request));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<areaEntity> cambiarEstado(@PathVariable("id") Long id) {
+        return service.cambiarEstado(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/conteo-catalogos")
+    public ResponseEntity<List<ConteoCatalogoResponse>> contarCatalogosActivos() {
+        return ResponseEntity.ok(List.of(
+            new ConteoCatalogoResponse("instituciones", institucionService.contarActivas()),
+                new ConteoCatalogoResponse("habitaciones", habitacionesService.contarActivos()),
+            new ConteoCatalogoResponse("tipos_cama", tipoCamaService.contarActivos()),
+            new ConteoCatalogoResponse("parentescos", parentescoService.contarActivos()),
+            new ConteoCatalogoResponse("alergias", alergiaService.contarActivos()),
+            new ConteoCatalogoResponse("enfermedades", enfermedadService.contarActivos()),
+            new ConteoCatalogoResponse("areas", service.contarActivos())
+        ));
+    }
+}

@@ -1,0 +1,15 @@
+package com.example.demo.modules.farmacia.devoluciones;
+
+import org.mapstruct.Mapper;
+import org.mapstruct.Mapping;
+
+@Mapper(componentModel = "spring")
+public interface DevolucionMapper {
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "codigo", ignore = true)
+    @Mapping(target = "estado", expression = "java(request.estado() != null ? request.estado() : true)")
+    DevolucionEntity toEntity(DevolucionDTOs.Request request);
+
+    DevolucionDTOs.Response toDTO(DevolucionEntity entity);
+}

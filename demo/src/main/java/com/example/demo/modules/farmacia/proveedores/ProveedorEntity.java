@@ -22,13 +22,13 @@ public class ProveedorEntity {
     @Column(nullable = false, length = 100)
     private String nombre;
 
-    @Column(unique = true, length = 15)
+    @Column(unique = true, nullable = true, length = 15)
     private String nit;
 
-    @Column(length = 8)
+    @Column(unique = true, nullable = true, length = 8)
     private String telefono;
 
-    @Column(unique = true, length = 150)
+    @Column(unique = true, nullable = true, length = 150)
     private String email;
 
     @Column(nullable = false)

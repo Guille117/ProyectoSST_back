@@ -1,0 +1,18 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run DemoApplication (Gradle)",
+            "type": "shell",
+            "command": ".\\gradlew.bat",
+            "args": [
+                "bootRun"
+            ],
+            "options": {
+                "cwd": "${workspaceFolder}\\demo"
+            },
+            "isBackground": false,
+            "problemMatcher": []
+        }
+    ]
+}
