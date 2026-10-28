@@ -2,6 +2,7 @@ package com.example.demo.modules.usuarios.puesto;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +12,7 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 @Order(2)
+@ConditionalOnProperty(name = "app.seed.enabled", havingValue = "true")
 public class PuestosDataInitializer implements CommandLineRunner {
 
     private static final List<String> PUESTOS_DEL_SISTEMA = List.of("Administrador", "Médico");

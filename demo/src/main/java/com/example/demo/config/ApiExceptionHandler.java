@@ -1,6 +1,8 @@
 package com.example.demo.config;
 
 import com.example.demo.security.HorarioAccessException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,6 +16,7 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
@@ -21,64 +24,52 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleMethodArgumentNotValid(MethodArgumentNotValidException ex) {
         FieldError fieldError = ex.getBindingResult().getFieldError();
         String message = fieldError != null ? fieldError.getDefaultMessage() : "Validación fallida";
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", "Bad Request");
-        body.put("message", message);
-
-        return ResponseEntity.badRequest().body(body);
+        return respuestaError(HttpStatus.BAD_REQUEST, message);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", "Bad Request");
-        body.put("message", ex.getMessage());
-
-        return ResponseEntity.badRequest().body(body);
+        return respuestaError(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
     @ExceptionHandler(HorarioAccessException.class)
     public ResponseEntity<Map<String, Object>> handleHorarioAccess(HorarioAccessException ex) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", HttpStatus.FORBIDDEN.value());
-        body.put("error", "Forbidden");
-        body.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        return respuestaError(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", HttpStatus.FORBIDDEN.value());
-        body.put("error", "Forbidden");
-        body.put("message", "No tiene permiso para realizar esta acción");
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+        return respuestaError(HttpStatus.FORBIDDEN, "No tiene permiso para realizar esta acción");
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("timestamp", Instant.now().toString());
-        body.put("status", HttpStatus.UNAUTHORIZED.value());
-        body.put("error", "Unauthorized");
-        body.put("message", ex.getMessage());
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+        return respuestaError(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<Map<String, Object>> handleDataAccess(DataAccessException ex) {
+        log.error("Error de acceso a datos", ex);
+        return respuestaError(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor");
     }
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<Map<String, Object>> handleRuntime(RuntimeException ex) {
+        return respuestaError(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, Object>> handleException(Exception ex) {
+        log.error("Error no controlado", ex);
+        return respuestaError(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor");
+    }
+
+    private ResponseEntity<Map<String, Object>> respuestaError(HttpStatus estado, String mensaje) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", Instant.now().toString());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", "Bad Request");
-        body.put("message", ex.getMessage());
-        return ResponseEntity.badRequest().body(body);
+        body.put("status", estado.value());
+        body.put("error", estado.getReasonPhrase());
+        body.put("message", mensaje);
+        return ResponseEntity.status(estado).body(body);
     }
 }

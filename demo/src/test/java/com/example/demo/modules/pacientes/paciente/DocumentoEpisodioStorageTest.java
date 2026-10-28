@@ -76,6 +76,19 @@ class DocumentoEpisodioStorageTest {
     }
 
     @Test
+    void constructorConBase_debeGuardarBajoDocumentos() {
+        Path base = tempDir.resolve("volumen");
+        DocumentoEpisodioStorage storage = new DocumentoEpisodioStorage(base.toString());
+        MockMultipartFile archivo = new MockMultipartFile(
+                "archivos", "hoja-referencia.pdf", "application/pdf", "%PDF-1.7\ncontenido".getBytes());
+
+        String ruta = storage.guardar(archivo, 12L, TipoDocumentoEpisodio.REFERENCIA);
+
+        assertThat(ruta).startsWith("uploads/documentos/");
+        assertThat(Files.exists(base.resolve("documentos").resolve(Path.of(ruta).getFileName()))).isTrue();
+    }
+
+    @Test
     void cargar_debeRechazarRutasFueraDeLasCarpetas() {
         DocumentoEpisodioStorage storage = new DocumentoEpisodioStorage(tempDir.resolve("documentos"));
 

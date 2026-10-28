@@ -7,6 +7,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.util.Locale;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
@@ -27,8 +29,9 @@ public class ExamenArchivoStorage {
 
     private final Path directory;
 
-    public ExamenArchivoStorage() {
-        this(Path.of(RELATIVE_DIRECTORY));
+    @Autowired
+    public ExamenArchivoStorage(@Value("${app.uploads.dir:uploads}") String baseDir) {
+        this(Path.of(baseDir).resolve("examenes"));
     }
 
     ExamenArchivoStorage(Path directory) {

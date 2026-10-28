@@ -68,6 +68,19 @@ class ExamenArchivoStorageTest {
         assertFalse(Files.exists(almacenado));
     }
 
+    @Test
+    void constructorConBase_debeGuardarBajoExamenes() {
+        Path base = directorio.resolve("volumen");
+        ExamenArchivoStorage storage = new ExamenArchivoStorage(base.toString());
+        MockMultipartFile archivo = new MockMultipartFile(
+                "archivos", "hemograma.pdf", "application/pdf", "%PDF-1.7\ncontenido".getBytes());
+
+        String ruta = storage.guardar(archivo, 11L);
+
+        assertTrue(ruta.startsWith("uploads/examenes/"));
+        assertTrue(Files.exists(base.resolve("examenes").resolve(Path.of(ruta).getFileName())));
+    }
+
     private byte[] firmaPng() {
         return new byte[] {
                 (byte) 0x89, (byte) 0x50, (byte) 0x4e, (byte) 0x47, (byte) 0x0d, (byte) 0x0a, (byte) 0x1a, (byte) 0x0a,
