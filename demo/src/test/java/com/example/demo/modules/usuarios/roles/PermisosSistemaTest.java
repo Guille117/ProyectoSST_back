@@ -45,14 +45,16 @@ class PermisosSistemaTest {
     }
 
     @Test
-    void enfermeraTieneGestionDeEnfermeriaYCatalogosDePacientesYClinica() {
+    void enfermeraTieneGestionDeEnfermeriaPacientesYCatalogos() {
         Map<String, PermisosSistema.DefinicionPermiso> permisos = permisosPorCodigo("Enfermera");
 
         assertModuloCompleto(permisos, "ENFERMERIA");
+        assertModuloCompleto(permisos, "PACIENTES");
         assertPermisoCompleto(permisos.get("CATALOGOS-CLINICA"));
         assertPermisoCompleto(permisos.get("CATALOGOS-PACIENTES"));
         assertPermisoSoloLectura(permisos.get("REPORTES-ENFERMERIA"));
-        assertEquals(Set.of("ENFERMERIA", "CATALOGOS", "REPORTES"), modulosConAcceso(permisos));
+        assertEquals(Set.of("ENFERMERIA", "PACIENTES", "CATALOGOS", "REPORTES"),
+                modulosConAcceso(permisos));
     }
 
     @Test

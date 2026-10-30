@@ -111,7 +111,7 @@ public final class PermisosSistema {
                 lectura(Set.of("REPORTES-MEDICA"))));
 
         permisos.put(ROL_ENFERMERA, concatenar(
-                completos(union(codigosDeModulo(MODULO_ENFERMERIA),
+                completos(union(codigosDeModulo(MODULO_ENFERMERIA, MODULO_PACIENTES),
                         Set.of("CATALOGOS-CLINICA", "CATALOGOS-PACIENTES"))),
                 lectura(Set.of("REPORTES-ENFERMERIA"))));
 
