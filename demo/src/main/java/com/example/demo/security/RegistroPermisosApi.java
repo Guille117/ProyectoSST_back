@@ -61,6 +61,7 @@ public class RegistroPermisosApi {
                 regla("/api/v1/salidas/**", ESCRITURA, modulos("FARMACIA"), Set.of()),
                 regla("/api/v1/salidasDirectas/**", LECTURA, modulos("FARMACIA"), Set.of()),
                 regla("/api/v1/salidasDirectas/**", ESCRITURA, modulos("FARMACIA"), Set.of()),
+                regla("/api/v1/solicitudesSalida", CREACION, modulos("ENFERMERIA", "FARMACIA"), Set.of()),
                 regla("/api/v1/solicitudesSalida/**", LECTURA, modulos("FARMACIA"), Set.of()),
                 regla("/api/v1/solicitudesSalida/**", ESCRITURA, modulos("FARMACIA"), Set.of()),
                 regla("/api/v1/devoluciones/**", LECTURA, modulos("FARMACIA"), Set.of()),
