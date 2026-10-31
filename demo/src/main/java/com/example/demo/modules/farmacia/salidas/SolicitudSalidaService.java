@@ -102,6 +102,103 @@ public class SolicitudSalidaService {
             solicitud.setUsuarioSolicita(procedimiento.getUsuario());
         }
 
+        sincronizarDetalles(solicitud, recursos);
+    }
+
+    /**
+     * Crea o actualiza la solicitud de Farmacia generada por el alta médica. El código
+     * SOL-A&lt;altaId&gt; identifica la solicitud sin depender de un procedimiento.
+     */
+    @Transactional
+    public void sincronizarDesdeAlta(Long altaId, EpisodioEntity episodio, UsuarioEntity usuario,
+            List<SolicitudSalidaDTOs.LineaAlta> lineas) {
+        if (altaId == null) {
+            throw new IllegalArgumentException("El alta es obligatoria");
+        }
+        if (episodio == null || usuario == null) {
+            throw new IllegalArgumentException("El episodio y el usuario del alta son obligatorios");
+        }
+
+        String codigo = codigoAlta(altaId);
+        SolicitudSalidaEntity solicitud = repository.findByCodigoForUpdate(codigo).orElse(null);
+        Map<String, RecursoAgrupado> recursos = agruparLineasAlta(lineas);
+
+        if (recursos.isEmpty()) {
+            if (solicitud == null) {
+                return;
+            }
+            validarSinEntregas(solicitud, "No se pueden quitar los medicamentos del alta");
+            depurarDetalles(solicitud);
+            recalcularEstadoSolicitud(solicitud);
+            repository.save(solicitud);
+            return;
+        }
+
+        if (solicitud == null) {
+            solicitud = SolicitudSalidaEntity.builder()
+                    .codigo(codigo)
+                    .procedimientoMedico(null)
+                    .episodio(episodio)
+                    .usuarioSolicita(usuario)
+                    .fechaSolicitud(LocalDateTime.now())
+                    .estado(EstadoSolicitudSalida.PENDIENTE)
+                    .detalles(new ArrayList<>())
+                    .build();
+        } else {
+            solicitud.setEpisodio(episodio);
+            solicitud.setUsuarioSolicita(usuario);
+        }
+
+        sincronizarDetalles(solicitud, recursos);
+    }
+
+    /** Cancela la solicitud generada por un alta si aún no tiene entregas. */
+    @Transactional
+    public void cancelarDesdeAlta(Long altaId) {
+        if (altaId == null) {
+            return;
+        }
+        SolicitudSalidaEntity solicitud = repository.findByCodigoForUpdate(codigoAlta(altaId))
+                .orElse(null);
+        if (solicitud == null) {
+            return;
+        }
+        cancelarSolicitud(solicitud, "No se puede anular el alta");
+    }
+
+    private String codigoAlta(Long altaId) {
+        return String.format("SOL-A%05d", altaId);
+    }
+
+    private Map<String, RecursoAgrupado> agruparLineasAlta(
+            List<SolicitudSalidaDTOs.LineaAlta> lineas) {
+        Map<String, RecursoAgrupado> agrupados = new LinkedHashMap<>();
+        if (lineas == null) {
+            return agrupados;
+        }
+
+        for (SolicitudSalidaDTOs.LineaAlta linea : lineas) {
+            if (linea == null || linea.referenciaId() == null || linea.cantidad() == null
+                    || linea.cantidad() <= 0) {
+                continue;
+            }
+
+            String clave = clave(TipoRecursoProcedimiento.MEDICAMENTO, linea.referenciaId());
+            RecursoAgrupado previo = agrupados.get(clave);
+            agrupados.put(clave, previo == null
+                    ? new RecursoAgrupado(
+                            TipoRecursoProcedimiento.MEDICAMENTO, linea.referenciaId(),
+                            linea.nombre(), linea.cantidad())
+                    : new RecursoAgrupado(
+                            previo.tipo(), previo.referenciaId(), previo.nombre(),
+                            Math.addExact(previo.cantidad(), linea.cantidad())));
+        }
+
+        return agrupados;
+    }
+
+    private void sincronizarDetalles(SolicitudSalidaEntity solicitud,
+            Map<String, RecursoAgrupado> recursos) {
         Map<String, SolicitudSalidaDetalleEntity> existentes = solicitud.getDetalles().stream()
                 .collect(Collectors.toMap(
                         detalle -> clave(detalle.getTipo(), detalle.getReferenciaId()),
@@ -150,7 +247,7 @@ public class SolicitudSalidaService {
             if (entregada > 0) {
                 throw new IllegalArgumentException(
                         "No se puede eliminar el recurso " + detalle.getNombre()
-                                + " del procedimiento porque ya se entregaron " + entregada
+                                + " de la solicitud porque ya se entregaron " + entregada
                                 + " unidades. Registre primero la devolución en Farmacia.");
             }
 
@@ -162,6 +259,15 @@ public class SolicitudSalidaService {
         }
 
         recalcularEstadoSolicitud(solicitud);
+        repository.save(solicitud);
+    }
+
+    private void cancelarSolicitud(SolicitudSalidaEntity solicitud, String mensaje) {
+        validarSinEntregas(solicitud, mensaje);
+        for (SolicitudSalidaDetalleEntity detalle : solicitud.getDetalles()) {
+            detalle.setEstado(EstadoDetalleSalida.CANCELADA);
+        }
+        solicitud.setEstado(EstadoSolicitudSalida.CANCELADA);
         repository.save(solicitud);
     }
 
@@ -196,12 +302,7 @@ public class SolicitudSalidaService {
             return;
         }
 
-        validarSinEntregas(solicitud, "No se puede eliminar el procedimiento");
-        for (SolicitudSalidaDetalleEntity detalle : solicitud.getDetalles()) {
-            detalle.setEstado(EstadoDetalleSalida.CANCELADA);
-        }
-        solicitud.setEstado(EstadoSolicitudSalida.CANCELADA);
-        repository.save(solicitud);
+        cancelarSolicitud(solicitud, "No se puede eliminar el procedimiento");
     }
 
     // ------------------- CONSULTAS -------------------

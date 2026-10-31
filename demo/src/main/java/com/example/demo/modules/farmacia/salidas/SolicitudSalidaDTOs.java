@@ -13,6 +13,9 @@ import java.util.List;
 
 public class SolicitudSalidaDTOs {
 
+    /** Medicamento indicado en el alta que debe solicitarse a Farmacia. */
+    public record LineaAlta(Long referenciaId, String nombre, Integer cantidad) {}
+
     public record EntregaLineaRequest(
             @NotNull(message = "El detalle es obligatorio")
             @Positive(message = "El detalle debe ser un ID válido")

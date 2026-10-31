@@ -16,7 +16,9 @@ import com.example.demo.modules.pacientes.alergia.alergiaEntity;
 import com.example.demo.modules.pacientes.alergia.alergiaRepository;
 import com.example.demo.modules.pacientes.enfermedad.enfermedadEntity;
 import com.example.demo.modules.pacientes.enfermedad.enfermedadRepository;
+import com.example.demo.security.UsuarioActualService;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.AccessDeniedException;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
@@ -52,6 +54,7 @@ class PacienteServiceTest {
     @Mock private alergiaRepository alergiaRepository;
     @Mock private enfermedadRepository enfermedadRepository;
     @Mock private DocumentoEpisodioService documentoEpisodioService;
+    @Mock private UsuarioActualService usuarioActualService;
 
     @InjectMocks private PacienteService service;
 
@@ -559,6 +562,47 @@ class PacienteServiceTest {
         assertTrue(service.buscar("   ").isEmpty());
 
         verifyNoInteractions(pacienteRepository);
+        }
+
+        @Test
+        void listar_conMedicoRestringido_soloDevuelvePacientesAsignados() {
+        PersonaEntity persona = PersonaEntity.builder()
+            .primerNombre("Ana").primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder()
+            .id(20L).persona(persona).estado(true).build();
+        ExpedienteEntity expediente = ExpedienteEntity.builder()
+            .id(30L).codigo("EXP-30").paciente(paciente).build();
+        EpisodioEntity episodio = EpisodioEntity.builder()
+            .id(42L).paciente(paciente).tipoAtencion(TipoAtencion.EMERGENCIA)
+            .fechaHoraIngreso(LocalDateTime.of(2026, 10, 17, 8, 30)).estado(true).build();
+
+        when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
+        when(episodioRepository.findPacienteIdsByMedicoIdAndEstadoTrue(5L)).thenReturn(List.of(20L));
+        when(pacienteRepository.findByIdInAndEstadoOrderByIdAsc(List.of(20L), true))
+            .thenReturn(List.of(paciente));
+        when(expedienteRepository.findByPaciente_IdIn(List.of(20L))).thenReturn(List.of(expediente));
+        when(episodioRepository.findByPaciente_IdInOrderByIdDesc(List.of(20L)))
+            .thenReturn(List.of(episodio));
+
+        List<PacienteDTOs.ListadoResponse> resultado = service.listar(null);
+
+        assertEquals(1, resultado.size());
+        assertEquals(20L, resultado.get(0).pacienteId());
+        verify(pacienteRepository, never()).findByEstadoOrderByIdAsc(true);
+        }
+
+        @Test
+        void obtenerDetalle_conMedicoNoAsignado_lanzaAccessDenied() {
+        PersonaEntity persona = PersonaEntity.builder()
+            .primerNombre("Ana").primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder()
+            .id(20L).persona(persona).estado(true).build();
+
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
+        when(episodioRepository.existsByPaciente_IdAndMedico_Id(20L, 5L)).thenReturn(false);
+
+        assertThrows(AccessDeniedException.class, () -> service.obtenerDetalle(20L));
         }
 
         @Test

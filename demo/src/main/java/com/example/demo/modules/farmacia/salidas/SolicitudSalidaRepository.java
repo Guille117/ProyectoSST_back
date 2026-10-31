@@ -25,6 +25,10 @@ public interface SolicitudSalidaRepository extends JpaRepository<SolicitudSalida
     Optional<SolicitudSalidaEntity> findByProcedimientoMedico_IdForUpdate(
             @Param("procedimientoId") Long procedimientoId);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM SolicitudSalidaEntity s WHERE s.codigo = :codigo")
+    Optional<SolicitudSalidaEntity> findByCodigoForUpdate(@Param("codigo") String codigo);
+
     @EntityGraph(attributePaths = {
             "procedimientoMedico",
             "procedimientoMedico.procedimiento",

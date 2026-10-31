@@ -3,6 +3,8 @@ package com.example.demo.modules.clinica.alta;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaDTOs;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
 import com.example.demo.modules.pacientes.camas.EstadoCama;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
@@ -14,6 +16,7 @@ import com.example.demo.modules.pacientes.paciente.PacienteEntity;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.UsuarioActualService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +41,8 @@ public class altaService {
     private final condicionEgresoRepository condicionEgresoRepository;
     private final institucionRepository institucionRepository;
     private final camasRepository camasRepository;
+    private final UsuarioActualService usuarioActual;
+    private final SolicitudSalidaService solicitudSalidaService;
 
     @Transactional
     public altaDTOs.Response crear(altaDTOs.Request request) {
@@ -92,6 +97,8 @@ public class altaService {
                 .build();
 
         altaEntity guardada = repository.save(entity);
+        solicitudSalidaService.sincronizarDesdeAlta(
+                guardada.getId(), episodio, usuario, lineasFarmacia(guardada));
 
         episodio.setEstado(false);
         liberarCama(episodio);
@@ -146,6 +153,8 @@ public class altaService {
         altaEntity guardada = repository.save(entity);
 
         EpisodioEntity episodio = entity.getEpisodio();
+        solicitudSalidaService.sincronizarDesdeAlta(
+                guardada.getId(), episodio, usuario, lineasFarmacia(guardada));
         episodio.setEstado(false);
         liberarCama(episodio);
         episodioRepository.save(episodio);
@@ -178,8 +187,14 @@ public class altaService {
         }
 
         LocalDateTime desde = LocalDateTime.now().minusHours(horas);
-        return repository.findByEstadoAndFechaHoraEgresoGreaterThanEqualOrderByFechaHoraEgresoDesc(
-                        EstadoAlta.VIGENTE, desde).stream()
+        List<altaEntity> altas = usuarioActual.medicoRestringidoId()
+                .map(medicoId -> repository
+                        .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Medico_IdOrderByFechaHoraEgresoDesc(
+                                EstadoAlta.VIGENTE, desde, medicoId))
+                .orElseGet(() -> repository
+                        .findByEstadoAndFechaHoraEgresoGreaterThanEqualOrderByFechaHoraEgresoDesc(
+                                EstadoAlta.VIGENTE, desde));
+        return altas.stream()
                 .map(this::toReciente)
                 .toList();
     }
@@ -198,6 +213,7 @@ public class altaService {
                     "El paciente ya tiene otro episodio activo; no se puede reabrir este episodio");
         }
 
+        solicitudSalidaService.cancelarDesdeAlta(entity.getId());
         entity.setEstado(EstadoAlta.ANULADA);
         repository.save(entity);
 
@@ -338,6 +354,51 @@ public class altaService {
             return duracion;
         }
         return null;
+    }
+
+    /** Medicamentos de catálogo del alta que se solicitan a Farmacia con el total del tratamiento. */
+    private List<SolicitudSalidaDTOs.LineaAlta> lineasFarmacia(altaEntity alta) {
+        if (alta == null || alta.getTratamientos() == null) {
+            return List.of();
+        }
+
+        return alta.getTratamientos().stream()
+                .filter(tratamiento -> tratamiento.getTipo() == TipoTratamiento.MEDICAMENTO)
+                .filter(tratamiento -> tratamiento.getMedicamentoLogId() != null)
+                .map(tratamiento -> new SolicitudSalidaDTOs.LineaAlta(
+                        tratamiento.getMedicamentoLogId(),
+                        tratamiento.getNombre(),
+                        totalSolicitado(tratamiento)))
+                .filter(linea -> linea.cantidad() != null && linea.cantidad() > 0)
+                .toList();
+    }
+
+    /**
+     * Total de unidades del tratamiento. Usa la misma programación de Enfermería: incluye la
+     * aplicación inicial y la de cierre del último día. Para duración indefinida pide 24 horas.
+     */
+    private Integer totalSolicitado(altaTratamientoEmbeddable tratamiento) {
+        int cantidad = tratamiento.getCantidad() == null ? 0 : tratamiento.getCantidad();
+        if (cantidad <= 0) {
+            return 0;
+        }
+        if (tratamiento.getDuracionTipo() == TipoDuracion.DOSIS_UNICA) {
+            return cantidad;
+        }
+
+        int frecuencia = tratamiento.getFrecuencia() == null || tratamiento.getFrecuencia() <= 0
+                ? 24
+                : tratamiento.getFrecuencia();
+        if (tratamiento.getDuracionTipo() == TipoDuracion.TIEMPO_INDEFINIDO) {
+            return Math.multiplyExact(cantidad, Math.max(1, 24 / frecuencia));
+        }
+
+        int dias = tratamiento.getDuracion() == null ? 0 : tratamiento.getDuracion();
+        if (dias <= 0) {
+            return cantidad;
+        }
+        int dosis = Math.max(1, (dias * 24) / frecuencia + 1);
+        return Math.multiplyExact(cantidad, dosis);
     }
 
     private List<String> normalizarRiesgos(List<String> riesgos) {
