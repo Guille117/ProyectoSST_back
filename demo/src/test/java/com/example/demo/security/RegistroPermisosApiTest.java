@@ -78,4 +78,12 @@ class RegistroPermisosApiTest {
             }
         }
     }
+
+    @Test
+    void enfermeraPuedeCrearSolicitudDirectaDeMedicamentos() {
+        ReglaPermiso regla = registro.resolver("/api/v1/solicitudesSalida", "POST").orElseThrow();
+
+        assertTrue(regla.modulos().contains("ENFERMERIA"));
+        assertTrue(regla.modulos().contains("FARMACIA"));
+    }
 }

@@ -277,6 +277,39 @@ class SolicitudSalidaServiceTest {
     }
 
     @Test
+    void crearSolicitudMedicamentos_creaSinProcedimientoYAgrupaCantidades() {
+        EpisodioEntity episodio = episodio();
+        UsuarioEntity usuario = usuario(1L);
+        medicamentoLogEntity medicamento = medicamento(4L);
+
+        when(episodioRepository.findById(10L)).thenReturn(Optional.of(episodio));
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(medicamentoLogRepository.findByIdAndEstado(4L, true))
+                .thenReturn(Optional.of(medicamento));
+        when(repository.saveAndFlush(any(SolicitudSalidaEntity.class))).thenAnswer(invocation -> {
+            SolicitudSalidaEntity solicitud = invocation.getArgument(0);
+            solicitud.setId(50L);
+            return solicitud;
+        });
+        when(repository.save(any(SolicitudSalidaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(movimientoRepository.findByDetalle_Solicitud_IdOrderByFechaHoraAsc(50L))
+                .thenReturn(List.of());
+        when(loteRepository.findByMedicamentoLog_IdAndEstadoAndDisponibleGreaterThan(4L, true, 0))
+                .thenReturn(List.of());
+
+        SolicitudSalidaDTOs.Response response = service.crearSolicitudMedicamentos(
+                new SolicitudSalidaDTOs.SolicitudMedicamentoRequest(10L, 1L, List.of(
+                        new SolicitudSalidaDTOs.MedicamentoSolicitudRequest(4L, 2),
+                        new SolicitudSalidaDTOs.MedicamentoSolicitudRequest(4L, 4))));
+
+        assertEquals("SOL-E00050", response.codigo());
+        assertEquals("Solicitud de enfermería", response.procedimiento());
+        assertEquals(1, response.detalles().size());
+        assertEquals(6, response.detalles().getFirst().solicitado());
+    }
+
+    @Test
     void obtenerCantidadesEntregadas_devuelveMapaPorTipoYReferencia() {
         SolicitudSalidaEntity existente = solicitud(100L, EstadoSolicitudSalida.PARCIAL);
         existente.agregarDetalle(detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L, "Amoxicilina", 20, 15));

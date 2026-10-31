@@ -16,6 +16,28 @@ public class SolicitudSalidaDTOs {
     /** Medicamento indicado en el alta que debe solicitarse a Farmacia. */
     public record LineaAlta(Long referenciaId, String nombre, Integer cantidad) {}
 
+    /** Medicamento que Enfermería solicita a Farmacia. */
+    public record MedicamentoSolicitudRequest(
+            @NotNull(message = "El medicamento es obligatorio")
+            @Positive(message = "El medicamento debe ser un ID válido")
+            Long referenciaId,
+            @NotNull(message = "La cantidad es obligatoria")
+            @Positive(message = "La cantidad debe ser mayor a 0")
+            Integer cantidad
+    ) {}
+
+    /** Solicitud directa de medicamentos de Enfermería, sin procedimiento médico. */
+    public record SolicitudMedicamentoRequest(
+            @NotNull(message = "El episodio es obligatorio")
+            @Positive(message = "El episodio debe ser un ID válido")
+            Long episodioId,
+            @NotNull(message = "El usuario es obligatorio")
+            @Positive(message = "El usuario debe ser un ID válido")
+            Long usuarioId,
+            @NotEmpty(message = "Debe indicar al menos un medicamento")
+            List<@Valid MedicamentoSolicitudRequest> medicamentos
+    ) {}
+
     public record EntregaLineaRequest(
             @NotNull(message = "El detalle es obligatorio")
             @Positive(message = "El detalle debe ser un ID válido")

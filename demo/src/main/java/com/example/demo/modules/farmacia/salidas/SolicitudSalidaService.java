@@ -348,6 +348,60 @@ public class SolicitudSalidaService {
                 .toList();
     }
 
+    /** Crea la solicitud de medicamentos que Enfermería envía a Farmacia, sin procedimiento. */
+    @Transactional
+    public SolicitudSalidaDTOs.Response crearSolicitudMedicamentos(
+            SolicitudSalidaDTOs.SolicitudMedicamentoRequest request) {
+        if (request == null || request.episodioId() == null || request.usuarioId() == null
+                || request.medicamentos() == null || request.medicamentos().isEmpty()) {
+            throw new IllegalArgumentException("Los datos de la solicitud son obligatorios");
+        }
+
+        EpisodioEntity episodio = episodioRepository.findById(request.episodioId())
+                .filter(EpisodioEntity::isEstado)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "El episodio no existe o está cerrado."));
+        UsuarioEntity usuario = usuarioRepository.findById(request.usuarioId())
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Usuario no encontrado con el ID: " + request.usuarioId()));
+
+        Map<Long, Integer> cantidades = new LinkedHashMap<>();
+        for (SolicitudSalidaDTOs.MedicamentoSolicitudRequest medicamento : request.medicamentos()) {
+            if (medicamento == null || medicamento.referenciaId() == null
+                    || medicamento.cantidad() == null || medicamento.cantidad() <= 0) {
+                throw new IllegalArgumentException("Los datos del medicamento son obligatorios");
+            }
+            cantidades.merge(medicamento.referenciaId(), medicamento.cantidad(), Integer::sum);
+        }
+
+        SolicitudSalidaEntity solicitud = SolicitudSalidaEntity.builder()
+                .codigo("TMP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 8))
+                .procedimientoMedico(null)
+                .episodio(episodio)
+                .usuarioSolicita(usuario)
+                .fechaSolicitud(LocalDateTime.now())
+                .estado(EstadoSolicitudSalida.PENDIENTE)
+                .detalles(new ArrayList<>())
+                .build();
+
+        for (Map.Entry<Long, Integer> cantidad : cantidades.entrySet()) {
+            String nombre = nombreProducto(TipoRecursoProcedimiento.MEDICAMENTO, cantidad.getKey());
+            solicitud.agregarDetalle(SolicitudSalidaDetalleEntity.builder()
+                    .tipo(TipoRecursoProcedimiento.MEDICAMENTO)
+                    .referenciaId(cantidad.getKey())
+                    .nombre(nombre)
+                    .cantidadSolicitada(cantidad.getValue())
+                    .cantidadEntregada(0)
+                    .estado(EstadoDetalleSalida.PENDIENTE)
+                    .build());
+        }
+
+        SolicitudSalidaEntity guardada = repository.saveAndFlush(solicitud);
+        guardada.setCodigo(String.format("SOL-E%05d", guardada.getId()));
+        repository.save(guardada);
+        return toResponse(guardada);
+    }
+
     // ------------------- SALIDAS DIRECTAS -------------------
 
     /**
@@ -1015,6 +1069,10 @@ public class SolicitudSalidaService {
     private String nombreProcedimiento(SolicitudSalidaEntity solicitud) {
         if (solicitud.getProcedimientoMedico() == null
                 || solicitud.getProcedimientoMedico().getProcedimiento() == null) {
+            if (solicitud.getCodigo() != null) {
+                if (solicitud.getCodigo().startsWith("SOL-E")) return "Solicitud de enfermería";
+                if (solicitud.getCodigo().startsWith("SOL-A")) return "Alta médica";
+            }
             return "";
         }
         return solicitud.getProcedimientoMedico().getProcedimiento().getNombre();

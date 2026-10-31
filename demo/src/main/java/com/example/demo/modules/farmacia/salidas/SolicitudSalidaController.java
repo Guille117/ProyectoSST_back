@@ -2,6 +2,7 @@ package com.example.demo.modules.farmacia.salidas;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -13,6 +14,12 @@ import java.util.List;
 public class SolicitudSalidaController {
 
     private final SolicitudSalidaService service;
+
+    @PostMapping
+    public ResponseEntity<SolicitudSalidaDTOs.Response> crearSolicitudMedicamentos(
+            @Valid @RequestBody SolicitudSalidaDTOs.SolicitudMedicamentoRequest request) {
+        return new ResponseEntity<>(service.crearSolicitudMedicamentos(request), HttpStatus.CREATED);
+    }
 
     @GetMapping
     public ResponseEntity<List<SolicitudSalidaDTOs.ResumenResponse>> listar(
