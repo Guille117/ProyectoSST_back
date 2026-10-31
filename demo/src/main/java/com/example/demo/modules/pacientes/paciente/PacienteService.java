@@ -16,8 +16,10 @@ import com.example.demo.modules.pacientes.alergia.alergiaRepository;
 import com.example.demo.modules.pacientes.enfermedad.enfermedadEntity;
 import com.example.demo.modules.pacientes.enfermedad.enfermedadRepository;
 import com.example.demo.modules.catalogo.entityBase;
+import com.example.demo.security.UsuarioActualService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -51,6 +53,7 @@ public class PacienteService {
         private final alergiaRepository alergiaRepository;
         private final enfermedadRepository enfermedadRepository;
         private final DocumentoEpisodioService documentoEpisodioService;
+        private final UsuarioActualService usuarioActual;
 
     @Transactional
     public PacienteDTOs.Response crear(PacienteDTOs.Request request) {
@@ -302,7 +305,10 @@ public class PacienteService {
     @Transactional(readOnly = true)
     public List<PacienteDTOs.ListadoResponse> listar(Boolean estado) {
         boolean estadoFiltro = estado == null || estado;
-        return mapearListado(pacienteRepository.findByEstadoOrderByIdAsc(estadoFiltro));
+        return usuarioActual.medicoRestringidoId()
+                .map(medicoId -> mapearListado(pacientesAsignados(medicoId, estadoFiltro)))
+                .orElseGet(() -> mapearListado(
+                        pacienteRepository.findByEstadoOrderByIdAsc(estadoFiltro)));
     }
 
     /** Busca pacientes por nombre o CUI, incluyendo activos y egresados. */
@@ -313,10 +319,22 @@ public class PacienteService {
             return List.of();
         }
 
-        List<PacienteEntity> coincidencias = pacienteRepository.findAll().stream()
+        List<PacienteEntity> base = usuarioActual.medicoRestringidoId()
+                .map(medicoId -> pacientesAsignados(medicoId, true))
+                .orElseGet(pacienteRepository::findAll);
+        List<PacienteEntity> coincidencias = base.stream()
                 .filter(paciente -> coincideBusqueda(paciente, termino))
                 .toList();
         return mapearListado(coincidencias);
+    }
+
+    /** Pacientes con un episodio activo asignado al médico. */
+    private List<PacienteEntity> pacientesAsignados(Long medicoId, boolean estado) {
+        List<Long> pacienteIds = episodioRepository.findPacienteIdsByMedicoIdAndEstadoTrue(medicoId);
+        if (pacienteIds.isEmpty()) {
+            return List.of();
+        }
+        return pacienteRepository.findByIdInAndEstadoOrderByIdAsc(pacienteIds, estado);
     }
 
     private boolean coincideBusqueda(PacienteEntity paciente, String termino) {
@@ -382,6 +400,7 @@ public class PacienteService {
     @Transactional(readOnly = true)
     public PacienteDTOs.DetalleResponse obtenerDetalle(Long pacienteId) {
         PacienteEntity paciente = buscarPaciente(pacienteId);
+        validarAccesoPaciente(pacienteId);
         PersonaEntity persona = paciente.getPersona();
         EpisodioEntity episodio = episodioRepository
                 .findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(pacienteId)
@@ -752,6 +771,15 @@ public class PacienteService {
         }
         return pacienteRepository.findById(pacienteId)
                 .orElseThrow(() -> new IllegalArgumentException("Paciente no encontrado con el ID: " + pacienteId));
+    }
+
+    /** Un médico solo puede consultar pacientes con algún episodio suyo (activo o cerrado). */
+    private void validarAccesoPaciente(Long pacienteId) {
+        usuarioActual.medicoRestringidoId().ifPresent(medicoId -> {
+            if (!episodioRepository.existsByPaciente_IdAndMedico_Id(pacienteId, medicoId)) {
+                throw new AccessDeniedException("No tiene acceso a este paciente");
+            }
+        });
     }
 
     private boolean esMenorDeEdad(LocalDate fechaNacimiento) {

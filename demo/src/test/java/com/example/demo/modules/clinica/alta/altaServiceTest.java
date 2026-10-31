@@ -3,6 +3,8 @@ package com.example.demo.modules.clinica.alta;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaDTOs;
+import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
 import com.example.demo.modules.pacientes.camas.EstadoCama;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
@@ -16,8 +18,10 @@ import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.Sexo;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.UsuarioActualService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -30,6 +34,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,6 +57,12 @@ class altaServiceTest {
 
     @Mock
     private camasRepository camasRepository;
+
+    @Mock
+    private UsuarioActualService usuarioActualService;
+
+    @Mock
+    private SolicitudSalidaService solicitudSalidaService;
 
     @InjectMocks
     private altaService service;
@@ -82,6 +93,33 @@ class altaServiceTest {
         assertEquals(1, response.tratamientos().size());
         assertFalse(episodio.isEstado());
         verify(episodioRepository).save(episodio);
+    }
+
+    @Test
+    void crear_debeEnviarLosMedicamentosDelAltaAFarmaciaConElTotalDelTratamiento() {
+        EpisodioEntity episodio = episodio(1L, true);
+        UsuarioEntity usuario = usuario(2L, "Carlos Mendez");
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario));
+        when(condicionEgresoRepository.findById(2L)).thenReturn(Optional.of(condicion(2L, "Estable")));
+        when(repository.save(any(altaEntity.class))).thenAnswer(invocation -> {
+            altaEntity entity = invocation.getArgument(0);
+            entity.setId(10L);
+            return entity;
+        });
+
+        service.crear(requestIndicacionMedica());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<SolicitudSalidaDTOs.LineaAlta>> captor =
+                ArgumentCaptor.forClass(List.class);
+        verify(solicitudSalidaService).sincronizarDesdeAlta(
+                eq(10L), eq(episodio), eq(usuario), captor.capture());
+        assertEquals(1, captor.getValue().size());
+        assertEquals(9L, captor.getValue().get(0).referenciaId());
+        assertEquals(44, captor.getValue().get(0).cantidad());
     }
 
     @Test
@@ -250,6 +288,26 @@ class altaServiceTest {
     }
 
     @Test
+    void actualizar_debeSincronizarLaSolicitudDeFarmacia() {
+        altaEntity existente = entidad(5L, EstadoAlta.VIGENTE);
+        UsuarioEntity usuario = usuario(2L, "Carlos Mendez");
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario));
+        when(condicionEgresoRepository.findById(2L)).thenReturn(Optional.of(condicion(2L, "Estable")));
+        when(repository.save(any(altaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.actualizar(5L, requestIndicacionMedica());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<SolicitudSalidaDTOs.LineaAlta>> captor =
+                ArgumentCaptor.forClass(List.class);
+        verify(solicitudSalidaService).sincronizarDesdeAlta(
+                eq(5L), eq(existente.getEpisodio()), eq(usuario), captor.capture());
+        assertEquals(44, captor.getValue().get(0).cantidad());
+    }
+
+    @Test
     void buscarPorEpisodio_debeRetornarLaAltaVigente() {
         when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
                 1L, EstadoAlta.VIGENTE))
@@ -276,6 +334,19 @@ class altaServiceTest {
         assertTrue(episodio.isEstado());
         verify(repository).save(existente);
         verify(episodioRepository).save(episodio);
+    }
+
+    @Test
+    void anular_debeCancelarLaSolicitudDeFarmacia() {
+        altaEntity existente = entidad(5L, EstadoAlta.VIGENTE);
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(episodioRepository.existsByPaciente_IdAndEstadoTrue(1L)).thenReturn(false);
+        when(repository.save(any(altaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.anular(5L);
+
+        verify(solicitudSalidaService).cancelarDesdeAlta(5L);
     }
 
     @Test
@@ -357,6 +428,40 @@ class altaServiceTest {
     @Test
     void recientes_debeRechazarHorasInvalidas() {
         assertThrows(IllegalArgumentException.class, () -> service.recientes(0));
+    }
+
+    @Test
+    void recientes_conMedicoRestringido_consultaSoloSusAltas() {
+        PersonaEntity persona = new PersonaEntity();
+        persona.asignarNombres("Carlos Mendez", null);
+        PacienteEntity paciente = PacienteEntity.builder().id(1L).persona(persona).build();
+        EpisodioEntity episodio = EpisodioEntity.builder()
+                .id(5L)
+                .tipoAtencion(TipoAtencion.HOSPITALIZACION)
+                .paciente(paciente)
+                .build();
+        altaEntity alta = altaEntity.builder()
+                .id(20L)
+                .tipoAlta(TipoAlta.RETIRO_VOLUNTARIO)
+                .fechaHoraEgreso(LocalDateTime.now().minusHours(1))
+                .episodio(episodio)
+                .estado(EstadoAlta.VIGENTE)
+                .riesgosRetiro(new ArrayList<>())
+                .build();
+
+        when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
+        when(repository
+                .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Medico_IdOrderByFechaHoraEgresoDesc(
+                        any(EstadoAlta.class), any(LocalDateTime.class), eq(5L)))
+                .thenReturn(List.of(alta));
+
+        List<altaDTOs.RecienteResponse> resultado = service.recientes(48);
+
+        assertEquals(1, resultado.size());
+        assertEquals(20L, resultado.get(0).altaId());
+        verify(repository, never())
+                .findByEstadoAndFechaHoraEgresoGreaterThanEqualOrderByFechaHoraEgresoDesc(
+                        any(EstadoAlta.class), any(LocalDateTime.class));
     }
 
     private altaDTOs.Request requestIndicacionMedica() {

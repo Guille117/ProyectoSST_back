@@ -9,11 +9,13 @@ import com.example.demo.modules.pacientes.paciente.PacienteRepository;
 import com.example.demo.modules.pacientes.paciente.TipoAtencion;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
+import com.example.demo.security.UsuarioActualService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +36,8 @@ class ExpedienteServiceTest {
     private EpisodioRepository episodioRepository;
     @Mock
     private altaRepository altaRepository;
+    @Mock
+    private UsuarioActualService usuarioActualService;
 
     @InjectMocks
     private ExpedienteService service;
@@ -79,5 +84,24 @@ class ExpedienteServiceTest {
         when(pacienteRepository.existsById(99L)).thenReturn(false);
 
         assertThrows(IllegalArgumentException.class, () -> service.listarEpisodios(99L));
+    }
+
+    @Test
+    void listarEpisodios_conMedicoNoAsignado_lanzaAccessDenied() {
+        when(pacienteRepository.existsById(3L)).thenReturn(true);
+        when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
+        when(episodioRepository.existsByPaciente_IdAndMedico_Id(3L, 5L)).thenReturn(false);
+
+        assertThrows(AccessDeniedException.class, () -> service.listarEpisodios(3L));
+    }
+
+    @Test
+    void listarEpisodios_conMedicoAsignado_devuelveSusEpisodios() {
+        when(pacienteRepository.existsById(3L)).thenReturn(true);
+        when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
+        when(episodioRepository.existsByPaciente_IdAndMedico_Id(3L, 5L)).thenReturn(true);
+        when(episodioRepository.findByPaciente_IdOrderByIdDesc(3L)).thenReturn(List.of());
+
+        assertTrue(service.listarEpisodios(3L).isEmpty());
     }
 }

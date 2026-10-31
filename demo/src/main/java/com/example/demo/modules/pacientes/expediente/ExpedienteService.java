@@ -6,7 +6,9 @@ import com.example.demo.modules.clinica.alta.altaRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.pacientes.paciente.PacienteRepository;
+import com.example.demo.security.UsuarioActualService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,7 @@ public class ExpedienteService {
     private final PacienteRepository pacienteRepository;
     private final EpisodioRepository episodioRepository;
     private final altaRepository altaRepository;
+    private final UsuarioActualService usuarioActual;
 
     /** Episodios del paciente, del más reciente al más antiguo. */
     @Transactional(readOnly = true)
@@ -31,6 +34,12 @@ public class ExpedienteService {
             throw new IllegalArgumentException(
                     "Paciente no encontrado con el ID: " + pacienteId);
         }
+
+        usuarioActual.medicoRestringidoId().ifPresent(medicoId -> {
+            if (!episodioRepository.existsByPaciente_IdAndMedico_Id(pacienteId, medicoId)) {
+                throw new AccessDeniedException("No tiene acceso a este paciente");
+            }
+        });
 
         return episodioRepository.findByPaciente_IdOrderByIdDesc(pacienteId).stream()
                 .map(this::toResponse)

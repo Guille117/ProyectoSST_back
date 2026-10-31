@@ -15,4 +15,7 @@ public interface altaRepository extends JpaRepository<altaEntity, Long> {
 
     List<altaEntity> findByEstadoAndFechaHoraEgresoGreaterThanEqualOrderByFechaHoraEgresoDesc(
             EstadoAlta estado, LocalDateTime desde);
+
+    List<altaEntity> findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Medico_IdOrderByFechaHoraEgresoDesc(
+            EstadoAlta estado, LocalDateTime desde, Long medicoId);
 }

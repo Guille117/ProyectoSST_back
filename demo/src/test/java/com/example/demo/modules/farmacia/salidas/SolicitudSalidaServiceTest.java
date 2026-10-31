@@ -187,6 +187,96 @@ class SolicitudSalidaServiceTest {
     }
 
     @Test
+    void sincronizarDesdeAlta_creaSolicitudConElTotalDelTratamiento() {
+        EpisodioEntity episodio = episodio();
+        UsuarioEntity usuario = usuario(7L);
+
+        when(repository.findByCodigoForUpdate("SOL-A00005")).thenReturn(Optional.empty());
+        when(repository.save(any(SolicitudSalidaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.sincronizarDesdeAlta(5L, episodio, usuario,
+                List.of(new SolicitudSalidaDTOs.LineaAlta(4L, "Amoxicilina", 16)));
+
+        ArgumentCaptor<SolicitudSalidaEntity> captor =
+                ArgumentCaptor.forClass(SolicitudSalidaEntity.class);
+        verify(repository).save(captor.capture());
+        SolicitudSalidaEntity solicitud = captor.getValue();
+
+        assertEquals("SOL-A00005", solicitud.getCodigo());
+        assertNull(solicitud.getProcedimientoMedico());
+        assertEquals(EstadoSolicitudSalida.PENDIENTE, solicitud.getEstado());
+        assertEquals(episodio, solicitud.getEpisodio());
+        assertEquals(usuario, solicitud.getUsuarioSolicita());
+        assertEquals(1, solicitud.getDetalles().size());
+        assertEquals(16, solicitud.getDetalles().getFirst().getCantidadSolicitada());
+        assertEquals(TipoRecursoProcedimiento.MEDICAMENTO,
+                solicitud.getDetalles().getFirst().getTipo());
+    }
+
+    @Test
+    void sincronizarDesdeAlta_actualizaCantidadesYAgregaMedicamento() {
+        SolicitudSalidaEntity existente = solicitudAlta(5L, EstadoSolicitudSalida.PENDIENTE);
+        existente.agregarDetalle(detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L,
+                "Amoxicilina", 5, 0));
+
+        when(repository.findByCodigoForUpdate("SOL-A00005")).thenReturn(Optional.of(existente));
+        when(repository.save(existente)).thenReturn(existente);
+
+        service.sincronizarDesdeAlta(5L, existente.getEpisodio(), existente.getUsuarioSolicita(),
+                List.of(
+                        new SolicitudSalidaDTOs.LineaAlta(4L, "Amoxicilina", 8),
+                        new SolicitudSalidaDTOs.LineaAlta(6L, "Jeringa", 3)));
+
+        assertEquals(2, existente.getDetalles().size());
+        assertEquals(8, existente.getDetalles().get(0).getCantidadSolicitada());
+        assertEquals(3, existente.getDetalles().get(1).getCantidadSolicitada());
+    }
+
+    @Test
+    void sincronizarDesdeAlta_sinMedicamentosCancelaLaSolicitudSinEntregas() {
+        SolicitudSalidaEntity existente = solicitudAlta(5L, EstadoSolicitudSalida.PENDIENTE);
+        existente.agregarDetalle(detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L,
+                "Amoxicilina", 5, 0));
+
+        when(repository.findByCodigoForUpdate("SOL-A00005")).thenReturn(Optional.of(existente));
+        when(repository.save(existente)).thenReturn(existente);
+
+        service.sincronizarDesdeAlta(5L, existente.getEpisodio(), existente.getUsuarioSolicita(),
+                List.of());
+
+        assertEquals(EstadoSolicitudSalida.CANCELADA, existente.getEstado());
+        assertTrue(existente.getDetalles().isEmpty());
+    }
+
+    @Test
+    void cancelarDesdeAlta_cancelaLaSolicitudSinEntregas() {
+        SolicitudSalidaEntity existente = solicitudAlta(5L, EstadoSolicitudSalida.PENDIENTE);
+        existente.agregarDetalle(detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L,
+                "Amoxicilina", 5, 0));
+
+        when(repository.findByCodigoForUpdate("SOL-A00005")).thenReturn(Optional.of(existente));
+        when(repository.save(existente)).thenReturn(existente);
+
+        service.cancelarDesdeAlta(5L);
+
+        assertEquals(EstadoSolicitudSalida.CANCELADA, existente.getEstado());
+        assertEquals(EstadoDetalleSalida.CANCELADA,
+                existente.getDetalles().getFirst().getEstado());
+    }
+
+    @Test
+    void cancelarDesdeAlta_rechazaCuandoYaTieneEntregas() {
+        SolicitudSalidaEntity existente = solicitudAlta(5L, EstadoSolicitudSalida.PARCIAL);
+        existente.agregarDetalle(detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L,
+                "Amoxicilina", 5, 2));
+
+        when(repository.findByCodigoForUpdate("SOL-A00005")).thenReturn(Optional.of(existente));
+
+        assertThrows(IllegalArgumentException.class, () -> service.cancelarDesdeAlta(5L));
+    }
+
+    @Test
     void obtenerCantidadesEntregadas_devuelveMapaPorTipoYReferencia() {
         SolicitudSalidaEntity existente = solicitud(100L, EstadoSolicitudSalida.PARCIAL);
         existente.agregarDetalle(detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L, "Amoxicilina", 20, 15));
@@ -503,6 +593,19 @@ class SolicitudSalidaServiceTest {
                 .codigo(String.format("SOL-%05d", id))
                 .procedimientoMedico(procedimiento(1L))
                 .episodio(episodio(paciente))
+                .usuarioSolicita(usuario(1L))
+                .fechaSolicitud(LocalDateTime.of(2026, 10, 19, 10, 0))
+                .estado(estado)
+                .detalles(new ArrayList<>())
+                .build();
+    }
+
+    private SolicitudSalidaEntity solicitudAlta(Long id, EstadoSolicitudSalida estado) {
+        return SolicitudSalidaEntity.builder()
+                .id(id)
+                .codigo(String.format("SOL-A%05d", id))
+                .procedimientoMedico(null)
+                .episodio(episodio())
                 .usuarioSolicita(usuario(1L))
                 .fechaSolicitud(LocalDateTime.of(2026, 10, 19, 10, 0))
                 .estado(estado)
