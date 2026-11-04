@@ -66,4 +66,10 @@ public class AuthDTOs {
             boolean puedeEditar,
             boolean puedeEliminar
     ) {}
+
+    public record MeResponse(
+            Long id,
+            String username,
+            boolean estado
+    ) {}
 }

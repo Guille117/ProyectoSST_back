@@ -11,6 +11,7 @@ import com.example.demo.modules.usuarios.horarios.HorarioSemanalDetalleEntity;
 import com.example.demo.modules.usuarios.roles.RolEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +62,13 @@ public class AuthService {
         }
 
         return construirAuthResponse(usuario);
+    }
+
+    @Transactional(readOnly = true)
+    public AuthDTOs.MeResponse me(String username) {
+        UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+        return new AuthDTOs.MeResponse(usuario.getId(), usuario.getUsername(), usuario.isEstado());
     }
 
     private static final int MAX_INTENTOS_PIN = 3;

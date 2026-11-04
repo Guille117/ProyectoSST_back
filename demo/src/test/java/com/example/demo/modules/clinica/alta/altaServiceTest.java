@@ -119,7 +119,7 @@ class altaServiceTest {
                 eq(10L), eq(episodio), eq(usuario), captor.capture());
         assertEquals(1, captor.getValue().size());
         assertEquals(9L, captor.getValue().get(0).referenciaId());
-        assertEquals(44, captor.getValue().get(0).cantidad());
+        assertEquals(42, captor.getValue().get(0).cantidad());
     }
 
     @Test
@@ -304,7 +304,7 @@ class altaServiceTest {
                 ArgumentCaptor.forClass(List.class);
         verify(solicitudSalidaService).sincronizarDesdeAlta(
                 eq(5L), eq(existente.getEpisodio()), eq(usuario), captor.capture());
-        assertEquals(44, captor.getValue().get(0).cantidad());
+        assertEquals(42, captor.getValue().get(0).cantidad());
     }
 
     @Test

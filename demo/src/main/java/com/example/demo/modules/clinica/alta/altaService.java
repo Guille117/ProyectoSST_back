@@ -374,8 +374,9 @@ public class altaService {
     }
 
     /**
-     * Total de unidades del tratamiento. Usa la misma programación de Enfermería: incluye la
-     * aplicación inicial y la de cierre del último día. Para duración indefinida pide 24 horas.
+     * Total de unidades del tratamiento. Usa la misma programación de Enfermería: cantidad de
+     * aplicaciones = duración en horas / frecuencia, truncada al entero. Para duración indefinida
+     * pide 24 horas.
      */
     private Integer totalSolicitado(altaTratamientoEmbeddable tratamiento) {
         int cantidad = tratamiento.getCantidad() == null ? 0 : tratamiento.getCantidad();
@@ -397,7 +398,7 @@ public class altaService {
         if (dias <= 0) {
             return cantidad;
         }
-        int dosis = Math.max(1, (dias * 24) / frecuencia + 1);
+        int dosis = Math.max(1, (dias * 24) / frecuencia);
         return Math.multiplyExact(cantidad, dosis);
     }
 
