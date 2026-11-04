@@ -174,6 +174,7 @@ public class SolicitudSalidaDTOs {
             String codigo,
             String paciente,
             String solicitante,
+            String solicitantePuesto,
             String tipoAtencion,
             String procedimiento,
             LocalDateTime fecha,

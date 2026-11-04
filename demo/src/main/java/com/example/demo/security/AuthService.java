@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import com.example.demo.modules.bitacora.BitacoraService;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioPinEntity;
@@ -31,10 +32,17 @@ public class AuthService {
     private final UsuarioPinRepository pinRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final BitacoraService bitacoraService;
 
     @Transactional(readOnly = true)
     public AuthDTOs.AuthResponse login(AuthDTOs.LoginRequest request) {
-        return login(request, LocalDate.now(), LocalTime.now());
+        AuthDTOs.AuthResponse response = login(request, LocalDate.now(), LocalTime.now());
+        try {
+            bitacoraService.registrarLogin(response.id(), response.username());
+        } catch (Exception ignorada) {
+            // La bitácora no debe impedir el inicio de sesión.
+        }
+        return response;
     }
 
     // Overload para testing con tiempo controlado

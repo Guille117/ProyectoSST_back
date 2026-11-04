@@ -174,6 +174,7 @@ class SolicitudSalidaControllerTest {
                 "SOL-00001",
                 "Ana López",
                 "Dra. María Pérez",
+                "Médico",
                 "EMERGENCIA",
                 "Sutura",
                 LocalDateTime.of(2026, 10, 19, 10, 0),

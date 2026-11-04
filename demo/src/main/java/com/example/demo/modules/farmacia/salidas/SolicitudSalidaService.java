@@ -562,6 +562,15 @@ public class SolicitudSalidaService {
         return nombre == null || nombre.isBlank() ? usuario.getUsername() : nombre;
     }
 
+    private String puestoUsuario(UsuarioEntity usuario) {
+        if (usuario == null || usuario.getPuesto() == null) {
+            return "";
+        }
+
+        String puesto = usuario.getPuesto().getNombre();
+        return puesto == null ? "" : puesto;
+    }
+
     // ------------------- DESPACHO -------------------
 
     @Transactional
@@ -1042,6 +1051,7 @@ public class SolicitudSalidaService {
                 solicitud.getCodigo(),
                 nombrePaciente(solicitud),
                 nombreUsuario(solicitud.getUsuarioSolicita()),
+                puestoUsuario(solicitud.getUsuarioSolicita()),
                 tipoAtencion(solicitud),
                 nombreProcedimiento(solicitud),
                 solicitud.getFechaSolicitud(),

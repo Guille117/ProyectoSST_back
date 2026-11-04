@@ -1,5 +1,6 @@
 package com.example.demo.security;
 
+import com.example.demo.modules.bitacora.BitacoraService;
 import com.example.demo.modules.usuarios.usuarios.*;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.horarios.DiaSemana;
@@ -43,6 +44,9 @@ class AuthServiceTest {
 
     @Mock
     private JwtUtil jwtUtil;
+
+    @Mock
+    private BitacoraService bitacoraService;
 
     @InjectMocks
     private AuthService authService;
