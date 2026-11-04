@@ -4,6 +4,8 @@ import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.EstadoIndicacionMedicamento;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.indicacionMedicamentoEntity;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.indicacionMedicamentoRepository;
+import com.example.demo.modules.enfermeria.tratamientos.DisponibilidadMedicamentoService;
+import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -36,6 +38,9 @@ class aplicacionMedicamentoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+    private DisponibilidadMedicamentoService disponibilidadService;
 
     @InjectMocks
     private aplicacionMedicamentoService service;
@@ -78,6 +83,21 @@ class aplicacionMedicamentoServiceTest {
                         7L, PROGRAMADA, EstadoAplicacionMedicamento.ADMINISTRADO, 1, null, 2L)));
 
         assertEquals("Ya existe un registro para esa aplicación", exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_debeRechazarAdministracionSinStockEntregado() {
+        when(indicacionRepository.findById(7L)).thenReturn(Optional.of(indicacionConMedicamento(7L, 4L)));
+        when(repository.existsByIndicacion_IdAndFechaHoraProgramadaAndEliminadoFalse(7L, PROGRAMADA))
+                .thenReturn(false);
+        when(disponibilidadService.disponibleEnPiso(1L, 4L)).thenReturn(0);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.crear(new aplicacionMedicamentoDTOs.Request(
+                        7L, PROGRAMADA, EstadoAplicacionMedicamento.ADMINISTRADO, 1, null, 2L)));
+
+        assertTrue(exception.getMessage().contains("No hay suficiente medicamento entregado"));
         verify(repository, never()).save(any());
     }
 
@@ -147,6 +167,13 @@ class aplicacionMedicamentoServiceTest {
                 .fecha(LocalDateTime.of(2026, 10, 16, 7, 0))
                 .fechaInicio(PROGRAMADA)
                 .build();
+    }
+
+    private indicacionMedicamentoEntity indicacionConMedicamento(Long id, Long medicamentoLogId) {
+        indicacionMedicamentoEntity indicacion = indicacion(id);
+        indicacion.setMedicamentoLog(
+                medicamentoLogEntity.builder().id(medicamentoLogId).nombre("Acetaminofén").build());
+        return indicacion;
     }
 
     private UsuarioEntity usuario(Long id, String nombreCompleto) {

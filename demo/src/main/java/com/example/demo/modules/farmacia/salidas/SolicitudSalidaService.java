@@ -4,6 +4,7 @@ import com.example.demo.modules.clinica.procedimientoMedico.EstadoProcedimientoM
 import com.example.demo.modules.clinica.procedimientoMedico.TipoRecursoProcedimiento;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoEntity;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRecursoEntity;
+import com.example.demo.modules.enfermeria.tratamientos.DisponibilidadMedicamentoService;
 import com.example.demo.modules.farmacia.insumosLog.insumosLogEntity;
 import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
 import com.example.demo.modules.farmacia.lotes.LoteEntity;
@@ -46,6 +47,7 @@ public class SolicitudSalidaService {
     private final EpisodioRepository episodioRepository;
     private final medicamentoLogRepository medicamentoLogRepository;
     private final insumosLogRepository insumosLogRepository;
+    private final DisponibilidadMedicamentoService disponibilidadService;
 
     // ------------------- SINCRONIZACIÓN CON EL PROCEDIMIENTO -------------------
 
@@ -348,12 +350,12 @@ public class SolicitudSalidaService {
                 .toList();
     }
 
-    /** Crea la solicitud de medicamentos que Enfermería envía a Farmacia, sin procedimiento. */
+    /** Crea la solicitud de medicamentos e insumos que Enfermería envía a Farmacia, sin procedimiento. */
     @Transactional
     public SolicitudSalidaDTOs.Response crearSolicitudMedicamentos(
             SolicitudSalidaDTOs.SolicitudMedicamentoRequest request) {
         if (request == null || request.episodioId() == null || request.usuarioId() == null
-                || request.medicamentos() == null || request.medicamentos().isEmpty()) {
+                || request.recursos() == null || request.recursos().isEmpty()) {
             throw new IllegalArgumentException("Los datos de la solicitud son obligatorios");
         }
 
@@ -365,13 +367,28 @@ public class SolicitudSalidaService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Usuario no encontrado con el ID: " + request.usuarioId()));
 
-        Map<Long, Integer> cantidades = new LinkedHashMap<>();
-        for (SolicitudSalidaDTOs.MedicamentoSolicitudRequest medicamento : request.medicamentos()) {
-            if (medicamento == null || medicamento.referenciaId() == null
-                    || medicamento.cantidad() == null || medicamento.cantidad() <= 0) {
-                throw new IllegalArgumentException("Los datos del medicamento son obligatorios");
+        Map<String, RecursoAgrupado> agrupados = new LinkedHashMap<>();
+        for (SolicitudSalidaDTOs.RecursoSolicitudRequest recurso : request.recursos()) {
+            if (recurso == null || recurso.tipo() == null || recurso.referenciaId() == null
+                    || recurso.cantidad() == null || recurso.cantidad() <= 0) {
+                throw new IllegalArgumentException("Los datos del recurso son obligatorios");
             }
-            cantidades.merge(medicamento.referenciaId(), medicamento.cantidad(), Integer::sum);
+
+            String clave = clave(recurso.tipo(), recurso.referenciaId());
+            RecursoAgrupado previo = agrupados.get(clave);
+            if (previo == null) {
+                agrupados.put(clave, new RecursoAgrupado(
+                        recurso.tipo(),
+                        recurso.referenciaId(),
+                        nombreProducto(recurso.tipo(), recurso.referenciaId()),
+                        recurso.cantidad()));
+            } else {
+                agrupados.put(clave, new RecursoAgrupado(
+                        previo.tipo(),
+                        previo.referenciaId(),
+                        previo.nombre(),
+                        Math.addExact(previo.cantidad(), recurso.cantidad())));
+            }
         }
 
         SolicitudSalidaEntity solicitud = SolicitudSalidaEntity.builder()
@@ -384,13 +401,12 @@ public class SolicitudSalidaService {
                 .detalles(new ArrayList<>())
                 .build();
 
-        for (Map.Entry<Long, Integer> cantidad : cantidades.entrySet()) {
-            String nombre = nombreProducto(TipoRecursoProcedimiento.MEDICAMENTO, cantidad.getKey());
+        for (RecursoAgrupado recurso : agrupados.values()) {
             solicitud.agregarDetalle(SolicitudSalidaDetalleEntity.builder()
-                    .tipo(TipoRecursoProcedimiento.MEDICAMENTO)
-                    .referenciaId(cantidad.getKey())
-                    .nombre(nombre)
-                    .cantidadSolicitada(cantidad.getValue())
+                    .tipo(recurso.tipo())
+                    .referenciaId(recurso.referenciaId())
+                    .nombre(recurso.nombre())
+                    .cantidadSolicitada(recurso.cantidad())
                     .cantidadEntregada(0)
                     .estado(EstadoDetalleSalida.PENDIENTE)
                     .build());
@@ -667,6 +683,8 @@ public class SolicitudSalidaService {
                         SolicitudSalidaDetalleEntity::getId,
                         detalle -> detalle,
                         (primero, segundo) -> primero));
+
+        validarLimiteDevolucionPorMedicamento(solicitud, detalles, request.lineas());
 
         Set<String> procesados = new HashSet<>();
         for (SolicitudSalidaDTOs.DevolucionLineaRequest linea : request.lineas()) {
@@ -1107,6 +1125,40 @@ public class SolicitudSalidaService {
         if (request == null || request.usuarioId() == null
                 || request.lineas() == null || request.lineas().isEmpty()) {
             throw new IllegalArgumentException("La devolución es obligatoria");
+        }
+    }
+
+    /**
+     * Limita la devolución de medicamentos a lo que aún no fue administrado: no se puede devolver
+     * más que la cantidad en piso (entregado − devuelto − aplicado). Eliminar una aplicación
+     * libera esa cantidad y vuelve a permitir devolverla.
+     */
+    private void validarLimiteDevolucionPorMedicamento(
+            SolicitudSalidaEntity solicitud,
+            Map<Long, SolicitudSalidaDetalleEntity> detalles,
+            List<SolicitudSalidaDTOs.DevolucionLineaRequest> lineas) {
+        Map<Long, Integer> porMedicamento = new LinkedHashMap<>();
+        for (SolicitudSalidaDTOs.DevolucionLineaRequest linea : lineas) {
+            SolicitudSalidaDetalleEntity detalle = detalles.get(linea.detalleId());
+            if (detalle == null || detalle.getTipo() != TipoRecursoProcedimiento.MEDICAMENTO) {
+                continue;
+            }
+            porMedicamento.merge(detalle.getReferenciaId(), linea.cantidad(), Integer::sum);
+        }
+
+        if (porMedicamento.isEmpty()) {
+            return;
+        }
+
+        Long episodioId = solicitud.getEpisodio() != null ? solicitud.getEpisodio().getId() : null;
+        for (Map.Entry<Long, Integer> entrada : porMedicamento.entrySet()) {
+            int disponible = disponibilidadService.disponibleEnPiso(episodioId, entrada.getKey());
+            if (entrada.getValue() > disponible) {
+                throw new IllegalArgumentException(
+                        "Solo se pueden devolver " + disponible
+                                + " unidades del medicamento porque el resto ya fue administrado. "
+                                + "Elimine la aplicación correspondiente para poder devolverlo.");
+            }
         }
     }
 

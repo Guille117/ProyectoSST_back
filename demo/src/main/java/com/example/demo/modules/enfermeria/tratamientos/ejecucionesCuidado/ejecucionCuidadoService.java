@@ -58,6 +58,10 @@ public class ejecucionCuidadoService {
         }
 
         ejecucionCuidadoEntity entity = buscar(id);
+
+        validarFechaProgramadaParaActualizar(entity, request.fechaHoraProgramada());
+
+        entity.setFechaHoraProgramada(request.fechaHoraProgramada());
         entity.setEstado(validarEstado(request.estado()));
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
         entity.setUsuario(buscarUsuario(request.usuarioId()));
@@ -125,6 +129,18 @@ public class ejecucionCuidadoService {
             throw new IllegalArgumentException("El estado es obligatorio");
         }
         return estado;
+    }
+
+    /** Al editar se valida que la nueva fecha programada no duplique otro registro vigente. */
+    private void validarFechaProgramadaParaActualizar(
+            ejecucionCuidadoEntity entity, LocalDateTime fechaHoraProgramada) {
+        if (fechaHoraProgramada == null) {
+            throw new IllegalArgumentException("La fecha y hora programada son obligatorias");
+        }
+        if (repository.existsByCuidado_IdAndFechaHoraProgramadaAndEliminadoFalseAndIdNot(
+                entity.getCuidado().getId(), fechaHoraProgramada, entity.getId())) {
+            throw new IllegalArgumentException("Ya existe un registro para esa ejecución");
+        }
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {
