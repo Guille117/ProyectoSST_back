@@ -57,6 +57,21 @@ public class BitacoraService {
                 .build());
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarLogout(Long usuarioId, String usuarioNombre) {
+        registrar(BitacoraEntity.builder()
+                .tipo(TipoBitacora.LOGIN)
+                .accion(AccionBitacora.LOGOUT)
+                .modulo("SEGURIDAD")
+                .entidad("Sesión")
+                .usuarioId(usuarioId)
+                .usuarioNombre(usuarioNombre)
+                .fechaHora(LocalDateTime.now())
+                .detalle("Cierre de sesión")
+                .ip(obtenerIp())
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public List<BitacoraDTOs.BitacoraResponse> listar(Collection<TipoBitacora> tipos, Long pacienteId,
             Long usuarioId, LocalDateTime desde, LocalDateTime hasta, int limite) {

@@ -64,6 +64,20 @@ public class AuthService {
         return construirAuthResponse(usuario);
     }
 
+    /**
+     * Registra el cierre de sesión en la bitácora. Nunca lanza errores hacia el
+     * cliente: un fallo en la bitácora no debe impedir salir de la sesión.
+     */
+    public void logout(String username) {
+        usuarioRepository.findByUsernameIgnoreCase(username).ifPresent(usuario -> {
+            try {
+                bitacoraService.registrarLogout(usuario.getId(), usuario.getUsername());
+            } catch (Exception ignorada) {
+                // La bitácora no debe impedir el cierre de sesión.
+            }
+        });
+    }
+
     @Transactional(readOnly = true)
     public AuthDTOs.MeResponse me(String username) {
         UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(username)

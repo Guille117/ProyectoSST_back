@@ -31,6 +31,45 @@ public interface ReporteRepository extends JpaRepository<BitacoraEntity, Long> {
     List<Object[]> despachosPorProducto(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
 
     @Query(value = """
+            SELECT d.nombre, COALESCE(SUM(m.cantidad), 0)
+            FROM solicitudes_salida_movimientos m
+            JOIN solicitudes_salida_detalle d ON d.id = m.detalle_id
+            WHERE m.tipo_movimiento = 'ENTREGA'
+              AND m.fecha_hora >= :desde AND m.fecha_hora <= :hasta
+            GROUP BY d.nombre
+            ORDER BY SUM(m.cantidad) DESC
+            LIMIT 10
+            """, nativeQuery = true)
+    List<Object[]> masVendidos(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+
+    @Query(value = """
+            SELECT d.nombre, COALESCE(SUM(m.cantidad), 0)
+            FROM solicitudes_salida_movimientos m
+            JOIN solicitudes_salida_detalle d ON d.id = m.detalle_id
+            WHERE m.tipo_movimiento = 'ENTREGA'
+              AND m.fecha_hora >= :desde AND m.fecha_hora <= :hasta
+            GROUP BY d.nombre
+            ORDER BY SUM(m.cantidad) ASC
+            LIMIT 10
+            """, nativeQuery = true)
+    List<Object[]> menosVendidos(@Param("desde") LocalDateTime desde, @Param("hasta") LocalDateTime hasta);
+
+    @Query(value = """
+            SELECT COALESCE(m.nombre, i.nombre) AS producto,
+                   COALESCE(SUM(l.disponible), 0) AS cantidad,
+                   MONTH(l.fecha_vencimiento) AS mes,
+                   YEAR(l.fecha_vencimiento) AS anio
+            FROM lotes l
+            LEFT JOIN medicamentos_log m ON m.id = l.medicamento_log_id
+            LEFT JOIN insumos_log i ON i.id = l.insumo_log_id
+            WHERE l.fecha_vencimiento IS NOT NULL
+            GROUP BY COALESCE(m.nombre, i.nombre), MONTH(l.fecha_vencimiento), YEAR(l.fecha_vencimiento)
+            ORDER BY SUM(l.disponible) DESC
+            LIMIT 10
+            """, nativeQuery = true)
+    List<Object[]> vencimientos();
+
+    @Query(value = """
             SELECT p.nombre, COUNT(c.id), COALESCE(SUM(c.total), 0)
             FROM compras c
             JOIN proveedores p ON p.id = c.proveedor_id

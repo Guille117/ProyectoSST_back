@@ -4,5 +4,6 @@ public enum AccionBitacora {
     CREAR,
     EDITAR,
     ELIMINAR,
-    LOGIN
+    LOGIN,
+    LOGOUT
 }

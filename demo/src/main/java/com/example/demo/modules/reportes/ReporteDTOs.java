@@ -17,6 +17,9 @@ public final class ReporteDTOs {
     public record StockBajo(long id, String producto, int disponible, LocalDate vencimiento) {
     }
 
+    public record Vencimiento(String producto, long cantidad, int mes, int anio) {
+    }
+
     public record Censo(String area, String estado, long cantidad) {
     }
 

@@ -43,8 +43,23 @@ public class procedimientoMedicoDTOs {
             Long usuarioId,
             @NotNull(message = "Los recursos son obligatorios")
             @Size(max = 100, message = "El procedimiento no puede superar los 100 recursos")
-            List<@Valid RecursoRequest> recursos
+            List<@Valid RecursoRequest> recursos,
+            Boolean requiereAutorizacion
     ) {
+        /** Compatibilidad con registros que no indican la autorización: se asume sin requerimiento. */
+        public Request(
+                Long tipoProcedimientoId,
+                String descripcion,
+                String resultado,
+                LocalDateTime inicio,
+                LocalDateTime fin,
+                Long episodioId,
+                Long usuarioId,
+                List<@Valid RecursoRequest> recursos) {
+            this(tipoProcedimientoId, descripcion, resultado, inicio, fin, episodioId, usuarioId,
+                    recursos, false);
+        }
+
         @AssertTrue(message = "La fecha de fin no puede ser anterior a la fecha de inicio")
         public boolean isFinValido() {
             return fin == null || inicio == null || !fin.isBefore(inicio);
@@ -70,8 +85,47 @@ public class procedimientoMedicoDTOs {
             Long usuarioId,
             String usuarioNombre,
             EstadoProcedimientoMedico estado,
-            List<RecursoResponse> recursos
-    ) {}
+            List<RecursoResponse> recursos,
+            boolean requiereAutorizacion,
+            boolean autorizacionGenerada
+    ) {
+        /** Compatibilidad con respuestas que no incluyen el indicador de autorización. */
+        public Response(
+                Long id,
+                Long tipoProcedimientoId,
+                String tipoProcedimientoNombre,
+                String descripcion,
+                String resultado,
+                LocalDateTime inicio,
+                LocalDateTime fin,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                EstadoProcedimientoMedico estado,
+                List<RecursoResponse> recursos) {
+            this(id, tipoProcedimientoId, tipoProcedimientoNombre, descripcion, resultado, inicio,
+                    fin, episodioId, usuarioId, usuarioNombre, estado, recursos, false, false);
+        }
+
+        /** Compatibilidad con respuestas que no incluyen el indicador de carta generada. */
+        public Response(
+                Long id,
+                Long tipoProcedimientoId,
+                String tipoProcedimientoNombre,
+                String descripcion,
+                String resultado,
+                LocalDateTime inicio,
+                LocalDateTime fin,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                EstadoProcedimientoMedico estado,
+                List<RecursoResponse> recursos,
+                boolean requiereAutorizacion) {
+            this(id, tipoProcedimientoId, tipoProcedimientoNombre, descripcion, resultado, inicio,
+                    fin, episodioId, usuarioId, usuarioNombre, estado, recursos, requiereAutorizacion, false);
+        }
+    }
 
     public record RecursoDisponibleResponse(
             Long id,

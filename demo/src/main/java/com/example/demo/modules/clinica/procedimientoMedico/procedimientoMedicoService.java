@@ -57,6 +57,7 @@ public class procedimientoMedicoService {
                 .resultado(StringNormalizer.normalizarNullable(request.resultado()))
                 .inicio(request.inicio())
                 .fin(request.fin())
+                .requiereAutorizacion(Boolean.TRUE.equals(request.requiereAutorizacion()))
                 .episodio(episodio)
                 .usuario(usuario)
                 .build();
@@ -93,6 +94,7 @@ public class procedimientoMedicoService {
         entity.setResultado(StringNormalizer.normalizarNullable(request.resultado()));
         entity.setInicio(request.inicio());
         entity.setFin(request.fin());
+        entity.setRequiereAutorizacion(Boolean.TRUE.equals(request.requiereAutorizacion()));
 
         if (entity.getEstado() != EstadoProcedimientoMedico.ELIMINADO) {
             entity.setEstado(calcularEstado(entity.getFin()));
@@ -133,6 +135,16 @@ public class procedimientoMedicoService {
         validarEpisodioAbierto(entity.getEpisodio());
         solicitudSalidaService.cancelarPorProcedimiento(id);
         entity.setEstado(EstadoProcedimientoMedico.ELIMINADO);
+        repository.save(entity);
+    }
+
+    @Transactional
+    public void marcarAutorizacionGenerada(Long id) {
+        procedimientoMedicoEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Procedimiento médico no encontrado con el ID: " + id));
+
+        entity.setAutorizacionGenerada(true);
         repository.save(entity);
     }
 
@@ -394,6 +406,8 @@ public class procedimientoMedicoService {
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 estado,
-                recursos);
+                recursos,
+                entity.isRequiereAutorizacion(),
+                entity.isAutorizacionGenerada());
     }
 }

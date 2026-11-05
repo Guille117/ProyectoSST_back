@@ -26,6 +26,25 @@ public class ReporteController {
         return reporteService.despachos(desde, hasta);
     }
 
+    @GetMapping("/farmacia/mas-vendidos")
+    public List<ReporteDTOs.Conteo> masVendidos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.masVendidos(desde, hasta);
+    }
+
+    @GetMapping("/farmacia/menos-vendidos")
+    public List<ReporteDTOs.Conteo> menosVendidos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.menosVendidos(desde, hasta);
+    }
+
+    @GetMapping("/farmacia/vencimientos")
+    public List<ReporteDTOs.Vencimiento> vencimientos() {
+        return reporteService.vencimientos();
+    }
+
     @GetMapping("/farmacia/compras-por-proveedor")
     public List<ReporteDTOs.CompraProveedor> comprasPorProveedor(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,

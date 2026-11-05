@@ -27,6 +27,28 @@ public class ReporteService {
     }
 
     @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> masVendidos(LocalDate desde, LocalDate hasta) {
+        return reporteRepository.masVendidos(inicio(desde), fin(hasta)).stream()
+                .map(fila -> new ReporteDTOs.Conteo(texto(fila[0]), entero(fila[1])))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> menosVendidos(LocalDate desde, LocalDate hasta) {
+        return reporteRepository.menosVendidos(inicio(desde), fin(hasta)).stream()
+                .map(fila -> new ReporteDTOs.Conteo(texto(fila[0]), entero(fila[1])))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Vencimiento> vencimientos() {
+        return reporteRepository.vencimientos().stream()
+                .map(fila -> new ReporteDTOs.Vencimiento(
+                        texto(fila[0]), largo(fila[1]), entero(fila[2]), entero(fila[3])))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<ReporteDTOs.CompraProveedor> comprasPorProveedor(LocalDate desde, LocalDate hasta) {
         return reporteRepository.comprasPorProveedor(inicio(desde), fin(hasta)).stream()
                 .map(fila -> new ReporteDTOs.CompraProveedor(

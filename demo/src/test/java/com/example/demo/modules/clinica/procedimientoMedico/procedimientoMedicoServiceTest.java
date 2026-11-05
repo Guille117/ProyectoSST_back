@@ -145,6 +145,33 @@ class procedimientoMedicoServiceTest {
     }
 
     @Test
+    void crear_conRequiereAutorizacion_debePersistirElIndicador() {
+        when(procedimientoRepository.findById(1L)).thenReturn(Optional.of(tipoProcedimiento(1L, "Sutura")));
+        when(episodioRepository.findById(2L)).thenReturn(Optional.of(new EpisodioEntity()));
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, "Dra. Ana López")));
+        when(repository.save(any(procedimientoMedicoEntity.class))).thenAnswer(invocation -> {
+            procedimientoMedicoEntity entity = invocation.getArgument(0);
+            entity.setId(11L);
+            return entity;
+        });
+
+        procedimientoMedicoDTOs.Request request = new procedimientoMedicoDTOs.Request(
+                1L,
+                "Sutura de herida.",
+                null,
+                LocalDateTime.of(2026, 10, 19, 11, 0),
+                null,
+                2L,
+                3L,
+                List.of(),
+                true);
+
+        procedimientoMedicoDTOs.Response response = service.crear(request);
+
+        assertEquals(true, response.requiereAutorizacion());
+    }
+
+    @Test
     void buscarPorEpisodio_conFinDebeDevolverRealizadoAunqueElEstadoGuardadoSeaPendiente() {
         procedimientoMedicoEntity existente = procedimientoMedicoEntity.builder()
                 .id(5L)

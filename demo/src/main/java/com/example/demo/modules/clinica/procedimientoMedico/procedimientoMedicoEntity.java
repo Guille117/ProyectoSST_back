@@ -42,6 +42,12 @@ public class procedimientoMedicoEntity {
     @Column(nullable = false, length = 20)
     private EstadoProcedimientoMedico estado;
 
+    @Column(name = "requiere_autorizacion", nullable = false)
+    private boolean requiereAutorizacion;
+
+    @Column(name = "autorizacion_generada", nullable = false)
+    private boolean autorizacionGenerada;
+
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "episodio_id", nullable = false)
     private EpisodioEntity episodio;
