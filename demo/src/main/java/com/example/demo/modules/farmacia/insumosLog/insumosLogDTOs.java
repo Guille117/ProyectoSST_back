@@ -15,4 +15,10 @@ public class insumosLogDTOs {
     public record MarcaResponse(String nombreMarca, Long idMarca) {}
 
     public record ListadoResponse(Long id, String nombre, String codigo, String detalle, MarcaResponse marca, boolean estado) {}
+
+    /** Corrección justificada del nombre: exige motivo y se audita con valor anterior y nuevo. */
+    public record CorreccionRequest(
+            @NotBlank(message = "El nombre es obligatorio") String nombre,
+            @NotBlank(message = "El motivo de la corrección es obligatorio") String motivo
+    ) {}
 }

@@ -48,6 +48,8 @@ public class indicacionMedicamentoService {
                 .fechaInicio(validarFechaInicio(request.fechaInicio()))
                 .build();
 
+        aplicarSnapshot(entity, medicamento);
+
         return toResponse(repository.save(entity));
     }
 
@@ -60,7 +62,11 @@ public class indicacionMedicamentoService {
         indicacionMedicamentoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
 
-        entity.setMedicamentoLog(resolverMedicamentoLog(request.medicamentoLogId()));
+        Long medicamentoAnteriorId = entity.getMedicamentoLog() == null
+                ? null : entity.getMedicamentoLog().getId();
+        medicamentoLogEntity medicamento = resolverMedicamentoLog(request.medicamentoLogId());
+
+        entity.setMedicamentoLog(medicamento);
         entity.setMedicamentoLibre(resolverMedicamentoLibre(request));
         entity.setPresentacion(StringNormalizer.normalizarNullable(request.presentacion()));
         entity.setCantidad(validarCantidad(request.cantidad()));
@@ -71,6 +77,11 @@ public class indicacionMedicamentoService {
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
         entity.setUsuario(buscarUsuario(request.usuarioId()));
         entity.setFechaInicio(validarFechaInicio(request.fechaInicio()));
+
+        Long medicamentoNuevoId = medicamento == null ? null : medicamento.getId();
+        if (!java.util.Objects.equals(medicamentoAnteriorId, medicamentoNuevoId)) {
+            aplicarSnapshot(entity, medicamento);
+        }
 
         return toResponse(repository.save(entity));
     }
@@ -154,6 +165,26 @@ public class indicacionMedicamentoService {
         return medicamentoLogId == null ? null : buscarMedicamento(medicamentoLogId);
     }
 
+    /** Congela los datos del catálogo en la indicación para que las correcciones no alteren el historial. */
+    private void aplicarSnapshot(indicacionMedicamentoEntity entity, medicamentoLogEntity medicamento) {
+        if (medicamento == null) {
+            entity.setMedicamentoLogNombre(null);
+            entity.setMedicamentoLogDosis(null);
+            entity.setMedicamentoLogUnidad(null);
+            entity.setMedicamentoLogPresentacion(null);
+            entity.setMedicamentoLogViaAdmin(null);
+            return;
+        }
+        entity.setMedicamentoLogNombre(medicamento.getNombre());
+        entity.setMedicamentoLogDosis(medicamento.getDosis());
+        entity.setMedicamentoLogUnidad(
+                medicamento.getUnidadMedida() == null ? null : medicamento.getUnidadMedida().getAbreviatura());
+        entity.setMedicamentoLogPresentacion(
+                medicamento.getPresentacion() == null ? null : medicamento.getPresentacion().getNombre());
+        entity.setMedicamentoLogViaAdmin(
+                medicamento.getViaAdmin() == null ? null : medicamento.getViaAdmin().getNombre());
+    }
+
     private String resolverMedicamentoLibre(indicacionMedicamentoDTOs.Request request) {
         if (request.medicamentoLogId() != null) {
             return null;
@@ -202,7 +233,10 @@ public class indicacionMedicamentoService {
         Long medicamentoLogId = entity.getMedicamentoLog() == null
                 ? null : entity.getMedicamentoLog().getId();
         String medicamento = entity.getMedicamentoLog() == null
-                ? entity.getMedicamentoLibre() : entity.getMedicamentoLog().getNombre();
+                ? entity.getMedicamentoLibre()
+                : (entity.getMedicamentoLogNombre() != null
+                        ? entity.getMedicamentoLogNombre()
+                        : entity.getMedicamentoLog().getNombre());
 
         return new indicacionMedicamentoDTOs.Response(
                 entity.getId(),

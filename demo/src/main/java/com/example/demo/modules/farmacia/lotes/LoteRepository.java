@@ -37,6 +37,10 @@ public interface LoteRepository extends JpaRepository<LoteEntity, Long> {
     List<LoteEntity> findByInsumoLog_IdAndEstadoAndDisponibleGreaterThan(
             Long insumoLogId, boolean estado, Integer disponible);
 
+    boolean existsByMedicamentoLog_Id(Long medicamentoLogId);
+
+    boolean existsByInsumoLog_Id(Long insumoLogId);
+
     @Query("SELECT COALESCE(SUM(l.total), 0) FROM LoteEntity l WHERE l.compra.id = :compraId")
     BigDecimal sumTotalesPorCompra(@Param("compraId") Long compraId);
 
@@ -63,6 +67,26 @@ public interface LoteRepository extends JpaRepository<LoteEntity, Long> {
     Long sumDisponibleInsumo(
             @Param("insumoLogId") Long insumoLogId,
             @Param("hoy") LocalDate hoy);
+
+    /**
+     * Existencias físicas de un medicamento: suma de unidades disponibles de TODOS sus lotes,
+     * incluidos los vencidos o bloqueados. Se usa para impedir la deshabilitación con unidades
+     * aún en farmacia.
+     */
+    @Query("""
+            SELECT COALESCE(SUM(l.disponible), 0)
+            FROM LoteEntity l
+            WHERE l.medicamentoLog.id = :medicamentoLogId
+            """)
+    Long sumExistenciasMedicamento(@Param("medicamentoLogId") Long medicamentoLogId);
+
+    /** Existencias físicas de un insumo en todos sus lotes, sin filtrar por estado ni vencimiento. */
+    @Query("""
+            SELECT COALESCE(SUM(l.disponible), 0)
+            FROM LoteEntity l
+            WHERE l.insumoLog.id = :insumoLogId
+            """)
+    Long sumExistenciasInsumo(@Param("insumoLogId") Long insumoLogId);
 
     /** Bloquea el lote para descontar stock sin condiciones de carrera. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)

@@ -14,6 +14,8 @@ public interface indicacionMedicamentoRepository extends JpaRepository<indicacio
 
     List<indicacionMedicamentoEntity> findByEpisodio_IdAndEstadoOrderByFechaDesc(Long episodioId, EstadoIndicacionMedicamento estado);
 
+    boolean existsByMedicamentoLog_Id(Long medicamentoLogId);
+
     /** Medicamentos del catálogo (sin duplicados) indicados en el episodio con el estado dado. */
     @Query("""
             SELECT DISTINCT i.medicamentoLog.id

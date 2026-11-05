@@ -35,4 +35,14 @@ class ApiExceptionHandlerTest {
         assertNotNull(response.getBody());
         assertEquals("Compra no encontrada", response.getBody().get("message"));
     }
+
+    @Test
+    void handleConflict_devuelve409ConMensajeDeNegocio() {
+        ResponseEntity<Map<String, Object>> response = handler.handleConflict(
+                new ConflictException("Existen unidades pendientes en farmacia"));
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("Existen unidades pendientes en farmacia", response.getBody().get("message"));
+    }
 }

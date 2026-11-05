@@ -32,6 +32,11 @@ public class ApiExceptionHandler {
         return respuestaError(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex) {
+        return respuestaError(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(HorarioAccessException.class)
     public ResponseEntity<Map<String, Object>> handleHorarioAccess(HorarioAccessException ex) {
         return respuestaError(HttpStatus.FORBIDDEN, ex.getMessage());

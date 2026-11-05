@@ -18,6 +18,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -60,6 +61,7 @@ public class LoteService {
         entity.setInsumoLog(resolverInsumo(req.idInsumoLog()));
         entity.setMedicamentoLog(resolverMedicamento(req.idMedicamentoLog()));
         entity.setCompra(compra);
+        validarItemActivoParaNuevoStock(entity);
 
         LoteEntity guardado = repository.save(entity);
         recalcularTotalCompra(compra);
@@ -82,6 +84,14 @@ public class LoteService {
 
         CompraEntity compraAnterior = existente.getCompra();
         int unidadesUsadas = existente.getCantidad() - existente.getDisponible();
+        boolean cambiaProducto =
+                !Objects.equals(idInsumo(existente), req.idInsumoLog())
+                        || !Objects.equals(idMedicamento(existente), req.idMedicamentoLog());
+        if (unidadesUsadas > 0 && cambiaProducto) {
+            throw new IllegalArgumentException(
+                    "No se puede cambiar el producto del lote " + codigoLote
+                            + " porque ya tiene unidades entregadas");
+        }
         if (req.cantidad() < unidadesUsadas) {
             int reduccion = existente.getCantidad() - req.cantidad();
             throw new IllegalArgumentException(
@@ -627,11 +637,19 @@ public class LoteService {
         }
     }
 
+    private Long idInsumo(LoteEntity lote) {
+        return lote.getInsumoLog() == null ? null : lote.getInsumoLog().getId();
+    }
+
+    private Long idMedicamento(LoteEntity lote) {
+        return lote.getMedicamentoLog() == null ? null : lote.getMedicamentoLog().getId();
+    }
+
     private insumosLogEntity resolverInsumo(Long idInsumoLog) {
         if (idInsumoLog == null) {
             return null;
         }
-        return insumosLogRepository.findById(idInsumoLog)
+        return insumosLogRepository.findByIdForUpdate(idInsumoLog)
                 .orElseThrow(() -> new IllegalArgumentException("Insumo no encontrado con el ID: " + idInsumoLog));
     }
 
@@ -639,8 +657,20 @@ public class LoteService {
         if (idMedicamentoLog == null) {
             return null;
         }
-        return medicamentoLogRepository.findById(idMedicamentoLog)
+        return medicamentoLogRepository.findByIdForUpdate(idMedicamentoLog)
                 .orElseThrow(() -> new IllegalArgumentException("Medicamento no encontrado con el ID: " + idMedicamentoLog));
+    }
+
+    /** Un producto deshabilitado no admite nuevas unidades, aunque conserve lotes históricos. */
+    private void validarItemActivoParaNuevoStock(LoteEntity entity) {
+        if (entity.getMedicamentoLog() != null && !entity.getMedicamentoLog().isEstado()) {
+            throw new IllegalArgumentException("El medicamento " + entity.getMedicamentoLog().getNombre()
+                    + " está deshabilitado y no admite nuevas unidades");
+        }
+        if (entity.getInsumoLog() != null && !entity.getInsumoLog().isEstado()) {
+            throw new IllegalArgumentException("El insumo " + entity.getInsumoLog().getNombre()
+                    + " está deshabilitado y no admite nuevas unidades");
+        }
     }
 
     private BigDecimal calcularTotal(Integer cantidad, BigDecimal precioCompra) {

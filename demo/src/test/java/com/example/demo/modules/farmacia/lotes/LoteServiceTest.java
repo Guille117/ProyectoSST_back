@@ -147,7 +147,7 @@ class LoteServiceTest {
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
         when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L)).thenReturn(Optional.empty());
         when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of());
-        when(insumosLogRepository.findById(5L)).thenReturn(Optional.of(insumo));
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(insumo));
         when(mapper.toEntity(req)).thenReturn(entity);
         when(repository.save(any())).thenReturn(guardado);
         when(repository.sumTotalesPorCompra(1L)).thenReturn(new BigDecimal("25.00"));
@@ -237,11 +237,29 @@ class LoteServiceTest {
         when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L)).thenReturn(Optional.empty());
         when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of());
         when(mapper.toEntity(req)).thenReturn(new LoteEntity());
-        when(insumosLogRepository.findById(5L)).thenReturn(Optional.empty());
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.crear(req))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Insumo no encontrado");
+    }
+
+    @Test
+    void crear_debeRechazarItemDeshabilitado() {
+        LoteDTOs.Request req = requestInsumo(5L, "LT-001", LocalDate.of(2027, 6, 30), 10, BigDecimal.ONE);
+        insumosLogEntity inactivo = insumosLogEntity.builder().id(5L).nombre("Gasas").estado(false).build();
+
+        when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
+        when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L)).thenReturn(Optional.empty());
+        when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of());
+        when(mapper.toEntity(req)).thenReturn(new LoteEntity());
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(inactivo));
+
+        assertThatThrownBy(() -> service.crear(req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("deshabilitado");
+
+        verify(repository, never()).save(any());
     }
 
     @Test
@@ -285,7 +303,7 @@ class LoteServiceTest {
         when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L))
                 .thenReturn(Optional.of(existente));
         when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of(existente));
-        when(insumosLogRepository.findById(5L)).thenReturn(Optional.of(insumo));
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(insumo));
         when(repository.save(any())).thenReturn(existente);
         when(repository.sumTotalesPorCompra(1L)).thenReturn(new BigDecimal("60.00"));
         when(compraRepository.save(any())).thenReturn(compra);
@@ -337,7 +355,7 @@ class LoteServiceTest {
         when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L))
                 .thenReturn(Optional.of(existente));
         when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of(existente));
-        when(insumosLogRepository.findById(5L)).thenReturn(Optional.of(insumo));
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(insumo));
         when(repository.save(any())).thenReturn(existente);
         when(repository.sumTotalesPorCompra(1L)).thenReturn(new BigDecimal("17.50"));
         when(compraRepository.save(any())).thenReturn(compra);
@@ -373,6 +391,88 @@ class LoteServiceTest {
                 .hasMessageContaining("supera la cantidad disponible");
 
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_debeAumentarCantidadConservandoUnidadesUsadas() {
+        LoteEntity existente = LoteEntity.builder()
+                .id(1L).codigoLote("LT-001").cantidad(10).disponible(4)
+                .fechaVencimiento(LocalDate.of(2027, 6, 30))
+                .precioCompra(new BigDecimal("2.50")).total(new BigDecimal("25.00"))
+                .compra(compra).insumoLog(insumo).estado(true).build();
+        LoteDTOs.Request req = requestInsumo(5L, "LT-001", LocalDate.of(2027, 6, 30), 12, new BigDecimal("2.50"));
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
+        when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L))
+                .thenReturn(Optional.of(existente));
+        when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of(existente));
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(insumo));
+        when(repository.save(any())).thenReturn(existente);
+        when(repository.sumTotalesPorCompra(1L)).thenReturn(new BigDecimal("30.00"));
+        when(compraRepository.save(any())).thenReturn(compra);
+        when(mapper.toDTO(existente)).thenReturn(new LoteDTOs.Response(
+                1L, "LT-001", 12, 6, true, LocalDate.of(2027, 6, 30),
+                new BigDecimal("2.50"), new BigDecimal("5.00"), new BigDecimal("30.00"),
+                5L, "Gasas", null, null, 1L, "COM-1"));
+
+        LoteDTOs.Response result = service.actualizar(1L, req);
+
+        assertThat(existente.getCantidad()).isEqualTo(12);
+        assertThat(existente.getDisponible()).isEqualTo(6);
+        assertThat(result.disponible()).isEqualTo(6);
+    }
+
+    @Test
+    void actualizar_debeRechazarCambioDeProductoConUnidadesEntregadas() {
+        LoteEntity existente = LoteEntity.builder()
+                .id(1L).codigoLote("LT-001").cantidad(10).disponible(4)
+                .fechaVencimiento(LocalDate.of(2027, 6, 30))
+                .precioCompra(new BigDecimal("2.50")).total(new BigDecimal("25.00"))
+                .compra(compra).insumoLog(insumo).estado(true).build();
+        LoteDTOs.Request req = requestInsumo(6L, "LT-001", LocalDate.of(2027, 6, 30), 10, new BigDecimal("2.50"));
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
+        when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L))
+                .thenReturn(Optional.of(existente));
+        when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of(existente));
+
+        assertThatThrownBy(() -> service.actualizar(1L, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("cambiar el producto");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_debePermitirCambioDeProductoSinUnidadesEntregadas() {
+        LoteEntity existente = LoteEntity.builder()
+                .id(1L).codigoLote("LT-001").cantidad(10).disponible(10)
+                .fechaVencimiento(LocalDate.of(2027, 6, 30))
+                .precioCompra(new BigDecimal("2.50")).total(new BigDecimal("25.00"))
+                .compra(compra).insumoLog(insumo).estado(true).build();
+        insumosLogEntity nuevoInsumo = insumosLogEntity.builder()
+                .id(6L).nombre("Nuevo insumo").estado(true).build();
+        LoteDTOs.Request req = requestInsumo(6L, "LT-001", LocalDate.of(2027, 6, 30), 10, new BigDecimal("2.50"));
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
+        when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L))
+                .thenReturn(Optional.of(existente));
+        when(repository.findByCodigoLoteIgnoreCase("LT-001")).thenReturn(List.of(existente));
+        when(insumosLogRepository.findByIdForUpdate(6L)).thenReturn(Optional.of(nuevoInsumo));
+        when(repository.save(any())).thenReturn(existente);
+        when(repository.sumTotalesPorCompra(1L)).thenReturn(new BigDecimal("25.00"));
+        when(compraRepository.save(any())).thenReturn(compra);
+        when(mapper.toDTO(existente)).thenReturn(new LoteDTOs.Response(
+                1L, "LT-001", 10, 10, true, LocalDate.of(2027, 6, 30),
+                new BigDecimal("2.50"), new BigDecimal("5.00"), new BigDecimal("25.00"),
+                6L, "Nuevo insumo", null, null, 1L, "COM-1"));
+
+        service.actualizar(1L, req);
+
+        assertThat(existente.getInsumoLog().getId()).isEqualTo(6L);
     }
 
     @Test
@@ -714,7 +814,7 @@ class LoteServiceTest {
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
         when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-MED", 1L)).thenReturn(Optional.empty());
         when(repository.findByCodigoLoteIgnoreCase("LT-MED")).thenReturn(List.of());
-        when(medicamentoLogRepository.findById(9L)).thenReturn(Optional.of(medicamento));
+        when(medicamentoLogRepository.findByIdForUpdate(9L)).thenReturn(Optional.of(medicamento));
         when(mapper.toEntity(req)).thenReturn(entity);
         when(repository.save(any())).thenReturn(guardado);
         when(repository.sumTotalesPorCompra(1L)).thenReturn(new BigDecimal("20.00"));
@@ -744,7 +844,7 @@ class LoteServiceTest {
 
         when(compraRepository.findById(1L)).thenReturn(Optional.of(compra));
         when(repository.findByCodigoLoteIgnoreCaseAndCompra_Id("LT-001", 1L)).thenReturn(Optional.empty());
-        when(insumosLogRepository.findById(5L)).thenReturn(Optional.of(insumo));
+        when(insumosLogRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(insumo));
         when(mapper.toEntity(req)).thenReturn(entity);
         when(repository.save(any())).thenReturn(guardado);
         when(repository.sumTotalesPorCompra(1L)).thenReturn(BigDecimal.TEN);

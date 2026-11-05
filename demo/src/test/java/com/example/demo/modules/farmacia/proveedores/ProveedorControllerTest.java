@@ -27,15 +27,25 @@ class ProveedorControllerTest {
     @Test
     void crear_debeAceptarNitConOchoDigitos() throws Exception {
         ProveedorDTOs.Request request = new ProveedorDTOs.Request(
-                "Farmacia Central", "10503497-6", "12345678", "admin@farmacia.com", true);
+                "Farmacia Central", "12345678", "12345678", "admin@farmacia.com", true);
         ProveedorDTOs.Response response = new ProveedorDTOs.Response(
-                1L, "PROV-01", "Farmacia Central", "10503497-6", "12345678", "admin@farmacia.com", true);
+                1L, "PROV-01", "Farmacia Central", "12345678", "12345678", "admin@farmacia.com", true);
         when(service.crear(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/proveedores")
                         .contentType("application/json")
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void crear_debeRechazarNitSinGuionQueNoTengaOchoDigitos() throws Exception {
+        String json = "{\"nombre\":\"Farmacia Central\",\"nit\":\"1234567\",\"telefono\":\"12345678\",\"email\":\"admin@farmacia.com\",\"estado\":true}";
+
+        mockMvc.perform(post("/api/v1/proveedores")
+                        .contentType("application/json")
+                        .content(json))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

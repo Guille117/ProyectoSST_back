@@ -7,6 +7,7 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -29,6 +30,22 @@ public class indicacionMedicamentoEntity {
     /** Nombre y detalles escritos por el usuario cuando el medicamento no está en el catálogo. */
     @Column(name = "medicamento_libre", length = 1000)
     private String medicamentoLibre;
+
+    /** Snapshot del catálogo al momento de registrar la indicación: no cambia si el catálogo se corrige. */
+    @Column(name = "medicamento_log_nombre", length = 150)
+    private String medicamentoLogNombre;
+
+    @Column(name = "medicamento_log_dosis", precision = 12, scale = 4)
+    private BigDecimal medicamentoLogDosis;
+
+    @Column(name = "medicamento_log_unidad", length = 50)
+    private String medicamentoLogUnidad;
+
+    @Column(name = "medicamento_log_presentacion", length = 100)
+    private String medicamentoLogPresentacion;
+
+    @Column(name = "medicamento_log_via_admin", length = 100)
+    private String medicamentoLogViaAdmin;
 
     @Column(length = 255)
     private String presentacion;
