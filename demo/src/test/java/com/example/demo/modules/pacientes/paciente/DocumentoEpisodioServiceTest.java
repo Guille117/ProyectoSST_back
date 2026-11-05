@@ -1,5 +1,9 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import com.example.demo.modules.clinica.alta.altaEntity;
+import com.example.demo.modules.clinica.alta.altaRepository;
+import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoEntity;
+import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
@@ -31,6 +35,8 @@ class DocumentoEpisodioServiceTest {
     @Mock private EpisodioRepository episodioRepository;
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private DocumentoEpisodioStorage storage;
+    @Mock private procedimientoMedicoRepository procedimientoMedicoRepository;
+    @Mock private altaRepository altaRepository;
 
     @InjectMocks private DocumentoEpisodioService service;
 
@@ -168,5 +174,151 @@ class DocumentoEpisodioServiceTest {
         when(storage.cargar(doc.getUrlArchivo())).thenReturn(archivo);
 
         assertThat(service.cargarArchivo(10L)).isSameAs(archivo);
+    }
+
+    private procedimientoMedicoEntity procedimiento(Long id, EpisodioEntity episodio, boolean requiere) {
+        return procedimientoMedicoEntity.builder()
+                .id(id).episodio(episodio).requiereAutorizacion(requiere).build();
+    }
+
+    private altaEntity alta(Long id, EpisodioEntity episodio) {
+        return altaEntity.builder().id(id).episodio(episodio).build();
+    }
+
+    private void prepararGuardado() {
+        when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario()));
+        when(storage.guardar(any(), eq(8L), any()))
+                .thenReturn("uploads/documentos/archivo.pdf");
+        when(repository.save(any())).thenAnswer(invocation -> {
+            DocumentoEpisodioEntity entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(10L);
+            }
+            return entity;
+        });
+    }
+
+    @Test
+    void subir_autorizacion_debeAsociarProcedimientoDelEpisodio() {
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+        when(procedimientoMedicoRepository.findById(21L))
+                .thenReturn(Optional.of(procedimiento(21L, episodio, true)));
+        prepararGuardado();
+
+        List<DocumentoEpisodioDTOs.Response> resultado = service.subir(
+                8L, TipoDocumentoEpisodio.AUTORIZACION_PROCEDIMIENTO, 3L, 21L, null,
+                List.of(pdf("autorizacion.pdf")));
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).procedimientoMedicoId()).isEqualTo(21L);
+        assertThat(resultado.get(0).altaId()).isNull();
+        verify(repository).save(argThat(documento ->
+                documento.getProcedimientoMedico() != null
+                        && documento.getProcedimientoMedico().getId().equals(21L)
+                        && documento.getAlta() == null));
+    }
+
+    @Test
+    void subir_autorizacion_debeRechazarProcedimientoSinAutorizacion() {
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+        when(procedimientoMedicoRepository.findById(21L))
+                .thenReturn(Optional.of(procedimiento(21L, episodio, false)));
+
+        assertThatThrownBy(() -> service.subir(
+                8L, TipoDocumentoEpisodio.AUTORIZACION_PROCEDIMIENTO, 3L, 21L, null,
+                List.of(pdf("autorizacion.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no requiere autorización");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void subir_autorizacion_debeRechazarProcedimientoDeOtroEpisodio() {
+        EpisodioEntity otroEpisodio = EpisodioEntity.builder().id(99L).build();
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+        when(procedimientoMedicoRepository.findById(21L))
+                .thenReturn(Optional.of(procedimiento(21L, otroEpisodio, true)));
+
+        assertThatThrownBy(() -> service.subir(
+                8L, TipoDocumentoEpisodio.AUTORIZACION_PROCEDIMIENTO, 3L, 21L, null,
+                List.of(pdf("autorizacion.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no pertenece al episodio");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void subir_autorizacion_debeExigirProcedimiento() {
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+
+        assertThatThrownBy(() -> service.subir(
+                8L, TipoDocumentoEpisodio.AUTORIZACION_PROCEDIMIENTO, 3L, null, null,
+                List.of(pdf("autorizacion.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("procedimiento es obligatorio");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void subir_alta_debeAsociarAltaDelEpisodio() {
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+        when(altaRepository.findById(30L)).thenReturn(Optional.of(alta(30L, episodio)));
+        prepararGuardado();
+
+        List<DocumentoEpisodioDTOs.Response> resultado = service.subir(
+                8L, TipoDocumentoEpisodio.ALTA_MEDICA, 3L, null, 30L,
+                List.of(pdf("alta.pdf")));
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).altaId()).isEqualTo(30L);
+        assertThat(resultado.get(0).procedimientoMedicoId()).isNull();
+        verify(repository).save(argThat(documento ->
+                documento.getAlta() != null
+                        && documento.getAlta().getId().equals(30L)
+                        && documento.getProcedimientoMedico() == null));
+    }
+
+    @Test
+    void subir_receta_debeAsociarAltaDelEpisodio() {
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+        when(altaRepository.findById(30L)).thenReturn(Optional.of(alta(30L, episodio)));
+        prepararGuardado();
+
+        List<DocumentoEpisodioDTOs.Response> resultado = service.subir(
+                8L, TipoDocumentoEpisodio.RECETA, 3L, null, 30L,
+                List.of(pdf("receta.pdf")));
+
+        assertThat(resultado).hasSize(1);
+        assertThat(resultado.get(0).altaId()).isEqualTo(30L);
+        assertThat(resultado.get(0).tipo()).isEqualTo(TipoDocumentoEpisodio.RECETA);
+    }
+
+    @Test
+    void subir_alta_debeRechazarAltaDeOtroEpisodio() {
+        EpisodioEntity otroEpisodio = EpisodioEntity.builder().id(99L).build();
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+        when(altaRepository.findById(30L)).thenReturn(Optional.of(alta(30L, otroEpisodio)));
+
+        assertThatThrownBy(() -> service.subir(
+                8L, TipoDocumentoEpisodio.RECETA, 3L, null, 30L, List.of(pdf("receta.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no pertenece al episodio");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void subir_alta_debeExigirAlta() {
+        when(episodioRepository.findById(8L)).thenReturn(Optional.of(episodio));
+
+        assertThatThrownBy(() -> service.subir(
+                8L, TipoDocumentoEpisodio.ALTA_MEDICA, 3L, null, null, List.of(pdf("alta.pdf"))))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("alta es obligatoria");
+
+        verify(repository, never()).save(any());
     }
 }

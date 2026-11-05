@@ -30,8 +30,11 @@ public class DocumentoEpisodioController {
             @PathVariable("episodioId") Long episodioId,
             @RequestParam(name = "tipo") TipoDocumentoEpisodio tipo,
             @RequestParam(name = "usuarioId") Long usuarioId,
+            @RequestParam(name = "procedimientoMedicoId", required = false) Long procedimientoMedicoId,
+            @RequestParam(name = "altaId", required = false) Long altaId,
             @RequestPart("archivos") List<MultipartFile> archivos) {
-        return new ResponseEntity<>(service.subir(episodioId, tipo, usuarioId, archivos), HttpStatus.CREATED);
+        return new ResponseEntity<>(service.subir(
+                episodioId, tipo, usuarioId, procedimientoMedicoId, altaId, archivos), HttpStatus.CREATED);
     }
 
     @PatchMapping("/documentos/{id}/estado")

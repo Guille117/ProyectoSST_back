@@ -12,6 +12,8 @@ public class DocumentoEpisodioDTOs {
             LocalDateTime fechaSubida,
             Long usuarioId,
             String usuarioNombre,
-            boolean estado
+            boolean estado,
+            Long procedimientoMedicoId,
+            Long altaId
     ) {}
 }
