@@ -8,6 +8,8 @@ import com.example.demo.modules.pacientes.parentesco.parentescoEntity;
 import com.example.demo.modules.pacientes.parentesco.parentescoRepository;
 import com.example.demo.modules.pacientes.institucion.institucionEntity;
 import com.example.demo.modules.pacientes.institucion.institucionRepository;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaEntity;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaRepository;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.camas.EstadoCama;
@@ -24,6 +26,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -50,6 +53,7 @@ public class PacienteService {
         private final parentescoRepository parentescoRepository;
         private final institucionRepository institucionRepository;
         private final camasRepository camasRepository;
+        private final EstanciaCamaRepository estanciaCamaRepository;
         private final alergiaRepository alergiaRepository;
         private final enfermedadRepository enfermedadRepository;
         private final DocumentoEpisodioService documentoEpisodioService;
@@ -228,6 +232,7 @@ public class PacienteService {
                 .cama(cama)
                 .precioCama(cama != null ? cama.getPrecio() : null)
                 .build());
+        registrarEstanciaInicial(episodio, cama);
 
         Map<TipoDocumentoEpisodio, List<MultipartFile>> documentos = new HashMap<>();
         if (!referencias.isEmpty()) {
@@ -300,6 +305,68 @@ public class PacienteService {
                 cama.setPaciente(paciente);
                 cama.setEstado(EstadoCama.OCUPADA);
                 camasRepository.save(cama);
+        }
+
+        private void registrarEstanciaInicial(EpisodioEntity episodio, camasEntity cama) {
+                if (cama == null) {
+                        return;
+                }
+                estanciaCamaRepository.save(EstanciaCamaEntity.builder()
+                                .episodio(episodio)
+                                .cama(cama)
+                                .precio(cama.getPrecio())
+                                .fechaHoraInicio(episodio.getFechaHoraIngreso())
+                                .build());
+        }
+
+        /**
+         * Cierra el tramo vigente cuando cambia o se retira la cama y abre uno nuevo con el
+         * precio de la nueva cama. La fecha de ingreso del episodio no se modifica.
+         */
+        private EstanciaCamaEntity sincronizarEstanciaCama(
+                        EpisodioEntity episodio, camasEntity camaAnterior, camasEntity camaSolicitada) {
+                LocalDateTime ahora = LocalDateTime.now();
+                EstanciaCamaEntity abierta = estanciaCamaRepository
+                                .findFirstByEpisodio_IdAndFechaHoraFinIsNullOrderByFechaHoraInicioDesc(
+                                                episodio.getId())
+                                .orElse(null);
+
+                // Compatibilidad con episodios previos a la tabla de estancias.
+                if (abierta == null && camaAnterior != null) {
+                        BigDecimal precioAnterior = episodio.getPrecioCama() != null
+                                        ? episodio.getPrecioCama()
+                                        : camaAnterior.getPrecio();
+                        abierta = estanciaCamaRepository.save(EstanciaCamaEntity.builder()
+                                        .episodio(episodio)
+                                        .cama(camaAnterior)
+                                        .precio(precioAnterior)
+                                        .fechaHoraInicio(episodio.getFechaHoraIngreso())
+                                        .build());
+                }
+
+                if (camaSolicitada == null) {
+                        if (abierta != null) {
+                                abierta.setFechaHoraFin(ahora);
+                                return estanciaCamaRepository.save(abierta);
+                        }
+                        return null;
+                }
+
+                if (abierta != null && abierta.getCama().getId().equals(camaSolicitada.getId())) {
+                        return abierta;
+                }
+
+                if (abierta != null) {
+                        abierta.setFechaHoraFin(ahora);
+                        estanciaCamaRepository.save(abierta);
+                }
+
+                return estanciaCamaRepository.save(EstanciaCamaEntity.builder()
+                                .episodio(episodio)
+                                .cama(camaSolicitada)
+                                .precio(camaSolicitada.getPrecio())
+                                .fechaHoraInicio(ahora)
+                                .build());
         }
 
     @Transactional(readOnly = true)
@@ -555,15 +622,18 @@ public class PacienteService {
             throw new IllegalArgumentException("La cama es obligatoria para la hospitalización");
         }
 
+        camasEntity camaAnterior = episodio.getCama();
         episodio.setTipoAtencion(datos.tipoAtencion());
         episodio.setDescripcion(StringNormalizer.normalizarTexto(datos.descripcion()));
         episodio.setMedico(medico);
         actualizarResponsable(episodio, datos.responsable(), parentesco);
         actualizarReferencia(episodio, datos.referencia(), institucion);
+        EstanciaCamaEntity estanciaVigente =
+                sincronizarEstanciaCama(episodio, camaAnterior, camaSolicitada);
         episodio.setCama(camaSolicitada);
-        if (episodio.getPrecioCama() == null && camaSolicitada != null) {
-            episodio.setPrecioCama(camaSolicitada.getPrecio());
-        }
+        episodio.setPrecioCama(camaSolicitada != null && estanciaVigente != null
+                ? estanciaVigente.getPrecio()
+                : null);
         actualizarCama(paciente, camaSolicitada);
         episodioRepository.save(episodio);
 

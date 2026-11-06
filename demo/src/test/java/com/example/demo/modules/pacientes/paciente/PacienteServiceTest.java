@@ -9,6 +9,8 @@ import com.example.demo.modules.pacientes.parentesco.parentescoEntity;
 import com.example.demo.modules.pacientes.parentesco.parentescoRepository;
 import com.example.demo.modules.pacientes.institucion.institucionEntity;
 import com.example.demo.modules.pacientes.institucion.institucionRepository;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaEntity;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaRepository;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.camas.EstadoCama;
@@ -51,6 +53,7 @@ class PacienteServiceTest {
     @Mock private parentescoRepository parentescoRepository;
     @Mock private institucionRepository institucionRepository;
     @Mock private camasRepository camasRepository;
+    @Mock private EstanciaCamaRepository estanciaCamaRepository;
     @Mock private alergiaRepository alergiaRepository;
     @Mock private enfermedadRepository enfermedadRepository;
     @Mock private DocumentoEpisodioService documentoEpisodioService;
@@ -462,6 +465,42 @@ class PacienteServiceTest {
     }
 
     @Test
+    void crear_conCamaRegistraElPrimerTramoDeEstancia() {
+        prepararGuardado();
+        camasEntity cama = new camasEntity();
+        cama.setId(9L);
+        cama.setCodigo("A-101");
+        cama.setEstado(EstadoCama.DISPONIBLE);
+        cama.setActivo(true);
+        cama.setPrecio(new BigDecimal("175.00"));
+        when(camasRepository.findById(9L)).thenReturn(Optional.of(cama));
+        when(camasRepository.save(cama)).thenReturn(cama);
+        when(estanciaCamaRepository.save(any(EstanciaCamaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PacienteDTOs.Request request = new PacienteDTOs.Request(
+                new PacienteDTOs.PacienteRequest(null, persona("1234567890123", HOY.minusYears(30)),
+                        null, null, null, 9L, null, null),
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
+
+        service.crear(request, HOY);
+
+        ArgumentCaptor<EpisodioEntity> episodioCaptor = ArgumentCaptor.forClass(EpisodioEntity.class);
+        verify(episodioRepository).save(episodioCaptor.capture());
+        ArgumentCaptor<EstanciaCamaEntity> estanciaCaptor =
+                ArgumentCaptor.forClass(EstanciaCamaEntity.class);
+        verify(estanciaCamaRepository).save(estanciaCaptor.capture());
+
+        EstanciaCamaEntity estancia = estanciaCaptor.getValue();
+        assertSame(episodioCaptor.getValue(), estancia.getEpisodio());
+        assertSame(cama, estancia.getCama());
+        assertEquals(new BigDecimal("175.00"), estancia.getPrecio());
+        assertEquals(episodioCaptor.getValue().getFechaHoraIngreso(), estancia.getFechaHoraInicio());
+        assertNull(estancia.getFechaHoraFin());
+    }
+
+    @Test
     void crearRechazaCamaNoDisponibleAntesDeGuardarPaciente() {
         camasEntity cama = new camasEntity();
         cama.setId(9L);
@@ -832,6 +871,8 @@ class PacienteServiceTest {
         when(responsableRepository.save(any(PersonaResponsableEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(referenciaRepository.save(any(ReferenciaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(episodioRepository.save(any(EpisodioEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(estanciaCamaRepository.save(any(EstanciaCamaEntity.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
 
         PacienteDTOs.PersonaRequest datosPersona = new PacienteDTOs.PersonaRequest(
             "1234567890123", "Ana Maria", "Lopez Ruiz", LocalDate.now().minusYears(31),
@@ -869,6 +910,172 @@ class PacienteServiceTest {
         assertEquals(EstadoCama.OCUPADA, camaNueva.getEstado());
         assertEquals(camaNueva, episodio.getCama());
         assertEquals(new BigDecimal("200.00"), episodio.getPrecioCama());
+
+        ArgumentCaptor<EstanciaCamaEntity> estanciaCaptor =
+            ArgumentCaptor.forClass(EstanciaCamaEntity.class);
+        verify(estanciaCamaRepository).save(estanciaCaptor.capture());
+        EstanciaCamaEntity estancia = estanciaCaptor.getValue();
+        assertSame(episodio, estancia.getEpisodio());
+        assertSame(camaNueva, estancia.getCama());
+        assertEquals(new BigDecimal("200.00"), estancia.getPrecio());
+        assertTrue(estancia.getFechaHoraInicio().isAfter(episodio.getFechaHoraIngreso()));
+        assertNull(estancia.getFechaHoraFin());
+        }
+
+        @Test
+        void actualizar_cambioDeCamaCierraElTramoAnteriorYAbrenUnoNuevoConSuPrecio() {
+        PersonaEntity persona = PersonaEntity.builder()
+            .id(10L).cui("1234567890123").sexo(Sexo.FEMENINO)
+            .fechaNacimiento(LocalDate.now().minusYears(30)).telefono("11111111")
+            .primerNombre("Ana").primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder().id(20L).persona(persona).estado(true).build();
+        ExpedienteEntity expediente = ExpedienteEntity.builder().id(30L).codigo("EXP-30").paciente(paciente).build();
+        parentescoEntity parentesco = parentesco(7L, "Madre", true);
+        PersonaEntity personaResponsable = PersonaEntity.builder()
+            .id(11L).cui("9876543210123").sexo(Sexo.FEMENINO)
+            .fechaNacimiento(LocalDate.now().minusYears(55)).telefono("87654321")
+            .primerNombre("Rosa").primerApellido("Lopez").build();
+        PersonaResponsableEntity responsable = PersonaResponsableEntity.builder()
+            .id(40L).persona(personaResponsable).parentesco(parentesco)
+            .direccion("Casa").estado(true).build();
+        UsuarioEntity medico = UsuarioEntity.builder().id(5L)
+            .persona(PersonaEntity.builder().primerNombre("Juan").primerApellido("Perez").build()).build();
+        camasEntity camaAnterior = camasEntity.builder()
+            .id(60L).codigo("A-105").precio(new BigDecimal("100.00")).paciente(paciente)
+            .estado(EstadoCama.OCUPADA).activo(true).build();
+        camasEntity camaNueva = camasEntity.builder()
+            .id(70L).codigo("A-106").precio(new BigDecimal("200.00"))
+            .estado(EstadoCama.DISPONIBLE).activo(true).build();
+        EpisodioEntity episodio = EpisodioEntity.builder()
+            .id(42L).paciente(paciente).medico(medico)
+            .tipoAtencion(TipoAtencion.HOSPITALIZACION).descripcion("Anterior")
+            .fechaHoraIngreso(LocalDateTime.now().minusHours(10))
+            .cama(camaAnterior).precioCama(new BigDecimal("100.00"))
+            .personaResponsable(responsable).estado(true).build();
+        EstanciaCamaEntity estanciaAnterior = EstanciaCamaEntity.builder()
+            .id(80L).episodio(episodio).cama(camaAnterior)
+            .precio(new BigDecimal("100.00"))
+            .fechaHoraInicio(episodio.getFechaHoraIngreso()).build();
+
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
+            .thenReturn(Optional.of(episodio));
+        when(expedienteRepository.findByPacienteId(20L)).thenReturn(Optional.of(expediente));
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(persona));
+        when(personaRepository.save(any(PersonaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(pacienteRepository.save(any(PacienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(medico));
+        when(parentescoRepository.findById(7L)).thenReturn(Optional.of(parentesco));
+        when(camasRepository.findById(70L)).thenReturn(Optional.of(camaNueva));
+        when(camasRepository.findByPaciente_Id(20L)).thenReturn(Optional.of(camaAnterior));
+        when(camasRepository.save(any(camasEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(responsableRepository.save(any(PersonaResponsableEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(episodioRepository.save(any(EpisodioEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(estanciaCamaRepository
+            .findFirstByEpisodio_IdAndFechaHoraFinIsNullOrderByFechaHoraInicioDesc(42L))
+            .thenReturn(Optional.of(estanciaAnterior));
+        when(estanciaCamaRepository.save(any(EstanciaCamaEntity.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
+
+        PacienteDTOs.PersonaRequest datosPersona = new PacienteDTOs.PersonaRequest(
+            "1234567890123", "Ana", "Lopez", LocalDate.now().minusYears(30),
+            Sexo.FEMENINO, "11111111", null);
+        PacienteDTOs.ResponsableRequest datosResponsable = new PacienteDTOs.ResponsableRequest(
+            new PacienteDTOs.PersonaRequest("9876543210123", "Rosa", "Lopez",
+                LocalDate.now().minusYears(55), Sexo.FEMENINO, "87654321", null),
+            7L, "Casa");
+        PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
+            new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, 70L, null, null),
+            new PacienteDTOs.EpisodioRequest(TipoAtencion.HOSPITALIZACION, "Cambio de cama", 5L,
+                datosResponsable, null),
+            5L);
+
+        service.actualizar(20L, request, null);
+
+        assertNotNull(estanciaAnterior.getFechaHoraFin());
+        assertEquals(camaNueva, episodio.getCama());
+        assertEquals(new BigDecimal("200.00"), episodio.getPrecioCama());
+
+        ArgumentCaptor<EstanciaCamaEntity> captor = ArgumentCaptor.forClass(EstanciaCamaEntity.class);
+        verify(estanciaCamaRepository, times(2)).save(captor.capture());
+        List<EstanciaCamaEntity> guardadas = captor.getAllValues();
+        assertSame(estanciaAnterior, guardadas.get(0));
+        EstanciaCamaEntity nueva = guardadas.get(1);
+        assertSame(camaNueva, nueva.getCama());
+        assertEquals(new BigDecimal("200.00"), nueva.getPrecio());
+        assertEquals(estanciaAnterior.getFechaHoraFin(), nueva.getFechaHoraInicio());
+        assertNull(nueva.getFechaHoraFin());
+        }
+
+        @Test
+        void actualizar_mismaCamaNoDuplicaElTramoDeEstancia() {
+        PersonaEntity persona = PersonaEntity.builder()
+            .id(10L).cui("1234567890123").sexo(Sexo.FEMENINO)
+            .fechaNacimiento(LocalDate.now().minusYears(30)).telefono("11111111")
+            .primerNombre("Ana").primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder().id(20L).persona(persona).estado(true).build();
+        ExpedienteEntity expediente = ExpedienteEntity.builder().id(30L).codigo("EXP-30").paciente(paciente).build();
+        parentescoEntity parentesco = parentesco(7L, "Madre", true);
+        PersonaEntity personaResponsable = PersonaEntity.builder()
+            .id(11L).cui("9876543210123").sexo(Sexo.FEMENINO)
+            .fechaNacimiento(LocalDate.now().minusYears(55)).telefono("87654321")
+            .primerNombre("Rosa").primerApellido("Lopez").build();
+        PersonaResponsableEntity responsable = PersonaResponsableEntity.builder()
+            .id(40L).persona(personaResponsable).parentesco(parentesco)
+            .direccion("Casa").estado(true).build();
+        UsuarioEntity medico = UsuarioEntity.builder().id(5L)
+            .persona(PersonaEntity.builder().primerNombre("Juan").primerApellido("Perez").build()).build();
+        camasEntity cama = camasEntity.builder()
+            .id(60L).codigo("A-105").precio(new BigDecimal("100.00")).paciente(paciente)
+            .estado(EstadoCama.OCUPADA).activo(true).build();
+        EpisodioEntity episodio = EpisodioEntity.builder()
+            .id(42L).paciente(paciente).medico(medico)
+            .tipoAtencion(TipoAtencion.HOSPITALIZACION).descripcion("Anterior")
+            .fechaHoraIngreso(LocalDateTime.now().minusHours(10))
+            .cama(cama).precioCama(new BigDecimal("100.00"))
+            .personaResponsable(responsable).estado(true).build();
+        EstanciaCamaEntity estanciaAbierta = EstanciaCamaEntity.builder()
+            .id(80L).episodio(episodio).cama(cama)
+            .precio(new BigDecimal("100.00"))
+            .fechaHoraInicio(episodio.getFechaHoraIngreso()).build();
+
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
+            .thenReturn(Optional.of(episodio));
+        when(expedienteRepository.findByPacienteId(20L)).thenReturn(Optional.of(expediente));
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(persona));
+        when(personaRepository.save(any(PersonaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(pacienteRepository.save(any(PacienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(medico));
+        when(parentescoRepository.findById(7L)).thenReturn(Optional.of(parentesco));
+        when(camasRepository.findById(60L)).thenReturn(Optional.of(cama));
+        when(camasRepository.findByPaciente_Id(20L)).thenReturn(Optional.of(cama));
+        when(responsableRepository.save(any(PersonaResponsableEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(episodioRepository.save(any(EpisodioEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(estanciaCamaRepository
+            .findFirstByEpisodio_IdAndFechaHoraFinIsNullOrderByFechaHoraInicioDesc(42L))
+            .thenReturn(Optional.of(estanciaAbierta));
+
+        PacienteDTOs.PersonaRequest datosPersona = new PacienteDTOs.PersonaRequest(
+            "1234567890123", "Ana", "Lopez", LocalDate.now().minusYears(30),
+            Sexo.FEMENINO, "11111111", null);
+        PacienteDTOs.ResponsableRequest datosResponsable = new PacienteDTOs.ResponsableRequest(
+            new PacienteDTOs.PersonaRequest("9876543210123", "Rosa", "Lopez",
+                LocalDate.now().minusYears(55), Sexo.FEMENINO, "87654321", null),
+            7L, "Casa");
+        PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
+            new PacienteDTOs.PacienteRequest(null, datosPersona, null, null, null, 60L, null, null),
+            new PacienteDTOs.EpisodioRequest(TipoAtencion.HOSPITALIZACION, "Control", 5L,
+                datosResponsable, null),
+            5L);
+
+        service.actualizar(20L, request, null);
+
+        assertNull(estanciaAbierta.getFechaHoraFin());
+        assertEquals(cama, episodio.getCama());
+        assertEquals(new BigDecimal("100.00"), episodio.getPrecioCama());
+        verify(estanciaCamaRepository, never()).save(any(EstanciaCamaEntity.class));
+        verify(camasRepository, never()).save(any(camasEntity.class));
         }
 
         @Test
@@ -897,6 +1104,9 @@ class PacienteServiceTest {
         camasEntity cama = camasEntity.builder()
             .id(60L).codigo("A-105").paciente(paciente)
             .estado(EstadoCama.OCUPADA).activo(true).build();
+        EstanciaCamaEntity estanciaAbierta = EstanciaCamaEntity.builder()
+            .id(80L).episodio(episodio).cama(cama).precio(new BigDecimal("100.00"))
+            .fechaHoraInicio(episodio.getFechaHoraIngreso()).build();
 
         when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
         when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
@@ -911,6 +1121,11 @@ class PacienteServiceTest {
         when(responsableRepository.save(any(PersonaResponsableEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(referenciaRepository.save(any(ReferenciaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         when(episodioRepository.save(any(EpisodioEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(estanciaCamaRepository
+            .findFirstByEpisodio_IdAndFechaHoraFinIsNullOrderByFechaHoraInicioDesc(42L))
+            .thenReturn(Optional.of(estanciaAbierta));
+        when(estanciaCamaRepository.save(any(EstanciaCamaEntity.class)))
+            .thenAnswer(inv -> inv.getArgument(0));
 
         PacienteDTOs.PersonaRequest datosPersona = new PacienteDTOs.PersonaRequest(
             "1234567890123", "Ana", "Lopez", LocalDate.now().minusYears(30),
@@ -928,6 +1143,9 @@ class PacienteServiceTest {
         assertFalse(referencia.isEstado());
         assertNull(cama.getPaciente());
         assertEquals(EstadoCama.DISPONIBLE, cama.getEstado());
+        assertNotNull(estanciaAbierta.getFechaHoraFin());
+        assertNull(episodio.getPrecioCama());
+        verify(estanciaCamaRepository).save(estanciaAbierta);
         assertNull(response.responsableId());
         assertNull(response.referenciaId());
         }
