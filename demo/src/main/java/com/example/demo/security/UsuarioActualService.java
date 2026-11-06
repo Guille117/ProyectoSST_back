@@ -53,7 +53,7 @@ public class UsuarioActualService {
                 .anyMatch(PermisosSistema.ROL_MEDICO::equals);
     }
 
-    private boolean tieneAccesoGlobal(UsuarioEntity usuario) {
+    public boolean tieneAccesoGlobal(UsuarioEntity usuario) {
         Set<String> roles = usuario.getRoles().stream()
                 .map(RolEntity::getNombre)
                 .collect(Collectors.toSet());

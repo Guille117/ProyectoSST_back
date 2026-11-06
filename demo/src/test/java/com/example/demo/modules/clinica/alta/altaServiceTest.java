@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.alta;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
@@ -63,6 +65,11 @@ class altaServiceTest {
 
     @Mock
     private SolicitudSalidaService solicitudSalidaService;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private altaService service;
@@ -451,7 +458,7 @@ class altaServiceTest {
 
         when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
         when(repository
-                .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Medico_IdOrderByFechaHoraEgresoDesc(
+                .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Paciente_Medicos_IdOrderByFechaHoraEgresoDesc(
                         any(EstadoAlta.class), any(LocalDateTime.class), eq(5L)))
                 .thenReturn(List.of(alta));
 

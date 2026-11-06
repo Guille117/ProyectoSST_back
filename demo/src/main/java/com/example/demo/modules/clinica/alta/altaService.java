@@ -16,6 +16,7 @@ import com.example.demo.modules.pacientes.paciente.PacienteEntity;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.security.UsuarioActualService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class altaService {
     private final camasRepository camasRepository;
     private final UsuarioActualService usuarioActual;
     private final SolicitudSalidaService solicitudSalidaService;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public altaDTOs.Response crear(altaDTOs.Request request) {
@@ -62,7 +64,7 @@ public class altaService {
             throw new IllegalArgumentException("El episodio ya tiene un alta registrada");
         }
 
-        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+        UsuarioEntity usuario = autor(request.usuarioId());
         validarSeccion(request.tipoAlta(), request);
 
         altaEntity entity = altaEntity.builder()
@@ -117,11 +119,14 @@ public class altaService {
         }
 
         altaEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
         if (entity.getEstado() != EstadoAlta.VIGENTE) {
             throw new IllegalArgumentException("El alta no está vigente");
         }
 
-        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+        UsuarioEntity usuario = entity.getUsuario();
         validarSeccion(request.tipoAlta(), request);
 
         entity.setTipoAlta(request.tipoAlta());
@@ -129,7 +134,6 @@ public class altaService {
                 "El diagnóstico de egreso es obligatorio"));
         entity.setCondicionEgreso(buscarCondicion(request.condicionEgresoId()));
         entity.setObservacionEgreso(StringNormalizer.normalizarNullable(request.observacionEgreso()));
-        entity.setUsuario(usuario);
         entity.setResponsableRetiro(esRetiro(request.tipoAlta())
                 ? request.responsableRetiro()
                 : null);
@@ -172,6 +176,7 @@ public class altaService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
                         episodioId, EstadoAlta.VIGENTE)
@@ -189,7 +194,7 @@ public class altaService {
         LocalDateTime desde = LocalDateTime.now().minusHours(horas);
         List<altaEntity> altas = usuarioActual.medicoRestringidoId()
                 .map(medicoId -> repository
-                        .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Medico_IdOrderByFechaHoraEgresoDesc(
+                        .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Paciente_Medicos_IdOrderByFechaHoraEgresoDesc(
                                 EstadoAlta.VIGENTE, desde, medicoId))
                 .orElseGet(() -> repository
                         .findByEstadoAndFechaHoraEgresoGreaterThanEqualOrderByFechaHoraEgresoDesc(
@@ -202,6 +207,7 @@ public class altaService {
     @Transactional
     public void anular(Long id) {
         altaEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         if (entity.getEstado() == EstadoAlta.ANULADA) {
             return;
         }
@@ -430,8 +436,15 @@ public class altaService {
     }
 
     private altaEntity buscarEntidad(Long id) {
-        return repository.findById(id)
+        altaEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Alta no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private EpisodioEntity buscarEpisodio(Long episodioId) {
@@ -439,9 +452,11 @@ public class altaService {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

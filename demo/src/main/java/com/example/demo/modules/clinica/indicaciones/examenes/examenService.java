@@ -4,6 +4,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class examenService {
     private final ExamenArchivoStorage archivoStorage;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public examenDTOs.Response crear(examenDTOs.Request request, List<MultipartFile> archivos) {
@@ -34,7 +36,7 @@ public class examenService {
                 .nombreExamen(validarNombre(request.nombreExamen()))
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
                 .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -56,13 +58,14 @@ public class examenService {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        examenEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+        examenEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
         entity.setNombreExamen(validarNombre(request.nombreExamen()));
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         List<String> rutasGuardadas = new ArrayList<>();
         try {
@@ -76,8 +79,8 @@ public class examenService {
 
     @Transactional
     public examenDTOs.Response agregarArchivos(Long id, List<MultipartFile> archivos) {
-        examenEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+        examenEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         List<String> rutasGuardadas = new ArrayList<>();
         try {
@@ -91,8 +94,8 @@ public class examenService {
 
     @Transactional
     public void eliminarArchivo(Long examenId, Long archivoId) {
-        examenEntity entity = repository.findById(examenId)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + examenId));
+        examenEntity entity = buscarEntidad(examenId);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         examenArchivoEntity objetivo = entity.getArchivos().stream()
                 .filter(archivo -> archivoId.equals(archivo.getId()))
@@ -106,8 +109,7 @@ public class examenService {
 
     @Transactional(readOnly = true)
     public ExamenArchivoStorage.Archivo cargarArchivo(Long examenId, Long archivoId) {
-        examenEntity entity = repository.findById(examenId)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + examenId));
+        examenEntity entity = buscarEntidad(examenId);
 
         examenArchivoEntity archivo = entity.getArchivos().stream()
                 .filter(item -> archivoId.equals(item.getId()))
@@ -119,8 +121,7 @@ public class examenService {
 
     @Transactional(readOnly = true)
     public examenDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+        return toResponse(buscarEntidad(id));
     }
 
     @Transactional(readOnly = true)
@@ -133,6 +134,7 @@ public class examenService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(episodioId, validarEstado(estado)).stream()
                 .map(this::toResponse)
@@ -141,8 +143,8 @@ public class examenService {
 
     @Transactional
     public examenDTOs.Response cambiarEstado(Long id, EstadoExamen estado) {
-        examenEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+        examenEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(validarEstado(estado));
         return toResponse(repository.save(entity));
@@ -150,8 +152,8 @@ public class examenService {
 
     @Transactional
     public void eliminar(Long id) {
-        examenEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+        examenEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(EstadoExamen.ELIMINADO);
         repository.save(entity);
@@ -226,13 +228,27 @@ public class examenService {
         return normalizado;
     }
 
+    private examenEntity buscarEntidad(Long id) {
+        examenEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Examen no encontrado con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
+    }
+
     private EpisodioEntity buscarEpisodio(Long episodioId) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

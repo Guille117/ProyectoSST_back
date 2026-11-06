@@ -616,9 +616,8 @@ class PacienteServiceTest {
             .fechaHoraIngreso(LocalDateTime.of(2026, 10, 17, 8, 30)).estado(true).build();
 
         when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
-        when(episodioRepository.findPacienteIdsByMedicoIdAndEstadoTrue(5L)).thenReturn(List.of(20L));
-        when(pacienteRepository.findByIdInAndEstadoOrderByIdAsc(List.of(20L), true))
-            .thenReturn(List.of(paciente));
+        when(pacienteRepository.findByMedicos_IdAndEstadoOrderByIdAsc(5L, true))
+                .thenReturn(List.of(paciente));
         when(expedienteRepository.findByPaciente_IdIn(List.of(20L))).thenReturn(List.of(expediente));
         when(episodioRepository.findByPaciente_IdInOrderByIdDesc(List.of(20L)))
             .thenReturn(List.of(episodio));
@@ -639,7 +638,7 @@ class PacienteServiceTest {
 
         when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
         when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
-        when(episodioRepository.existsByPaciente_IdAndMedico_Id(20L, 5L)).thenReturn(false);
+        when(pacienteRepository.existsByIdAndMedicos_Id(20L, 5L)).thenReturn(false);
 
         assertThrows(AccessDeniedException.class, () -> service.obtenerDetalle(20L));
         }
@@ -1149,6 +1148,92 @@ class PacienteServiceTest {
         assertNull(response.responsableId());
         assertNull(response.referenciaId());
         }
+
+    @Test
+    void crear_guardaVariosMedicosYUsaElPrimeroComoTratante() {
+        prepararGuardado();
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(UsuarioEntity.builder().id(7L).build()));
+        PacienteDTOs.Request request = new PacienteDTOs.Request(
+                new PacienteDTOs.PacienteRequest(null, persona("1234567890123", HOY.minusYears(30)),
+                        null, null, null, null, List.of(5L, 7L), null, null),
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", 5L, null, null),
+                5L);
+
+        service.crear(request, HOY);
+
+        ArgumentCaptor<PacienteEntity> pacienteCaptor = ArgumentCaptor.forClass(PacienteEntity.class);
+        verify(pacienteRepository).save(pacienteCaptor.capture());
+        assertEquals(List.of(5L, 7L), pacienteCaptor.getValue().getMedicos().stream()
+                .map(UsuarioEntity::getId).toList());
+        ArgumentCaptor<EpisodioEntity> episodioCaptor = ArgumentCaptor.forClass(EpisodioEntity.class);
+        verify(episodioRepository).save(episodioCaptor.capture());
+        assertEquals(5L, episodioCaptor.getValue().getMedico().getId());
+    }
+
+    @Test
+    void crear_rechazaCuandoNoSeAsignaNingunMedico() {
+        PacienteDTOs.Request request = new PacienteDTOs.Request(
+                new PacienteDTOs.PacienteRequest(null, persona("1234567890123", HOY.minusYears(30)),
+                        null, null, null, null, List.of(), null, null),
+                new PacienteDTOs.EpisodioRequest(TipoAtencion.EMERGENCIA, "Ingreso", null, null, null),
+                5L);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> service.crear(request, HOY));
+
+        assertTrue(error.getMessage().contains("al menos un médico"));
+        verify(pacienteRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizar_agregaMedicoSinPerderLosExistentes() {
+        PersonaEntity persona = PersonaEntity.builder().id(10L).cui("1234567890123")
+                .fechaNacimiento(HOY.minusYears(30)).build();
+        PacienteEntity paciente = PacienteEntity.builder().id(20L).persona(persona).build();
+        paciente.setMedicos(new java.util.LinkedHashSet<>(
+                List.of(UsuarioEntity.builder().id(5L).build())));
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(persona));
+        when(personaRepository.save(any(PersonaEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(usuarioRepository.findById(5L)).thenReturn(Optional.of(UsuarioEntity.builder().id(5L).build()));
+        when(usuarioRepository.findById(7L)).thenReturn(Optional.of(UsuarioEntity.builder().id(7L).build()));
+        when(pacienteRepository.save(any(PacienteEntity.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PacienteDTOs.ActualizacionRequest request = new PacienteDTOs.ActualizacionRequest(
+                new PacienteDTOs.PacienteRequest(20L, persona("1234567890123", HOY.minusYears(30)),
+                        null, null, null, null, List.of(5L, 7L), null, null),
+                null,
+                5L);
+
+        service.actualizar(20L, request, null);
+
+        assertEquals(List.of(5L, 7L), paciente.getMedicos().stream()
+                .map(UsuarioEntity::getId).toList());
+    }
+
+    @Test
+    void obtenerDetalle_devuelveTodosLosMedicosAsignados() {
+        PersonaEntity persona = PersonaEntity.builder().id(10L).primerNombre("Ana")
+                .primerApellido("Lopez").build();
+        PacienteEntity paciente = PacienteEntity.builder().id(20L).persona(persona).build();
+        paciente.setMedicos(new java.util.LinkedHashSet<>(List.of(
+                UsuarioEntity.builder().id(5L).persona(PersonaEntity.builder()
+                        .primerNombre("Juan").primerApellido("Perez").build()).build(),
+                UsuarioEntity.builder().id(7L).persona(PersonaEntity.builder()
+                        .primerNombre("Marta").primerApellido("Diaz").build()).build())));
+        when(pacienteRepository.findById(20L)).thenReturn(Optional.of(paciente));
+        when(expedienteRepository.findByPacienteId(20L)).thenReturn(Optional.empty());
+        when(episodioRepository.findFirstByPaciente_IdAndEstadoTrueOrderByIdDesc(20L))
+                .thenReturn(Optional.empty());
+        when(episodioRepository.findFirstByPaciente_IdOrderByIdDesc(20L))
+                .thenReturn(Optional.empty());
+        when(camasRepository.findByPaciente_IdAndActivoTrue(20L)).thenReturn(Optional.empty());
+
+        PacienteDTOs.DetalleResponse detalle = service.obtenerDetalle(20L);
+
+        assertEquals(List.of(5L, 7L), detalle.medicos().stream()
+                .map(PacienteDTOs.MedicoDetalle::id).toList());
+    }
 
     private parentescoEntity parentesco(Long id, String nombre, boolean estado) {
         parentescoEntity parentesco = new parentescoEntity();

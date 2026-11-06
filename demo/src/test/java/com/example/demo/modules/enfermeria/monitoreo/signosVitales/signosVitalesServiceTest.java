@@ -1,5 +1,7 @@
 package com.example.demo.modules.enfermeria.monitoreo.signosVitales;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.EstadoEjecucionCuidado;
 import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoDTOs;
 import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoService;
@@ -40,6 +42,11 @@ class signosVitalesServiceTest {
 
     @Mock
     private ejecucionCuidadoService ejecucionCuidadoService;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private signosVitalesService service;

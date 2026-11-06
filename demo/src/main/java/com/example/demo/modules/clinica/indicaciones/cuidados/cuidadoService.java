@@ -5,6 +5,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class cuidadoService {
     private final cuidadoRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public cuidadoDTOs.Response crear(cuidadoDTOs.Request request) {
@@ -34,7 +36,7 @@ public class cuidadoService {
                 .tipoDuracion(request.tipoDuracion())
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
                 .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fecha(LocalDateTime.now())
                 .fechaInicio(validarFechaInicio(request.fechaInicio()))
                 .build();
@@ -48,8 +50,10 @@ public class cuidadoService {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        cuidadoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Cuidado no encontrado con el ID: " + id));
+        cuidadoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
         entity.setNombreCuidado(validarNombre(request.nombreCuidado()));
         entity.setFrecuencia(validarFrecuencia(request.frecuencia()));
@@ -57,7 +61,6 @@ public class cuidadoService {
         entity.setTipoDuracion(request.tipoDuracion());
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
         entity.setFechaInicio(validarFechaInicio(request.fechaInicio()));
 
         return toResponse(repository.save(entity));
@@ -65,8 +68,7 @@ public class cuidadoService {
 
     @Transactional(readOnly = true)
     public cuidadoDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Cuidado no encontrado con el ID: " + id));
+        return toResponse(buscarEntidad(id));
     }
 
     @Transactional(readOnly = true)
@@ -79,6 +81,7 @@ public class cuidadoService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEstado(episodioId, validarEstado(estado)).stream()
                 .map(this::toResponse)
@@ -87,8 +90,8 @@ public class cuidadoService {
 
     @Transactional
     public cuidadoDTOs.Response cambiarEstado(Long id, EstadoCuidado estado) {
-        cuidadoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Cuidado no encontrado con el ID: " + id));
+        cuidadoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(validarEstado(estado));
         return toResponse(repository.save(entity));
@@ -96,8 +99,8 @@ public class cuidadoService {
 
     @Transactional
     public void eliminar(Long id) {
-        cuidadoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Cuidado no encontrado con el ID: " + id));
+        cuidadoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(EstadoCuidado.ELIMINADO);
         repository.save(entity);
@@ -135,13 +138,27 @@ public class cuidadoService {
         return fechaInicio;
     }
 
+    private cuidadoEntity buscarEntidad(Long id) {
+        cuidadoEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Cuidado no encontrado con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
+    }
+
     private EpisodioEntity buscarEpisodio(Long episodioId) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

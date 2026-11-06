@@ -6,6 +6,7 @@ import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoE
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ public class DocumentoEpisodioService {
     private final DocumentoEpisodioStorage storage;
     private final procedimientoMedicoRepository procedimientoMedicoRepository;
     private final altaRepository altaRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional(readOnly = true)
     public List<DocumentoEpisodioDTOs.Response> listar(
@@ -33,6 +35,7 @@ public class DocumentoEpisodioService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
         boolean estado = activos == null || activos;
         List<DocumentoEpisodioEntity> documentos = tipo == null
                 ? repository.findByEpisodio_IdAndEstadoOrderByFechaSubidaDesc(episodioId, estado)
@@ -60,7 +63,7 @@ public class DocumentoEpisodioService {
         procedimientoMedicoEntity procedimiento = resolverProcedimiento(
                 tipo, episodio, procedimientoMedicoId);
         altaEntity alta = resolverAlta(tipo, episodio, altaId);
-        UsuarioEntity usuario = buscarUsuario(usuarioId);
+        UsuarioEntity usuario = autor(usuarioId);
         return guardar(episodio, usuario, tipo, procedimiento, alta, archivos);
     }
 
@@ -89,6 +92,7 @@ public class DocumentoEpisodioService {
     @Transactional
     public DocumentoEpisodioDTOs.Response cambiarEstado(Long id) {
         DocumentoEpisodioEntity documento = buscarDocumento(id);
+        registroAcceso.validarEdicion(documento.getUsuario());
         documento.setEstado(!documento.isEstado());
         return toResponse(repository.save(documento));
     }
@@ -97,6 +101,7 @@ public class DocumentoEpisodioService {
     @Transactional
     public void eliminar(Long id) {
         DocumentoEpisodioEntity documento = buscarDocumento(id);
+        registroAcceso.validarEdicion(documento.getUsuario());
         if (documento.isEstado()) {
             documento.setEstado(false);
             repository.save(documento);
@@ -219,8 +224,15 @@ public class DocumentoEpisodioService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {
@@ -232,8 +244,10 @@ public class DocumentoEpisodioService {
     }
 
     private DocumentoEpisodioEntity buscarDocumento(Long id) {
-        return repository.findById(id)
+        DocumentoEpisodioEntity documento = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Documento no encontrado con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(documento.getEpisodio());
+        return documento;
     }
 
     private DocumentoEpisodioDTOs.Response toResponse(DocumentoEpisodioEntity documento) {

@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.procedimientoMedico;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.procedimiento.procedimientoEntity;
 import com.example.demo.modules.clinica.procedimiento.procedimientoRepository;
 import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
@@ -52,6 +54,11 @@ class procedimientoMedicoServiceTest {
     private LoteRepository loteRepository;
     @Mock
     private SolicitudSalidaService solicitudSalidaService;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private procedimientoMedicoService service;

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import com.example.demo.security.RegistroAccesoService;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -35,6 +36,11 @@ class historiaClinicaServiceTest {
 
     @Mock
     private estadoClinicoRepository estadoClinicoRepository;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private historiaClinicaService service;

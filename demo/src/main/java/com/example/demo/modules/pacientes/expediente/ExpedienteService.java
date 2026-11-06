@@ -36,7 +36,7 @@ public class ExpedienteService {
         }
 
         usuarioActual.medicoRestringidoId().ifPresent(medicoId -> {
-            if (!episodioRepository.existsByPaciente_IdAndMedico_Id(pacienteId, medicoId)) {
+            if (!pacienteRepository.existsByIdAndMedicos_Id(pacienteId, medicoId)) {
                 throw new AccessDeniedException("No tiene acceso a este paciente");
             }
         });

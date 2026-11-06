@@ -171,8 +171,9 @@ public class PacienteService {
         institucionEntity institucion = cargarInstitucion(datosEpisodio.referencia());
         camasEntity cama = cargarCama(request.paciente().camaId(), paciente);
 
-        UsuarioEntity medico = usuarioRepository.findById(datosEpisodio.medicoId())
-                .orElseThrow(() -> new IllegalArgumentException("Médico no encontrado"));
+        Set<UsuarioEntity> medicosSeleccionados = cargarMedicos(
+                request.paciente().medicoIds(), datosEpisodio.medicoId());
+        UsuarioEntity medico = resolverTratante(medicosSeleccionados, datosEpisodio.medicoId());
 
         if (pacienteId != null) {
             if (cui != null) {
@@ -195,12 +196,19 @@ public class PacienteService {
             paciente.setOcupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()));
             paciente.setEstado(true);
             aplicarCatalogos(paciente, alergias, enfermedades);
+            paciente.setMedicos(fusionarMedicos(paciente.getMedicos(), medicosSeleccionados));
             pacienteRepository.save(paciente);
         } else if (paciente != null) {
-            // Reutilización por CUI: se conservan los datos existentes y se reactiva el paciente.
+            // Reutilización por CUI: se conservan los datos existentes, se suman los médicos
+            // seleccionados y se reactiva el paciente.
+            boolean estabaActivo = paciente.isEstado();
+            boolean actualizarMedicos = request.paciente().medicoIds() != null;
             aplicarCatalogos(paciente, alergias, enfermedades);
-            if (!paciente.isEstado()) {
-                paciente.setEstado(true);
+            paciente.setEstado(true);
+            if (actualizarMedicos) {
+                paciente.setMedicos(fusionarMedicos(paciente.getMedicos(), medicosSeleccionados));
+            }
+            if (!estabaActivo || actualizarMedicos) {
                 pacienteRepository.save(paciente);
             }
         } else {
@@ -211,6 +219,7 @@ public class PacienteService {
                     .direccion(StringNormalizer.normalizarNullable(request.paciente().direccion()))
                     .ocupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()))
                     .estado(true)
+                    .medicos(medicosSeleccionados)
                     .alergias(alergias != null ? alergias : new LinkedHashSet<>())
                     .enfermedades(enfermedades != null ? enfermedades : new LinkedHashSet<>())
                     .build());
@@ -387,7 +396,7 @@ public class PacienteService {
         }
 
         List<PacienteEntity> base = usuarioActual.medicoRestringidoId()
-                .map(medicoId -> pacientesAsignados(medicoId, true))
+                .map(pacienteRepository::findByMedicos_IdOrderByIdAsc)
                 .orElseGet(pacienteRepository::findAll);
         List<PacienteEntity> coincidencias = base.stream()
                 .filter(paciente -> coincideBusqueda(paciente, termino))
@@ -395,13 +404,9 @@ public class PacienteService {
         return mapearListado(coincidencias);
     }
 
-    /** Pacientes con un episodio activo asignado al médico. */
+    /** Pacientes asignados al médico, tengan o no un episodio activo. */
     private List<PacienteEntity> pacientesAsignados(Long medicoId, boolean estado) {
-        List<Long> pacienteIds = episodioRepository.findPacienteIdsByMedicoIdAndEstadoTrue(medicoId);
-        if (pacienteIds.isEmpty()) {
-            return List.of();
-        }
-        return pacienteRepository.findByIdInAndEstadoOrderByIdAsc(pacienteIds, estado);
+        return pacienteRepository.findByMedicos_IdAndEstadoOrderByIdAsc(medicoId, estado);
     }
 
     private boolean coincideBusqueda(PacienteEntity paciente, String termino) {
@@ -510,6 +515,7 @@ public class PacienteService {
                 episodio != null && episodio.getMedico() != null && episodio.getMedico().getPersona() != null
                         ? episodio.getMedico().getPersona().getNombreCompleto()
                         : null,
+                mapearMedicos(paciente.getMedicos()),
                 cama != null ? cama.getId() : null,
                 cama != null ? cama.getCodigo() : null,
                 responsableDetalle(episodioConResponsable),
@@ -564,6 +570,8 @@ public class PacienteService {
         paciente.setDireccion(StringNormalizer.normalizarNullable(request.paciente().direccion()));
         paciente.setOcupacion(StringNormalizer.normalizarNullable(request.paciente().ocupacion()));
         aplicarCatalogos(paciente, alergias, enfermedades);
+        paciente.setMedicos(resolverMedicosActualizacion(request.paciente().medicoIds(), paciente,
+                request.episodio() != null ? request.episodio().medicoId() : null));
         pacienteRepository.save(paciente);
 
         EpisodioEntity episodio = episodioRepository
@@ -619,8 +627,7 @@ public class PacienteService {
             }
         }
 
-        UsuarioEntity medico = usuarioRepository.findById(datos.medicoId())
-                .orElseThrow(() -> new IllegalArgumentException("Médico no encontrado"));
+        UsuarioEntity medico = resolverTratante(paciente.getMedicos(), datos.medicoId());
         parentescoEntity parentesco = cargarParentesco(datos.responsable());
         institucionEntity institucion = cargarInstitucion(datos.referencia());
 
@@ -785,6 +792,90 @@ public class PacienteService {
                 referencia.getMotivoReferencia());
     }
 
+    /** Carga los médicos solicitados y exige al menos uno; si no llegan IDs usa el tratante. */
+    private Set<UsuarioEntity> cargarMedicos(List<Long> medicoIds, Long medicoPrincipalId) {
+        List<Long> solicitados = new ArrayList<>();
+        if (medicoIds != null) {
+            medicoIds.stream().filter(id -> id != null).distinct().forEach(solicitados::add);
+        }
+        if (solicitados.isEmpty() && medicoPrincipalId != null) {
+            solicitados.add(medicoPrincipalId);
+        }
+        if (solicitados.isEmpty()) {
+            throw new IllegalArgumentException("Debe asignar al menos un médico al paciente");
+        }
+
+        Set<UsuarioEntity> resultado = new LinkedHashSet<>();
+        for (Long id : solicitados) {
+            UsuarioEntity medico = usuarioRepository.findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Médico no encontrado con el ID: " + id));
+            if (!medico.isEstado()) {
+                throw new IllegalArgumentException("El médico está inactivo: " + id);
+            }
+            resultado.add(medico);
+        }
+        return resultado;
+    }
+
+    /** Mantiene las asignaciones existentes y suma las nuevas sin duplicar. */
+    private Set<UsuarioEntity> fusionarMedicos(Set<UsuarioEntity> actuales, Set<UsuarioEntity> nuevos) {
+        Set<UsuarioEntity> resultado = new LinkedHashSet<>();
+        if (actuales != null) {
+            resultado.addAll(actuales);
+        }
+        if (nuevos != null) {
+            resultado.addAll(nuevos);
+        }
+        return resultado;
+    }
+
+    private Set<UsuarioEntity> resolverMedicosActualizacion(
+            List<Long> medicoIds, PacienteEntity paciente, Long medicoPrincipalId) {
+        Set<UsuarioEntity> actuales = new LinkedHashSet<>();
+        if (paciente.getMedicos() != null) {
+            actuales.addAll(paciente.getMedicos());
+        }
+        if (medicoIds == null) {
+            return actuales;
+        }
+        if (medicoIds.isEmpty() && medicoPrincipalId == null) {
+            // Un paciente sin episodio activo conserva su asignación actual.
+            return actuales;
+        }
+        return cargarMedicos(medicoIds, medicoPrincipalId);
+    }
+
+    /** El tratante debe ser uno de los médicos asignados; si no, se toma el primero. */
+    private UsuarioEntity resolverTratante(Set<UsuarioEntity> medicos, Long medicoId) {
+        if (medicos != null && !medicos.isEmpty()) {
+            if (medicoId != null) {
+                for (UsuarioEntity medico : medicos) {
+                    if (medico.getId() != null && medico.getId().equals(medicoId)) {
+                        return medico;
+                    }
+                }
+            }
+            return medicos.iterator().next();
+        }
+        if (medicoId == null) {
+            throw new IllegalArgumentException("Debe asignar al menos un médico al paciente");
+        }
+        return usuarioRepository.findById(medicoId)
+                .orElseThrow(() -> new IllegalArgumentException("Médico no encontrado con el ID: " + medicoId));
+    }
+
+    private List<PacienteDTOs.MedicoDetalle> mapearMedicos(Set<UsuarioEntity> medicos) {
+        if (medicos == null || medicos.isEmpty()) {
+            return List.of();
+        }
+        return medicos.stream()
+                .map(medico -> new PacienteDTOs.MedicoDetalle(
+                        medico.getId(),
+                        medico.getPersona() != null ? medico.getPersona().getNombreCompleto() : null,
+                        medico.getEspecialidad() != null ? medico.getEspecialidad().getNombre() : null))
+                .toList();
+    }
+
     private Set<alergiaEntity> cargarAlergias(List<Long> ids) {
         if (ids == null) {
             return null;
@@ -852,10 +943,10 @@ public class PacienteService {
                 .orElseThrow(() -> new IllegalArgumentException("Paciente no encontrado con el ID: " + pacienteId));
     }
 
-    /** Un médico solo puede consultar pacientes con algún episodio suyo (activo o cerrado). */
+    /** Un médico solo puede consultar pacientes que tenga asignados. */
     private void validarAccesoPaciente(Long pacienteId) {
         usuarioActual.medicoRestringidoId().ifPresent(medicoId -> {
-            if (!episodioRepository.existsByPaciente_IdAndMedico_Id(pacienteId, medicoId)) {
+            if (!pacienteRepository.existsByIdAndMedicos_Id(pacienteId, medicoId)) {
                 throw new AccessDeniedException("No tiene acceso a este paciente");
             }
         });

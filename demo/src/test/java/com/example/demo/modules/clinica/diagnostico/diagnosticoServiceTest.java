@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.diagnostico;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
@@ -30,6 +32,11 @@ class diagnosticoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private diagnosticoService service;

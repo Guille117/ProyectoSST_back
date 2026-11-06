@@ -1,9 +1,15 @@
 package com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.clinica.indicaciones.cuidados.EstadoCuidado;
 import com.example.demo.modules.clinica.indicaciones.cuidados.cuidadoEntity;
 import com.example.demo.modules.clinica.indicaciones.cuidados.cuidadoRepository;
+import com.example.demo.modules.enfermeria.monitoreo.controlHidrico.controlHidricoRepository;
+import com.example.demo.modules.enfermeria.monitoreo.glucosa.glucosaRepository;
+import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitalesEntity;
+import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitalesRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -37,6 +43,20 @@ class ejecucionCuidadoServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private signosVitalesRepository signosVitalesRepository;
+
+    @Mock
+    private glucosaRepository glucosaRepository;
+
+    @Mock
+    private controlHidricoRepository controlHidricoRepository;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
+
     @InjectMocks
     private ejecucionCuidadoService service;
 
@@ -63,6 +83,47 @@ class ejecucionCuidadoServiceTest {
         assertEquals("Realizado sin novedad", response.observacion());
         assertEquals("Enf. María López", response.usuarioNombre());
         assertEquals(REGISTRO, response.fechaRegistro());
+    }
+
+    @Test
+    void crear_conSignosVitales_debeVincularElMonitoreo() {
+        when(cuidadoRepository.findById(7L)).thenReturn(Optional.of(cuidado(7L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Enf. María López")));
+        when(signosVitalesRepository.findById(30L))
+                .thenReturn(Optional.of(signosVitales(30L, 1L)));
+        when(repository.existsByCuidado_IdAndFechaHoraProgramadaAndEliminadoFalse(7L, PROGRAMADA))
+                .thenReturn(false);
+        when(repository.save(any(ejecucionCuidadoEntity.class))).thenAnswer(invocation -> {
+            ejecucionCuidadoEntity entity = invocation.getArgument(0);
+            entity.setId(20L);
+            entity.setFechaRegistro(REGISTRO);
+            return entity;
+        });
+
+        ejecucionCuidadoDTOs.Response response = service.crear(new ejecucionCuidadoDTOs.Request(
+                7L, PROGRAMADA, EstadoEjecucionCuidado.REALIZADO, "Realizado", 2L, 30L, null, null));
+
+        assertEquals(30L, response.signosVitalesId());
+        assertNull(response.glucosaId());
+        assertNull(response.controlHidricoId());
+    }
+
+    @Test
+    void crear_conMonitoreoDeOtroEpisodio_debeRechazar() {
+        when(cuidadoRepository.findById(7L)).thenReturn(Optional.of(cuidado(7L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Enf. María López")));
+        when(signosVitalesRepository.findById(30L))
+                .thenReturn(Optional.of(signosVitales(30L, 2L)));
+        when(repository.existsByCuidado_IdAndFechaHoraProgramadaAndEliminadoFalse(7L, PROGRAMADA))
+                .thenReturn(false);
+
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
+                () -> service.crear(new ejecucionCuidadoDTOs.Request(
+                        7L, PROGRAMADA, EstadoEjecucionCuidado.REALIZADO, null, 2L, 30L, null, null)));
+
+        assertEquals("El registro de signos vitales no pertenece al episodio del cuidado",
+                exception.getMessage());
+        verify(repository, never()).save(any());
     }
 
     @Test
@@ -128,6 +189,14 @@ class ejecucionCuidadoServiceTest {
                 .observacion("Realizado")
                 .usuario(usuario(2L, "Enf. María López"))
                 .fechaRegistro(REGISTRO)
+                .eliminado(false)
+                .build();
+    }
+
+    private signosVitalesEntity signosVitales(Long id, Long episodioId) {
+        return signosVitalesEntity.builder()
+                .id(id)
+                .episodio(EpisodioEntity.builder().id(episodioId).descripcion("Episodio").build())
                 .eliminado(false)
                 .build();
     }

@@ -1,5 +1,7 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.alta.altaEntity;
 import com.example.demo.modules.clinica.alta.altaRepository;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoEntity;
@@ -37,6 +39,11 @@ class DocumentoEpisodioServiceTest {
     @Mock private DocumentoEpisodioStorage storage;
     @Mock private procedimientoMedicoRepository procedimientoMedicoRepository;
     @Mock private altaRepository altaRepository;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks private DocumentoEpisodioService service;
 

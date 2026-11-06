@@ -11,6 +11,7 @@ import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitales
 import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitalesRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class ejecucionCuidadoService {
     private final signosVitalesRepository signosVitalesRepository;
     private final glucosaRepository glucosaRepository;
     private final controlHidricoRepository controlHidricoRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public ejecucionCuidadoDTOs.Response crear(ejecucionCuidadoDTOs.Request request) {
@@ -54,7 +56,7 @@ public class ejecucionCuidadoService {
                 .fechaHoraProgramada(request.fechaHoraProgramada())
                 .estado(validarEstado(request.estado()))
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fechaRegistro(LocalDateTime.now())
                 .build();
 
@@ -70,13 +72,16 @@ public class ejecucionCuidadoService {
         }
 
         ejecucionCuidadoEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
         validarFechaProgramadaParaActualizar(entity, request.fechaHoraProgramada());
 
         entity.setFechaHoraProgramada(request.fechaHoraProgramada());
         entity.setEstado(validarEstado(request.estado()));
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
@@ -110,6 +115,8 @@ public class ejecucionCuidadoService {
 
     @Transactional(readOnly = true)
     public List<ejecucionCuidadoDTOs.Response> buscarPorEpisodio(Long episodioId) {
+        registroAcceso.validarAccesoEpisodio(episodioId);
+
         return repository.findByCuidado_Episodio_IdAndEliminadoFalseOrderByFechaHoraProgramadaAsc(episodioId)
                 .stream()
                 .map(this::toResponse)
@@ -119,6 +126,7 @@ public class ejecucionCuidadoService {
     @Transactional
     public void eliminar(Long id) {
         ejecucionCuidadoEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         entity.setEliminado(true);
         repository.save(entity);
     }
@@ -196,16 +204,20 @@ public class ejecucionCuidadoService {
     }
 
     private ejecucionCuidadoEntity buscar(Long id) {
-        return repository.findById(id)
+        ejecucionCuidadoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Ejecución de cuidado no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getCuidado().getEpisodio());
+        return entity;
     }
 
     private cuidadoEntity buscarCuidado(Long cuidadoId) {
         if (cuidadoId == null) {
             throw new IllegalArgumentException("El cuidado es obligatorio");
         }
-        return cuidadoRepository.findById(cuidadoId)
+        cuidadoEntity cuidado = cuidadoRepository.findById(cuidadoId)
                 .orElseThrow(() -> new IllegalArgumentException("Cuidado no encontrado con el ID: " + cuidadoId));
+        registroAcceso.validarAccesoEpisodio(cuidado.getEpisodio());
+        return cuidado;
     }
 
     private EstadoEjecucionCuidado validarEstado(EstadoEjecucionCuidado estado) {
@@ -225,6 +237,11 @@ public class ejecucionCuidadoService {
                 entity.getCuidado().getId(), fechaHoraProgramada, entity.getId())) {
             throw new IllegalArgumentException("Ya existe un registro para esa ejecución");
         }
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

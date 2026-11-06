@@ -7,6 +7,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class signosVitalesService {
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
     private final ejecucionCuidadoService ejecucionCuidadoService;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public signosVitalesDTOs.Response crear(signosVitalesDTOs.Request request) {
@@ -39,7 +41,7 @@ public class signosVitalesService {
                 .saturacion(request.saturacion())
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
                 .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -74,6 +76,11 @@ public class signosVitalesService {
         }
 
         signosVitalesEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
+
         entity.setSistolica(request.sistolica());
         entity.setDiastolica(request.diastolica());
         entity.setFrecuenciaCardiaca(request.frecuenciaCardiaca());
@@ -82,7 +89,6 @@ public class signosVitalesService {
         entity.setSaturacion(request.saturacion());
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
@@ -97,6 +103,7 @@ public class signosVitalesService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEliminadoFalseOrderByFechaDesc(episodioId).stream()
                 .map(this::toResponse)
@@ -106,13 +113,16 @@ public class signosVitalesService {
     @Transactional
     public void eliminar(Long id) {
         signosVitalesEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         entity.setEliminado(true);
         repository.save(entity);
     }
 
     private signosVitalesEntity buscar(Long id) {
-        return repository.findById(id)
+        signosVitalesEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Registro de signos vitales no encontrado con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
     }
 
     private EpisodioEntity buscarEpisodio(Long episodioId) {
@@ -120,8 +130,15 @@ public class signosVitalesService {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

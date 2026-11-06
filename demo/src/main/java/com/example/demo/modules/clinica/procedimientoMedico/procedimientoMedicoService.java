@@ -12,6 +12,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +39,7 @@ public class procedimientoMedicoService {
     private final insumosLogRepository insumosLogRepository;
     private final LoteRepository loteRepository;
     private final SolicitudSalidaService solicitudSalidaService;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public procedimientoMedicoDTOs.Response crear(procedimientoMedicoDTOs.Request request) {
@@ -47,7 +49,7 @@ public class procedimientoMedicoService {
 
         procedimientoEntity tipo = buscarTipoProcedimiento(request.tipoProcedimientoId(), null);
         EpisodioEntity episodio = buscarEpisodioAbierto(request.episodioId());
-        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+        UsuarioEntity usuario = autor(request.usuarioId());
         List<procedimientoMedicoRecursoEntity> recursos =
                 resolverRecursos(request.recursos(), List.of(), Map.of());
 
@@ -75,9 +77,8 @@ public class procedimientoMedicoService {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        procedimientoMedicoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Procedimiento médico no encontrado con el ID: " + id));
+        procedimientoMedicoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         validarEpisodioYUsuarioSinCambios(entity, request);
         validarEpisodioAbierto(entity.getEpisodio());
@@ -110,9 +111,7 @@ public class procedimientoMedicoService {
 
     @Transactional(readOnly = true)
     public procedimientoMedicoDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Procedimiento médico no encontrado con el ID: " + id));
+        return toResponse(buscarEntidad(id));
     }
 
     @Transactional(readOnly = true)
@@ -120,6 +119,7 @@ public class procedimientoMedicoService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdOrderByInicioDesc(episodioId).stream()
                 .map(this::toResponse)
@@ -128,9 +128,8 @@ public class procedimientoMedicoService {
 
     @Transactional
     public void eliminar(Long id) {
-        procedimientoMedicoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Procedimiento médico no encontrado con el ID: " + id));
+        procedimientoMedicoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         validarEpisodioAbierto(entity.getEpisodio());
         solicitudSalidaService.cancelarPorProcedimiento(id);
@@ -140,9 +139,8 @@ public class procedimientoMedicoService {
 
     @Transactional
     public void marcarAutorizacionGenerada(Long id) {
-        procedimientoMedicoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Procedimiento médico no encontrado con el ID: " + id));
+        procedimientoMedicoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setAutorizacionGenerada(true);
         repository.save(entity);
@@ -307,6 +305,7 @@ public class procedimientoMedicoService {
         EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
         validarEpisodioAbierto(episodio);
         return episodio;
     }
@@ -325,6 +324,19 @@ public class procedimientoMedicoService {
             throw new IllegalArgumentException(
                     "No se puede cambiar el episodio ni el usuario de un procedimiento.");
         }
+    }
+
+    private procedimientoMedicoEntity buscarEntidad(Long id) {
+        procedimientoMedicoEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Procedimiento médico no encontrado con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

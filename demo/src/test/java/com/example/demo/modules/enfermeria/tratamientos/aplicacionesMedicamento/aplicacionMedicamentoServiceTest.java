@@ -1,5 +1,7 @@
 package com.example.demo.modules.enfermeria.tratamientos.aplicacionesMedicamento;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.EstadoIndicacionMedicamento;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.indicacionMedicamentoEntity;
@@ -41,6 +43,11 @@ class aplicacionMedicamentoServiceTest {
 
     @Mock
     private DisponibilidadMedicamentoService disponibilidadService;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private aplicacionMedicamentoService service;

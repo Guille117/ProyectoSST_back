@@ -6,6 +6,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class evolucionService {
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
     private final estadoClinicoRepository estadoClinicoRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public evolucionDTOs.Response crear(evolucionDTOs.Request request) {
@@ -35,7 +37,7 @@ public class evolucionService {
                 "El plan médico es obligatorio");
         EpisodioEntity episodio = buscarEpisodio(request.episodioId());
         estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
-        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+        UsuarioEntity usuario = autor(request.usuarioId());
 
         episodio.setEstadoClinico(estadoClinico);
         episodioRepository.save(episodio);
@@ -58,6 +60,7 @@ public class evolucionService {
         }
 
         evolucionEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         String evolucionClinica = validarTexto(request.evolucionClinica(),
                 "La evolución clínica es obligatoria");
@@ -65,7 +68,6 @@ public class evolucionService {
                 "El plan médico es obligatorio");
         EpisodioEntity episodio = buscarEpisodio(request.episodioId());
         estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
-        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
 
         episodio.setEstadoClinico(estadoClinico);
         episodioRepository.save(episodio);
@@ -73,7 +75,8 @@ public class evolucionService {
         entity.setEvolucionClinica(evolucionClinica);
         entity.setPlanMedico(planMedico);
         entity.setEpisodio(episodio);
-        entity.setUsuario(usuario);
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
@@ -88,6 +91,7 @@ public class evolucionService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(
                         episodioId, validarEstado(estado)).stream()
@@ -98,14 +102,22 @@ public class evolucionService {
     @Transactional
     public void eliminar(Long id) {
         evolucionEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         entity.setEstado(EstadoEvolucion.ELIMINADA);
         repository.save(entity);
     }
 
     private evolucionEntity buscarEntidad(Long id) {
-        return repository.findById(id)
+        evolucionEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException(
                         "Evolución no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private EstadoEvolucion validarEstado(EstadoEvolucion estado) {
@@ -128,9 +140,11 @@ public class evolucionService {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
     }
 
     private estadoClinicoEntity buscarEstadoClinico(Long estadoClinicoId) {
