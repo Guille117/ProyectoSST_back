@@ -26,7 +26,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class UsuarioService {
 
-    private static final String USUARIO_SISTEMA = "guille117";
+    public static final String USUARIO_SISTEMA = "guille117";
 
     private final UsuarioRepository repository;
     private final PersonaRepository personaRepository;

@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html", "/scalar",
                                 "/scalar/**")
                         .permitAll()
+                        // Autoservicio de la propia cuenta: requiere sesión, sin permiso de módulo.
+                        .requestMatchers("/api/v1/configuracion/**").authenticated()
                         .anyRequest().access(administradorPermisos))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, exception) -> escribirError(response,
