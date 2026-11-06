@@ -2,6 +2,7 @@ package com.example.demo.modules.usuarios.usuarios;
 
 import com.example.demo.modules.usuarios.horarios.HorarioEntity;
 import com.example.demo.modules.usuarios.horarios.HorarioRepository;
+import com.example.demo.modules.usuarios.horarios.HorarioTurnoDetalleEntity;
 import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
 import com.example.demo.modules.usuarios.especialidad.especialidadRepository;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
@@ -275,7 +276,7 @@ class UsuarioServiceTest {
             2L, 1L, List.of(1L), "jperez2", "newpass123", "newpass123", 1L, true
         );
 
-        puestoEntity nuevoPuesto = crearPuesto(2L, "Doctor");
+        puestoEntity nuevoPuesto = crearPuesto(2L, "Enfermera");
         especialidadEntity especialidad = new especialidadEntity();
         especialidad.setId(1L);
         especialidad.setNombre("Pediatría");
@@ -289,7 +290,7 @@ class UsuarioServiceTest {
         UsuarioDTOs.Response response = new UsuarioDTOs.Response(
                 1L, "USR-01", "1234567890123", "Juan Carlos", "Perez Lopez", Sexo.MASCULINO,
                 LocalDate.of(1990, 1, 1), "87654321", "juan2@test.com",
-                2L, "Doctor",
+                2L, "Enfermera",
                 1L, "HOR-01", "Diurno",
                 List.of(new UsuarioDTOs.RolResponse(1L, "ROL-01", "Admin")),
                 "jperez2", true
@@ -360,5 +361,126 @@ class UsuarioServiceTest {
 
         assertEquals("El usuario del sistema no se puede editar, desactivar ni eliminar.", error.getMessage());
         verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_Medico_NoAsignaHorario() {
+        UsuarioDTOs.Request req = new UsuarioDTOs.Request(
+                personaRequest(), 1L, 1L, List.of(1L), "medico", null, null, true);
+        puestoEntity puesto = crearPuesto(1L, "Médico");
+        RolEntity rol = RolEntity.builder().id(1L).codigo("ROL-01").nombre("Médico").build();
+
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.empty());
+        when(repository.findByUsernameIgnoreCase("medico")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(1L)).thenReturn(Optional.of(puesto));
+        when(rolRepository.findAllById(List.of(1L))).thenReturn(List.of(rol));
+        when(repository.count()).thenReturn(0L);
+        when(repository.save(any(UsuarioEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.crear(req);
+
+        ArgumentCaptor<UsuarioEntity> captor = ArgumentCaptor.forClass(UsuarioEntity.class);
+        verify(repository).save(captor.capture());
+        assertNull(captor.getValue().getHorario());
+        assertNull(captor.getValue().getInicioGuardia());
+    }
+
+    @Test
+    void crear_NoMedico_SinHorario_LanzaExcepcion() {
+        UsuarioDTOs.Request req = new UsuarioDTOs.Request(
+                personaRequest(), 2L, null, List.of(1L), "enfermera", null, null, true);
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.empty());
+        when(repository.findByUsernameIgnoreCase("enfermera")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(2L)).thenReturn(Optional.of(crearPuesto(2L, "Enfermera")));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
+
+        assertTrue(error.getMessage().contains("horario"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_Guardia_SinInicio_LanzaExcepcion() {
+        UsuarioDTOs.Request req = new UsuarioDTOs.Request(
+                personaRequest(), 2L, 3L, List.of(1L), "enfermera", null, null, true);
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.empty());
+        when(repository.findByUsernameIgnoreCase("enfermera")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(2L)).thenReturn(Optional.of(crearPuesto(2L, "Enfermera")));
+        when(horarioRepository.findById(3L)).thenReturn(Optional.of(horarioGuardia()));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.crear(req));
+
+        assertTrue(error.getMessage().contains("inicio de guardia"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_Guardia_ConInicio_AsignaHorarioEInicio() {
+        java.time.LocalDateTime inicio = java.time.LocalDateTime.of(2026, 8, 24, 8, 0);
+        UsuarioDTOs.Request req = new UsuarioDTOs.Request(
+                personaRequest(), 2L, 3L, List.of(1L), "enfermera", null, inicio, true);
+        puestoEntity puesto = crearPuesto(2L, "Enfermera");
+        HorarioEntity horario = horarioGuardia();
+        RolEntity rol = RolEntity.builder().id(1L).nombre("Enfermera").build();
+
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.empty());
+        when(repository.findByUsernameIgnoreCase("enfermera")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(2L)).thenReturn(Optional.of(puesto));
+        when(horarioRepository.findById(3L)).thenReturn(Optional.of(horario));
+        when(rolRepository.findAllById(List.of(1L))).thenReturn(List.of(rol));
+        when(repository.count()).thenReturn(0L);
+        when(repository.save(any(UsuarioEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(pinRepository.save(any(UsuarioPinEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.crear(req);
+
+        ArgumentCaptor<UsuarioEntity> captor = ArgumentCaptor.forClass(UsuarioEntity.class);
+        verify(repository).save(captor.capture());
+        assertEquals(horario, captor.getValue().getHorario());
+        assertEquals(inicio, captor.getValue().getInicioGuardia());
+    }
+
+    @Test
+    void actualizar_Medico_QuitaHorario() {
+        UsuarioEntity existente = UsuarioEntity.builder()
+                .id(1L).codigo("USR-01").username("jperez").estado(true).build();
+        existente.setPersona(PersonaEntity.builder().id(10L).cui("1234567890123").nombres("Juan")
+                .apellidos("Perez").sexo(Sexo.MASCULINO).fechaNacimiento(LocalDate.of(1990, 1, 1)).build());
+        existente.setPuesto(crearPuesto(2L, "Enfermera"));
+        existente.setHorario(HorarioEntity.builder().id(1L).codigo("HOR-01").nombre("Diurno").build());
+        existente.setRoles(Set.of(RolEntity.builder().id(1L).codigo("ROL-01").nombre("Enfermera").build()));
+
+        UsuarioDTOs.UpdateRequest req = new UsuarioDTOs.UpdateRequest(
+                personaRequest(), 1L, 1L, List.of(1L), "medico", null, null, null, null, true);
+
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(personaRepository.findByCui("1234567890123")).thenReturn(Optional.of(existente.getPersona()));
+        when(repository.findAll()).thenReturn(List.of(existente));
+        when(repository.findByUsernameIgnoreCase("medico")).thenReturn(Optional.empty());
+        when(puestoRepository.findById(1L)).thenReturn(Optional.of(crearPuesto(1L, "Médico")));
+        when(rolRepository.findAllById(List.of(1L)))
+                .thenReturn(List.of(RolEntity.builder().id(1L).codigo("ROL-01").nombre("Médico").build()));
+        when(repository.save(any(UsuarioEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(mapper.toDTO(any(UsuarioEntity.class))).thenReturn(null);
+
+        service.actualizar(1L, req);
+
+        assertNull(existente.getHorario());
+        assertNull(existente.getInicioGuardia());
+    }
+
+    private UsuarioDTOs.PersonaRequest personaRequest() {
+        return new UsuarioDTOs.PersonaRequest(
+                "1234567890123", "Juan", "Perez", Sexo.MASCULINO,
+                LocalDate.of(1990, 1, 1), "12345678", "juan@test.com");
+    }
+
+    private HorarioEntity horarioGuardia() {
+        HorarioEntity horario = HorarioEntity.builder()
+                .id(3L).codigo("HOR-03").nombre("Guardia médica").esRotativo(true).estado(true).build();
+        horario.setTurnoDetalle(HorarioTurnoDetalleEntity.builder()
+                .id(30L).horario(horario).horasTrabajo(24).horasDescanso(48).build());
+        return horario;
     }
 }

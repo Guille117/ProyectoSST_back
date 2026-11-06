@@ -1,8 +1,10 @@
 package com.example.demo.modules.usuarios.usuarios;
 
+import com.example.demo.modules.usuarios.horarios.HorarioEntity;
 import com.example.demo.modules.usuarios.horarios.HorarioRepository;
 import com.example.demo.modules.usuarios.especialidad.especialidadEntity;
 import com.example.demo.modules.usuarios.especialidad.especialidadRepository;
+import com.example.demo.modules.usuarios.puesto.PuestoMedico;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.puesto.puestoRepository;
 import com.example.demo.modules.usuarios.roles.RolEntity;
@@ -57,8 +59,8 @@ public class UsuarioService {
         puestoEntity puesto = puestoRepository.findById(req.puestoId())
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
         especialidadEntity especialidad = cargarEspecialidad(req.especialidadId());
-        var horario = horarioRepository.findById(req.horarioId())
-                .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
+        HorarioEntity horario = resolverHorario(puesto, req.horarioId());
+        LocalDateTime inicioGuardia = resolverInicioGuardia(horario, req.inicioGuardia());
         Set<RolEntity> roles = cargarRoles(req.rolIds());
 
         PersonaEntity persona = PersonaEntity.builder()
@@ -77,6 +79,7 @@ public class UsuarioService {
                 .puesto(puesto)
                 .especialidad(especialidad)
                 .horario(horario)
+                .inicioGuardia(inicioGuardia)
                 .roles(roles)
                 .username(username)
                 .estado(req.estado() != null ? req.estado() : true)
@@ -136,8 +139,8 @@ public class UsuarioService {
         puestoEntity puesto = puestoRepository.findById(req.puestoId())
                 .orElseThrow(() -> new RuntimeException("Puesto no encontrado con el ID: " + req.puestoId()));
         especialidadEntity especialidad = cargarEspecialidad(req.especialidadId());
-        var horario = horarioRepository.findById(req.horarioId())
-                .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + req.horarioId()));
+        HorarioEntity horario = resolverHorario(puesto, req.horarioId());
+        LocalDateTime inicioGuardia = resolverInicioGuardia(horario, req.inicioGuardia());
         Set<RolEntity> roles = cargarRoles(req.rolIds());
 
         PersonaEntity persona = existente.getPersona();
@@ -151,6 +154,7 @@ public class UsuarioService {
         existente.setPuesto(puesto);
         existente.setEspecialidad(especialidad);
         existente.setHorario(horario);
+        existente.setInicioGuardia(inicioGuardia);
         existente.setRoles(roles);
         existente.setUsername(username);
         existente.setEstado(req.estado() != null ? req.estado() : existente.isEstado());
@@ -262,6 +266,29 @@ public class UsuarioService {
         if (USUARIO_SISTEMA.equalsIgnoreCase(usuario.getUsername())) {
             throw new IllegalArgumentException("El usuario del sistema no se puede editar, desactivar ni eliminar.");
         }
+    }
+
+    private HorarioEntity resolverHorario(puestoEntity puesto, Long horarioId) {
+        if (PuestoMedico.esMedico(puesto)) {
+            return null;
+        }
+        if (horarioId == null) {
+            throw new IllegalArgumentException(
+                    "El horario es obligatorio para los usuarios que no son médicos");
+        }
+        return horarioRepository.findById(horarioId)
+                .orElseThrow(() -> new RuntimeException("Horario no encontrado con el ID: " + horarioId));
+    }
+
+    private LocalDateTime resolverInicioGuardia(HorarioEntity horario, LocalDateTime inicioGuardia) {
+        if (horario == null || !horario.isEsRotativo()) {
+            return null;
+        }
+        if (inicioGuardia == null) {
+            throw new IllegalArgumentException(
+                    "Debe ingresar la fecha y hora de inicio de guardia");
+        }
+        return inicioGuardia;
     }
 
     private especialidadEntity cargarEspecialidad(Long especialidadId) {

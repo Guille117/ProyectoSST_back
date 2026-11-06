@@ -11,17 +11,23 @@ public class UsuarioDTOs {
         public record Request(
                 @Valid @NotNull(message = "Los datos personales son obligatorios") PersonaRequest persona,
                 @NotNull(message = "El puesto es obligatorio") Long puestoId,
-                @NotNull(message = "El horario es obligatorio") Long horarioId,
+                Long horarioId,
                 @NotEmpty(message = "Debe seleccionar al menos un rol") List<Long> rolIds,
                 @NotBlank(message = "El username es obligatorio")
                 @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
                 String username,
                 @JsonAlias({"especialidad", "especialidad_id"}) Long especialidadId,
+                java.time.LocalDateTime inicioGuardia,
                 Boolean estado
         ) {
                 public Request(PersonaRequest persona, Long puestoId, Long horarioId, List<Long> rolIds,
+                               String username, Long especialidadId, Boolean estado) {
+                        this(persona, puestoId, horarioId, rolIds, username, especialidadId, null, estado);
+                }
+
+                public Request(PersonaRequest persona, Long puestoId, Long horarioId, List<Long> rolIds,
                                String username, Boolean estado) {
-                        this(persona, puestoId, horarioId, rolIds, username, null, estado);
+                        this(persona, puestoId, horarioId, rolIds, username, null, null, estado);
                 }
         }
 
@@ -41,20 +47,29 @@ public class UsuarioDTOs {
         public record UpdateRequest(
                 @Valid @NotNull(message = "Los datos personales son obligatorios") PersonaRequest persona,
                 @NotNull(message = "El puesto es obligatorio") Long puestoId,
-                @NotNull(message = "El horario es obligatorio") Long horarioId,
+                Long horarioId,
                 @NotEmpty(message = "Debe seleccionar al menos un rol") List<Long> rolIds,
                 @NotBlank(message = "El username es obligatorio")
                 @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
                 String username,
-                // password opcional en actualización
+                // password opcional en actualizaci��n
                 String password,
                 String confirmPassword,
                 @JsonAlias({"especialidad", "especialidad_id"}) Long especialidadId,
+                java.time.LocalDateTime inicioGuardia,
                 Boolean estado
         ) {
                 public UpdateRequest(PersonaRequest persona, Long puestoId, Long horarioId, List<Long> rolIds,
+                                        String username, String password, String confirmPassword,
+                                        Long especialidadId, Boolean estado) {
+                        this(persona, puestoId, horarioId, rolIds, username, password, confirmPassword,
+                                especialidadId, null, estado);
+                }
+
+                public UpdateRequest(PersonaRequest persona, Long puestoId, Long horarioId, List<Long> rolIds,
                                         String username, String password, String confirmPassword, Boolean estado) {
-                        this(persona, puestoId, horarioId, rolIds, username, password, confirmPassword, null, estado);
+                        this(persona, puestoId, horarioId, rolIds, username, password, confirmPassword,
+                                null, null, estado);
                 }
         }
 
@@ -74,9 +89,32 @@ public class UsuarioDTOs {
                         List<Long> rolIds,
                         List<String> roles,
                         boolean estado,
-                        EspecialidadResponse especialidad
+                        EspecialidadResponse especialidad,
+                        java.time.LocalDateTime inicioGuardia
     ) {
-                // Compatibilidad interna con los constructores usados por código existente.
+                // Compatibilidad interna con los constructores usados por c��digo existente.
+        public Response(
+                Long id,
+                String codigo,
+                String username,
+                String nombres,
+                String apellidos,
+                String cui,
+                Sexo sexo,
+                LocalDate fechaNacimiento,
+                String telefono,
+                String email,
+                PuestoResponse puesto,
+                HorarioResponse horario,
+                List<Long> rolIds,
+                List<String> roles,
+                boolean estado,
+                EspecialidadResponse especialidad
+        ) {
+                this(id, codigo, username, nombres, apellidos, cui, sexo, fechaNacimiento, telefono,
+                        email, puesto, horario, rolIds, roles, estado, especialidad, null);
+        }
+
         public Response(
                 Long id,
                 String codigo,
@@ -101,7 +139,7 @@ public class UsuarioDTOs {
                                         new HorarioResponse(horarioId, horarioNombre),
                                         roles == null ? List.of() : roles.stream().map(RolResponse::id).toList(),
                                         roles == null ? List.of() : roles.stream().map(RolResponse::nombre).toList(),
-                                        estado, null);
+                                        estado, null, null);
         }
     }
 

@@ -59,4 +59,11 @@ public class UsuarioActualService {
                 .collect(Collectors.toSet());
         return roles.stream().anyMatch(ROLES_ACCESO_GLOBAL::contains);
     }
+
+    /** Solo el rol Administrador puede modificar registros de otros usuarios. */
+    public boolean esAdministrador(UsuarioEntity usuario) {
+        return usuario.getRoles().stream()
+                .map(RolEntity::getNombre)
+                .anyMatch(nombre -> PermisosSistema.ROL_ADMINISTRADOR.equalsIgnoreCase(nombre));
+    }
 }

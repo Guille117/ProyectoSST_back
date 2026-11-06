@@ -82,7 +82,7 @@ public class RegistroAccesoService {
     /** Valida que el usuario actual pueda modificar un registro con el autor indicado. */
     public void validarEdicion(UsuarioEntity autor) {
         Optional<UsuarioEntity> autenticado = usuarioActual.actual();
-        if (autenticado.isEmpty() || usuarioActual.tieneAccesoGlobal(autenticado.get())) {
+        if (autenticado.isEmpty() || usuarioActual.esAdministrador(autenticado.get())) {
             return;
         }
         UsuarioEntity usuario = autenticado.get();
