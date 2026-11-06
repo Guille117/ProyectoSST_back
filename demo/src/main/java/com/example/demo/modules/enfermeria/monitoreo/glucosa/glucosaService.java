@@ -1,5 +1,8 @@
 package com.example.demo.modules.enfermeria.monitoreo.glucosa;
 
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.EstadoEjecucionCuidado;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoDTOs;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -19,6 +22,7 @@ public class glucosaService {
     private final glucosaRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ejecucionCuidadoService ejecucionCuidadoService;
 
     @Transactional
     public glucosaDTOs.Response crear(glucosaDTOs.Request request) {
@@ -35,7 +39,28 @@ public class glucosaService {
                 .fecha(LocalDateTime.now())
                 .build();
 
-        return toResponse(repository.save(entity));
+        glucosaEntity guardado = repository.save(entity);
+        registrarEjecucionControl(request, guardado);
+        return toResponse(guardado);
+    }
+
+    /** Vincula la medición con la atención indicada y marca la ejecución como realizada. */
+    private void registrarEjecucionControl(glucosaDTOs.Request request, glucosaEntity entity) {
+        if (request.cuidadoId() == null) return;
+
+        LocalDateTime programada = request.fechaHoraProgramada() != null
+                ? request.fechaHoraProgramada()
+                : LocalDateTime.now();
+
+        ejecucionCuidadoService.crear(new ejecucionCuidadoDTOs.Request(
+                request.cuidadoId(),
+                programada,
+                EstadoEjecucionCuidado.REALIZADO,
+                entity.getObservacion(),
+                request.usuarioId(),
+                null,
+                entity.getId(),
+                null));
     }
 
     @Transactional

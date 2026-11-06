@@ -180,6 +180,10 @@ public class RegistroPermisosApi {
                         submodulos("CATALOGOS-CLINICA")),
                 regla("/api/v1/procedimientos/**", ESCRITURA, modulos("MEDICA"),
                         submodulos("CATALOGOS-CLINICA")),
+                regla("/api/v1/estadosClinico/**", LECTURA, modulos("MEDICA", "ENFERMERIA"),
+                        submodulos("CATALOGOS-CLINICA")),
+                regla("/api/v1/estadosClinico/**", ESCRITURA, modulos("MEDICA"),
+                        submodulos("CATALOGOS-CLINICA")),
 
                 regla("/api/v1/enfermeria/**", LECTURA, modulos("ENFERMERIA", "MEDICA"), Set.of()),
                 regla("/api/v1/enfermeria/**", ESCRITURA, modulos("ENFERMERIA"), Set.of()),

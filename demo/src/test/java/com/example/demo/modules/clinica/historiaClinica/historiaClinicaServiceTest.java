@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.historiaClinica;
 
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoEntity;
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
@@ -31,12 +33,16 @@ class historiaClinicaServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private estadoClinicoRepository estadoClinicoRepository;
+
     @InjectMocks
     private historiaClinicaService service;
 
     @Test
     void crear_debeGuardarConFechaDelServidorYEstadoActivo() {
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(1L)).thenReturn(Optional.of(estadoClinico(1L, "Estable")));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
         when(repository.save(any(historiaClinicaEntity.class))).thenAnswer(invocation -> {
             historiaClinicaEntity entity = invocation.getArgument(0);
@@ -45,7 +51,7 @@ class historiaClinicaServiceTest {
         });
 
         historiaClinicaDTOs.Response response = service.crear(
-                new historiaClinicaDTOs.Request("  Paciente estable  ", 1L, 2L));
+                new historiaClinicaDTOs.Request("  Paciente estable  ", 1L, 2L, 1L));
 
         assertEquals(10L, response.id());
         assertEquals("Paciente estable", response.descripcion());
@@ -54,13 +60,15 @@ class historiaClinicaServiceTest {
         assertEquals("Carlos Mendez", response.usuarioNombre());
         assertNotNull(response.fecha());
         assertTrue(response.estado());
+        assertEquals(1L, response.estadoClinicoId());
+        assertEquals("Estable", response.estadoClinicoNombre());
     }
 
     @Test
     void crear_debeRechazarDescripcionVacia() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new historiaClinicaDTOs.Request("   ", 1L, 2L)));
+                () -> service.crear(new historiaClinicaDTOs.Request("   ", 1L, 2L, 1L)));
 
         assertEquals("La descripción es obligatoria", exception.getMessage());
         verify(repository, never()).save(any());
@@ -72,20 +80,34 @@ class historiaClinicaServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new historiaClinicaDTOs.Request("Control", 99L, 2L)));
+                () -> service.crear(new historiaClinicaDTOs.Request("Control", 99L, 2L, 1L)));
 
         assertEquals("Episodio no encontrado con el ID: 99", exception.getMessage());
         verify(repository, never()).save(any());
     }
 
     @Test
+    void crear_debeRechazarEstadoClinicoInexistente() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(99L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(new historiaClinicaDTOs.Request("Control", 1L, 2L, 99L)));
+
+        assertEquals("Estado clínico no encontrado con el ID: 99", exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void crear_debeRechazarUsuarioInexistente() {
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(1L)).thenReturn(Optional.of(estadoClinico(1L, "Estable")));
         when(usuarioRepository.findById(55L)).thenReturn(Optional.empty());
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new historiaClinicaDTOs.Request("Control", 1L, 55L)));
+                () -> service.crear(new historiaClinicaDTOs.Request("Control", 1L, 55L, 1L)));
 
         assertEquals("Usuario no encontrado con el ID: 55", exception.getMessage());
         verify(repository, never()).save(any());
@@ -105,11 +127,12 @@ class historiaClinicaServiceTest {
 
         when(repository.findById(5L)).thenReturn(Optional.of(existente));
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(1L)).thenReturn(Optional.of(estadoClinico(1L, "Estable")));
         when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, "Ana Lopez")));
         when(repository.save(any(historiaClinicaEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         historiaClinicaDTOs.Response response = service.actualizar(5L,
-                new historiaClinicaDTOs.Request("  Paciente en observación ", 1L, 3L));
+                new historiaClinicaDTOs.Request("  Paciente en observación ", 1L, 3L, 1L));
 
         assertEquals("Paciente en observación", response.descripcion());
         assertEquals(3L, response.usuarioId());
@@ -124,7 +147,7 @@ class historiaClinicaServiceTest {
 
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
-                () -> service.actualizar(77L, new historiaClinicaDTOs.Request("Control", 1L, 2L)));
+                () -> service.actualizar(77L, new historiaClinicaDTOs.Request("Control", 1L, 2L, 1L)));
 
         assertEquals("Historia clínica no encontrada con el ID: 77", exception.getMessage());
     }
@@ -176,6 +199,14 @@ class historiaClinicaServiceTest {
 
     private EpisodioEntity episodio(Long id) {
         return EpisodioEntity.builder().id(id).descripcion("Episodio de prueba").build();
+    }
+
+    private estadoClinicoEntity estadoClinico(Long id, String nombre) {
+        estadoClinicoEntity entity = new estadoClinicoEntity();
+        entity.setId(id);
+        entity.setNombre(nombre);
+        entity.setEstado(true);
+        return entity;
     }
 
     private UsuarioEntity usuario(Long id, String nombreCompleto) {

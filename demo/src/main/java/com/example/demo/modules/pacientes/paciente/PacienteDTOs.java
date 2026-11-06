@@ -78,7 +78,8 @@ public class PacienteDTOs {
             Sexo sexo,
             String telefono,
             TipoAtencion tipoTratamiento,
-            boolean estado
+            boolean estado,
+            String estadoClinicoNombre
     ) {}
 
     /** Datos del responsable del episodio, completos para reutilizarlos en la edición. */
@@ -134,7 +135,8 @@ public class PacienteDTOs {
             ResponsableDetalle responsable,
             ReferenciaDetalle referencia,
             List<CatalogoDetalle> alergias,
-            List<CatalogoDetalle> enfermedades
+            List<CatalogoDetalle> enfermedades,
+            String estadoClinicoNombre
     ) {}
 
     /** Actualización de un paciente; el episodio es opcional para pacientes sin atención activa. */

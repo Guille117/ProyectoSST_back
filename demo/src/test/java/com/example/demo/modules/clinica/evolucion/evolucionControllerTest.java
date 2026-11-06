@@ -46,14 +46,18 @@ class evolucionControllerTest {
 
     @Test
     void crear_debeRetornarCreatedConElRegistroGuardado() throws Exception {
-        when(service.crear(any())).thenReturn(new evolucionDTOs.Response(
-                10L, "Paciente estable", "Continuar tratamiento", 1L, 2L,
-                "Carlos Mendez", FECHA, EstadoEvolucion.ACTIVA));
+        when(service.crear(any())).thenReturn(
+                new evolucionDTOs.Response(
+                        10L, "Paciente estable", "Continuar tratamiento",
+                        1L, 2L, "Carlos Mendez", FECHA,
+                        EstadoEvolucion.ACTIVA, 1L, "Estable"));
 
         mockMvc.perform(post("/api/v1/evolucion")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new evolucionDTOs.Request(
-                                "Paciente estable", "Continuar tratamiento", 1L, 2L))))
+                        .content(objectMapper.writeValueAsString(
+                                new evolucionDTOs.Request(
+                                        "Paciente estable", "Continuar tratamiento",
+                                        1L, 2L, 1L))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.evolucionClinica").value("Paciente estable"))
@@ -62,13 +66,15 @@ class evolucionControllerTest {
                 .andExpect(jsonPath("$.usuarioId").value(2))
                 .andExpect(jsonPath("$.usuarioNombre").value("Carlos Mendez"))
                 .andExpect(jsonPath("$.fecha").exists())
-                .andExpect(jsonPath("$.estado").value("ACTIVA"));
+                .andExpect(jsonPath("$.estado").value("ACTIVA"))
+                .andExpect(jsonPath("$.estadoClinicoId").value(1))
+                .andExpect(jsonPath("$.estadoClinicoNombre").value("Estable"));
     }
 
     @Test
     void crear_debeRechazarEvolucionClinicaVacia() throws Exception {
-        String json = "{\"evolucionClinica\":\"\",\"planMedico\":\"Plan\","
-                + "\"episodioId\":1,\"usuarioId\":2}";
+        String json = "{\"evolucionClinica\":\"\",\"planMedico\":\"Plan\"," +
+                "\"episodioId\":1,\"usuarioId\":2,\"estadoClinicoId\":1}";
 
         mockMvc.perform(post("/api/v1/evolucion")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -79,8 +85,10 @@ class evolucionControllerTest {
     @Test
     void buscar_debeAplicarEstadoActivaPorDefecto() throws Exception {
         when(service.buscarPorEpisodio(5L, EstadoEvolucion.ACTIVA)).thenReturn(List.of(
-                new evolucionDTOs.Response(7L, "Control", "Plan", 5L, 2L,
-                        "Carlos Mendez", FECHA, EstadoEvolucion.ACTIVA)));
+                new evolucionDTOs.Response(
+                        7L, "Control", "Plan", 5L, 2L,
+                        "Carlos Mendez", FECHA,
+                        EstadoEvolucion.ACTIVA, 1L, "Estable")));
 
         mockMvc.perform(get("/api/v1/evolucion/buscar").param("episodioId", "5"))
                 .andExpect(status().isOk())
@@ -92,8 +100,10 @@ class evolucionControllerTest {
     @Test
     void buscar_debeFiltrarPorEstadoEliminada() throws Exception {
         when(service.buscarPorEpisodio(5L, EstadoEvolucion.ELIMINADA)).thenReturn(List.of(
-                new evolucionDTOs.Response(8L, "Control", "Plan", 5L, 2L,
-                        "Carlos Mendez", FECHA, EstadoEvolucion.ELIMINADA)));
+                new evolucionDTOs.Response(
+                        8L, "Control", "Plan", 5L, 2L,
+                        "Carlos Mendez", FECHA,
+                        EstadoEvolucion.ELIMINADA, 1L, "Estable")));
 
         mockMvc.perform(get("/api/v1/evolucion/buscar")
                         .param("episodioId", "5")
@@ -105,9 +115,10 @@ class evolucionControllerTest {
 
     @Test
     void obtenerPorId_debeRetornarElRegistro() throws Exception {
-        when(service.obtenerPorId(7L)).thenReturn(new evolucionDTOs.Response(
-                7L, "Control", "Plan", 1L, 2L, "Carlos Mendez", FECHA,
-                EstadoEvolucion.ACTIVA));
+        when(service.obtenerPorId(7L)).thenReturn(
+                new evolucionDTOs.Response(
+                        7L, "Control", "Plan", 1L, 2L, "Carlos Mendez", FECHA,
+                        EstadoEvolucion.ACTIVA, 1L, "Estable"));
 
         mockMvc.perform(get("/api/v1/evolucion/7"))
                 .andExpect(status().isOk())
@@ -117,16 +128,20 @@ class evolucionControllerTest {
 
     @Test
     void actualizar_debeRetornarElRegistroActualizado() throws Exception {
-        when(service.actualizar(any(), any())).thenReturn(new evolucionDTOs.Response(
-                7L, "Paciente en observación", "Nuevo plan", 1L, 3L,
-                "Ana Lopez", FECHA, EstadoEvolucion.ACTIVA));
+        when(service.actualizar(any(), any())).thenReturn(
+                new evolucionDTOs.Response(
+                        7L, "Paciente en observaci\u00f3n", "Nuevo plan",
+                        1L, 3L, "Ana Lopez", FECHA,
+                        EstadoEvolucion.ACTIVA, 1L, "Estable"));
 
         mockMvc.perform(put("/api/v1/evolucion/7")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new evolucionDTOs.Request(
-                                "Paciente en observación", "Nuevo plan", 1L, 3L))))
+                        .content(objectMapper.writeValueAsString(
+                                new evolucionDTOs.Request(
+                                        "Paciente en observaci\u00f3n", "Nuevo plan",
+                                        1L, 3L, 1L))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.evolucionClinica").value("Paciente en observación"))
+                .andExpect(jsonPath("$.evolucionClinica").value("Paciente en observaci\u00f3n"))
                 .andExpect(jsonPath("$.planMedico").value("Nuevo plan"))
                 .andExpect(jsonPath("$.usuarioId").value(3));
     }

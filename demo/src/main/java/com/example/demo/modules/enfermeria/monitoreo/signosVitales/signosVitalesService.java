@@ -1,5 +1,8 @@
 package com.example.demo.modules.enfermeria.monitoreo.signosVitales;
 
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.EstadoEjecucionCuidado;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoDTOs;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -19,6 +22,7 @@ public class signosVitalesService {
     private final signosVitalesRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ejecucionCuidadoService ejecucionCuidadoService;
 
     @Transactional
     public signosVitalesDTOs.Response crear(signosVitalesDTOs.Request request) {
@@ -39,7 +43,28 @@ public class signosVitalesService {
                 .fecha(LocalDateTime.now())
                 .build();
 
-        return toResponse(repository.save(entity));
+        signosVitalesEntity guardado = repository.save(entity);
+        registrarEjecucionControl(request, guardado);
+        return toResponse(guardado);
+    }
+
+    /** Vincula la toma con la atención indicada y marca la ejecución como realizada. */
+    private void registrarEjecucionControl(signosVitalesDTOs.Request request, signosVitalesEntity entity) {
+        if (request.cuidadoId() == null) return;
+
+        LocalDateTime programada = request.fechaHoraProgramada() != null
+                ? request.fechaHoraProgramada()
+                : LocalDateTime.now();
+
+        ejecucionCuidadoService.crear(new ejecucionCuidadoDTOs.Request(
+                request.cuidadoId(),
+                programada,
+                EstadoEjecucionCuidado.REALIZADO,
+                entity.getObservacion(),
+                request.usuarioId(),
+                entity.getId(),
+                null,
+                null));
     }
 
     @Transactional

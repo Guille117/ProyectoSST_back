@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.historiaClinica;
 
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoEntity;
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -19,6 +21,7 @@ public class historiaClinicaService {
     private final historiaClinicaRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final estadoClinicoRepository estadoClinicoRepository;
 
     @Transactional
     public historiaClinicaDTOs.Response crear(historiaClinicaDTOs.Request request) {
@@ -26,10 +29,18 @@ public class historiaClinicaService {
             throw new IllegalArgumentException("La solicitud es obligatoria");
         }
 
+        String descripcion = validarDescripcion(request.descripcion());
+        EpisodioEntity episodio = buscarEpisodio(request.episodioId());
+        estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
+        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+
+        episodio.setEstadoClinico(estadoClinico);
+        episodioRepository.save(episodio);
+
         historiaClinicaEntity entity = historiaClinicaEntity.builder()
-                .descripcion(validarDescripcion(request.descripcion()))
-                .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .descripcion(descripcion)
+                .episodio(episodio)
+                .usuario(usuario)
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -45,9 +56,17 @@ public class historiaClinicaService {
         historiaClinicaEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Historia clínica no encontrada con el ID: " + id));
 
-        entity.setDescripcion(validarDescripcion(request.descripcion()));
-        entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
+        String descripcion = validarDescripcion(request.descripcion());
+        EpisodioEntity episodio = buscarEpisodio(request.episodioId());
+        estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
+        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+
+        episodio.setEstadoClinico(estadoClinico);
+        episodioRepository.save(episodio);
+
+        entity.setDescripcion(descripcion);
+        entity.setEpisodio(episodio);
+        entity.setUsuario(usuario);
 
         return toResponse(repository.save(entity));
     }
@@ -100,6 +119,16 @@ public class historiaClinicaService {
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
     }
 
+    private estadoClinicoEntity buscarEstadoClinico(Long estadoClinicoId) {
+        if (estadoClinicoId == null) {
+            throw new IllegalArgumentException("El estado clínico es obligatorio");
+        }
+
+        return estadoClinicoRepository.findById(estadoClinicoId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Estado clínico no encontrado con el ID: " + estadoClinicoId));
+    }
+
     private UsuarioEntity buscarUsuario(Long usuarioId) {
         if (usuarioId == null) {
             throw new IllegalArgumentException("El usuario es obligatorio");
@@ -119,13 +148,18 @@ public class historiaClinicaService {
     }
 
     private historiaClinicaDTOs.Response toResponse(historiaClinicaEntity entity) {
+        EpisodioEntity episodio = entity.getEpisodio();
+        estadoClinicoEntity estadoClinico = episodio != null ? episodio.getEstadoClinico() : null;
+
         return new historiaClinicaDTOs.Response(
                 entity.getId(),
                 entity.getDescripcion(),
-                entity.getEpisodio().getId(),
+                episodio != null ? episodio.getId() : null,
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 entity.getFecha(),
-                entity.isEstado());
+                entity.isEstado(),
+                estadoClinico != null ? estadoClinico.getId() : null,
+                estadoClinico != null ? estadoClinico.getNombre() : null);
     }
 }

@@ -21,8 +21,19 @@ public class glucosaDTOs {
             Long episodioId,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
-    ) {}
+            Long usuarioId,
+            Long cuidadoId,
+            LocalDateTime fechaHoraProgramada
+    ) {
+        public Request(
+                Integer glucosa,
+                TipoMedicionGlucosa tipo,
+                String observacion,
+                Long episodioId,
+                Long usuarioId) {
+            this(glucosa, tipo, observacion, episodioId, usuarioId, null, null);
+        }
+    }
 
     public record Response(
             Long id,

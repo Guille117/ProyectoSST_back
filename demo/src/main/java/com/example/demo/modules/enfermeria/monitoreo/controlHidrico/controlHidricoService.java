@@ -1,5 +1,8 @@
 package com.example.demo.modules.enfermeria.monitoreo.controlHidrico;
 
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.EstadoEjecucionCuidado;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoDTOs;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -19,6 +22,7 @@ public class controlHidricoService {
     private final controlHidricoRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final ejecucionCuidadoService ejecucionCuidadoService;
 
     @Transactional
     public controlHidricoDTOs.Response crear(controlHidricoDTOs.Request request) {
@@ -36,7 +40,28 @@ public class controlHidricoService {
                 .fecha(LocalDateTime.now())
                 .build();
 
-        return toResponse(repository.save(entity));
+        controlHidricoEntity guardado = repository.save(entity);
+        registrarEjecucionControl(request, guardado);
+        return toResponse(guardado);
+    }
+
+    /** Vincula el movimiento con la atención indicada y marca la ejecución como realizada. */
+    private void registrarEjecucionControl(controlHidricoDTOs.Request request, controlHidricoEntity entity) {
+        if (request.cuidadoId() == null) return;
+
+        LocalDateTime programada = request.fechaHoraProgramada() != null
+                ? request.fechaHoraProgramada()
+                : LocalDateTime.now();
+
+        ejecucionCuidadoService.crear(new ejecucionCuidadoDTOs.Request(
+                request.cuidadoId(),
+                programada,
+                EstadoEjecucionCuidado.REALIZADO,
+                entity.getDescripcion(),
+                request.usuarioId(),
+                null,
+                null,
+                entity.getId()));
     }
 
     @Transactional

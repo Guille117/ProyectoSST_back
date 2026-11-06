@@ -46,13 +46,16 @@ class historiaClinicaControllerTest {
 
     @Test
     void crear_debeRetornarCreatedConElRegistroGuardado() throws Exception {
-        when(service.crear(any())).thenReturn(new historiaClinicaDTOs.Response(
-                10L, "Paciente estable", 1L, 2L, "Carlos Mendez", FECHA, true));
+        when(service.crear(any())).thenReturn(
+                new historiaClinicaDTOs.Response(
+                        10L, "Paciente estable", 1L, 2L, "Carlos Mendez",
+                        FECHA, true, 1L, "Estable"));
 
         mockMvc.perform(post("/api/v1/historiaClinica")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new historiaClinicaDTOs.Request("Paciente estable", 1L, 2L))))
+                                new historiaClinicaDTOs.Request(
+                                        "Paciente estable", 1L, 2L, 1L))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(10))
                 .andExpect(jsonPath("$.descripcion").value("Paciente estable"))
@@ -60,12 +63,15 @@ class historiaClinicaControllerTest {
                 .andExpect(jsonPath("$.usuarioId").value(2))
                 .andExpect(jsonPath("$.usuarioNombre").value("Carlos Mendez"))
                 .andExpect(jsonPath("$.fecha").exists())
-                .andExpect(jsonPath("$.estado").value(true));
+                .andExpect(jsonPath("$.estado").value(true))
+                .andExpect(jsonPath("$.estadoClinicoId").value(1))
+                .andExpect(jsonPath("$.estadoClinicoNombre").value("Estable"));
     }
 
     @Test
     void crear_debeRechazarDescripcionVacia() throws Exception {
-        String json = "{\"descripcion\":\"\",\"episodioId\":1,\"usuarioId\":2}";
+        String json = "{\"descripcion\":\"\",\"episodioId\":1,\"usuarioId\":2," +
+                "\"estadoClinicoId\":1}";
 
         mockMvc.perform(post("/api/v1/historiaClinica")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -76,7 +82,9 @@ class historiaClinicaControllerTest {
     @Test
     void obtenerTodos_debeAplicarActivoTruePorDefecto() throws Exception {
         when(service.obtenerTodos(true)).thenReturn(List.of(
-                new historiaClinicaDTOs.Response(1L, "Control", 1L, 2L, "Carlos Mendez", FECHA, true)));
+                new historiaClinicaDTOs.Response(
+                        1L, "Control", 1L, 2L, "Carlos Mendez",
+                        FECHA, true, 1L, "Estable")));
 
         mockMvc.perform(get("/api/v1/historiaClinica"))
                 .andExpect(status().isOk())
@@ -88,7 +96,9 @@ class historiaClinicaControllerTest {
     @Test
     void buscar_debeFiltrarPorEpisodio() throws Exception {
         when(service.buscarPorEpisodio(5L, true)).thenReturn(List.of(
-                new historiaClinicaDTOs.Response(7L, "Control", 5L, 2L, "Carlos Mendez", FECHA, true)));
+                new historiaClinicaDTOs.Response(
+                        7L, "Control", 5L, 2L, "Carlos Mendez",
+                        FECHA, true, 1L, "Estable")));
 
         mockMvc.perform(get("/api/v1/historiaClinica/buscar").param("episodioId", "5"))
                 .andExpect(status().isOk())
@@ -99,7 +109,9 @@ class historiaClinicaControllerTest {
     @Test
     void obtenerPorId_debeRetornarElRegistro() throws Exception {
         when(service.obtenerPorId(7L)).thenReturn(
-                new historiaClinicaDTOs.Response(7L, "Control", 1L, 2L, "Carlos Mendez", FECHA, false));
+                new historiaClinicaDTOs.Response(
+                        7L, "Control", 1L, 2L, "Carlos Mendez",
+                        FECHA, false, 1L, "Estable"));
 
         mockMvc.perform(get("/api/v1/historiaClinica/7"))
                 .andExpect(status().isOk())
@@ -109,22 +121,27 @@ class historiaClinicaControllerTest {
 
     @Test
     void actualizar_debeRetornarElRegistroActualizado() throws Exception {
-        when(service.actualizar(any(), any())).thenReturn(new historiaClinicaDTOs.Response(
-                7L, "Paciente en observación", 1L, 3L, "Ana Lopez", FECHA, true));
+        when(service.actualizar(any(), any())).thenReturn(
+                new historiaClinicaDTOs.Response(
+                        7L, "Paciente en observaci\u00f3n", 1L, 3L, "Ana Lopez",
+                        FECHA, true, 1L, "Estable"));
 
         mockMvc.perform(put("/api/v1/historiaClinica/7")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                new historiaClinicaDTOs.Request("Paciente en observación", 1L, 3L))))
+                                new historiaClinicaDTOs.Request(
+                                        "Paciente en observaci\u00f3n", 1L, 3L, 1L))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.descripcion").value("Paciente en observación"))
+                .andExpect(jsonPath("$.descripcion").value("Paciente en observaci\u00f3n"))
                 .andExpect(jsonPath("$.usuarioId").value(3));
     }
 
     @Test
     void cambiarEstado_debeRetornarElEstadoAlternado() throws Exception {
         when(service.cambiarEstado(7L)).thenReturn(
-                new historiaClinicaDTOs.Response(7L, "Paciente estable", 1L, 2L, "Carlos Mendez", FECHA, false));
+                new historiaClinicaDTOs.Response(
+                        7L, "Paciente estable", 1L, 2L, "Carlos Mendez",
+                        FECHA, false, 1L, "Estable"));
 
         mockMvc.perform(patch("/api/v1/historiaClinica/7"))
                 .andExpect(status().isOk())

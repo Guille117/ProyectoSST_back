@@ -1,5 +1,6 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoEntity;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
@@ -58,6 +59,11 @@ public class EpisodioEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cama_id")
     private camasEntity cama;
+
+    /** Estado clínico vigente del episodio: lo escriben historia clínica y evolución médica. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "estado_clinico_id")
+    private estadoClinicoEntity estadoClinico;
 
     /** Precio diario de la cama congelado al momento de asignarla al episodio. */
     @Column(name = "precio_cama", precision = 12, scale = 2)

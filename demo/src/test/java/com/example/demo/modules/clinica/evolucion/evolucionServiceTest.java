@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.evolucion;
 
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoEntity;
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
@@ -31,12 +33,16 @@ class evolucionServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private estadoClinicoRepository estadoClinicoRepository;
+
     @InjectMocks
     private evolucionService service;
 
     @Test
     void crear_debeGuardarConFechaDelServidorYEstadoActiva() {
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(1L)).thenReturn(Optional.of(estadoClinico(1L, "Estable")));
         when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
         when(repository.save(any(evolucionEntity.class))).thenAnswer(invocation -> {
             evolucionEntity entity = invocation.getArgument(0);
@@ -45,7 +51,7 @@ class evolucionServiceTest {
         });
 
         evolucionDTOs.Response response = service.crear(new evolucionDTOs.Request(
-                "  Paciente estable  ", "  Continuar tratamiento  ", 1L, 2L));
+                "  Paciente estable  ", "  Continuar tratamiento  ", 1L, 2L, 1L));
 
         assertEquals(10L, response.id());
         assertEquals("Paciente estable", response.evolucionClinica());
@@ -55,13 +61,15 @@ class evolucionServiceTest {
         assertEquals("Carlos Mendez", response.usuarioNombre());
         assertNotNull(response.fecha());
         assertEquals(EstadoEvolucion.ACTIVA, response.estado());
+        assertEquals(1L, response.estadoClinicoId());
+        assertEquals("Estable", response.estadoClinicoNombre());
     }
 
     @Test
     void crear_debeRechazarEvolucionClinicaVacia() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new evolucionDTOs.Request("   ", "Plan", 1L, 2L)));
+                () -> service.crear(new evolucionDTOs.Request("   ", "Plan", 1L, 2L, 1L)));
 
         assertEquals("La evolución clínica es obligatoria", exception.getMessage());
         verify(repository, never()).save(any());
@@ -71,7 +79,7 @@ class evolucionServiceTest {
     void crear_debeRechazarPlanMedicoVacio() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new evolucionDTOs.Request("Evolución", "   ", 1L, 2L)));
+                () -> service.crear(new evolucionDTOs.Request("Evolución", "   ", 1L, 2L, 1L)));
 
         assertEquals("El plan médico es obligatorio", exception.getMessage());
         verify(repository, never()).save(any());
@@ -83,20 +91,34 @@ class evolucionServiceTest {
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new evolucionDTOs.Request("Evolución", "Plan", 99L, 2L)));
+                () -> service.crear(new evolucionDTOs.Request("Evolución", "Plan", 99L, 2L, 1L)));
 
         assertEquals("Episodio no encontrado con el ID: 99", exception.getMessage());
         verify(repository, never()).save(any());
     }
 
     @Test
+    void crear_debeRechazarEstadoClinicoInexistente() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(99L)).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(new evolucionDTOs.Request("Evolución", "Plan", 1L, 2L, 99L)));
+
+        assertEquals("Estado clínico no encontrado con el ID: 99", exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void crear_debeRechazarUsuarioInexistente() {
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(1L)).thenReturn(Optional.of(estadoClinico(1L, "Estable")));
         when(usuarioRepository.findById(55L)).thenReturn(Optional.empty());
 
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,
-                () -> service.crear(new evolucionDTOs.Request("Evolución", "Plan", 1L, 55L)));
+                () -> service.crear(new evolucionDTOs.Request("Evolución", "Plan", 1L, 55L, 1L)));
 
         assertEquals("Usuario no encontrado con el ID: 55", exception.getMessage());
         verify(repository, never()).save(any());
@@ -111,12 +133,13 @@ class evolucionServiceTest {
 
         when(repository.findById(5L)).thenReturn(Optional.of(existente));
         when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(estadoClinicoRepository.findById(1L)).thenReturn(Optional.of(estadoClinico(1L, "Estable")));
         when(usuarioRepository.findById(3L)).thenReturn(Optional.of(usuario(3L, "Ana Lopez")));
         when(repository.save(any(evolucionEntity.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         evolucionDTOs.Response response = service.actualizar(5L,
-                new evolucionDTOs.Request("  Paciente en observación ", "  Nuevo plan ", 1L, 3L));
+                new evolucionDTOs.Request("  Paciente en observación ", "  Nuevo plan ", 1L, 3L, 1L));
 
         assertEquals("Paciente en observación", response.evolucionClinica());
         assertEquals("Nuevo plan", response.planMedico());
@@ -133,7 +156,7 @@ class evolucionServiceTest {
         RuntimeException exception = assertThrows(
                 RuntimeException.class,
                 () -> service.actualizar(77L,
-                        new evolucionDTOs.Request("Evolución", "Plan", 1L, 2L)));
+                        new evolucionDTOs.Request("Evolución", "Plan", 1L, 2L, 1L)));
 
         assertEquals("Evolución no encontrada con el ID: 77", exception.getMessage());
     }
@@ -200,6 +223,14 @@ class evolucionServiceTest {
 
     private EpisodioEntity episodio(Long id) {
         return EpisodioEntity.builder().id(id).descripcion("Episodio de prueba").build();
+    }
+
+    private estadoClinicoEntity estadoClinico(Long id, String nombre) {
+        estadoClinicoEntity entity = new estadoClinicoEntity();
+        entity.setId(id);
+        entity.setNombre(nombre);
+        entity.setEstado(true);
+        return entity;
     }
 
     private UsuarioEntity usuario(Long id, String nombreCompleto) {

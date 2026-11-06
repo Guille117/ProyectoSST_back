@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.evolucion;
 
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoEntity;
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -19,6 +21,7 @@ public class evolucionService {
     private final evolucionRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final estadoClinicoRepository estadoClinicoRepository;
 
     @Transactional
     public evolucionDTOs.Response crear(evolucionDTOs.Request request) {
@@ -26,13 +29,22 @@ public class evolucionService {
             throw new IllegalArgumentException("La solicitud es obligatoria");
         }
 
+        String evolucionClinica = validarTexto(request.evolucionClinica(),
+                "La evolución clínica es obligatoria");
+        String planMedico = validarTexto(request.planMedico(),
+                "El plan médico es obligatorio");
+        EpisodioEntity episodio = buscarEpisodio(request.episodioId());
+        estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
+        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+
+        episodio.setEstadoClinico(estadoClinico);
+        episodioRepository.save(episodio);
+
         evolucionEntity entity = evolucionEntity.builder()
-                .evolucionClinica(validarTexto(request.evolucionClinica(),
-                        "La evolución clínica es obligatoria"))
-                .planMedico(validarTexto(request.planMedico(),
-                        "El plan médico es obligatorio"))
-                .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .evolucionClinica(evolucionClinica)
+                .planMedico(planMedico)
+                .episodio(episodio)
+                .usuario(usuario)
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -47,12 +59,21 @@ public class evolucionService {
 
         evolucionEntity entity = buscarEntidad(id);
 
-        entity.setEvolucionClinica(validarTexto(request.evolucionClinica(),
-                "La evolución clínica es obligatoria"));
-        entity.setPlanMedico(validarTexto(request.planMedico(),
-                "El plan médico es obligatorio"));
-        entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
+        String evolucionClinica = validarTexto(request.evolucionClinica(),
+                "La evolución clínica es obligatoria");
+        String planMedico = validarTexto(request.planMedico(),
+                "El plan médico es obligatorio");
+        EpisodioEntity episodio = buscarEpisodio(request.episodioId());
+        estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
+        UsuarioEntity usuario = buscarUsuario(request.usuarioId());
+
+        episodio.setEstadoClinico(estadoClinico);
+        episodioRepository.save(episodio);
+
+        entity.setEvolucionClinica(evolucionClinica);
+        entity.setPlanMedico(planMedico);
+        entity.setEpisodio(episodio);
+        entity.setUsuario(usuario);
 
         return toResponse(repository.save(entity));
     }
@@ -112,6 +133,16 @@ public class evolucionService {
                         "Episodio no encontrado con el ID: " + episodioId));
     }
 
+    private estadoClinicoEntity buscarEstadoClinico(Long estadoClinicoId) {
+        if (estadoClinicoId == null) {
+            throw new IllegalArgumentException("El estado clínico es obligatorio");
+        }
+
+        return estadoClinicoRepository.findById(estadoClinicoId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Estado clínico no encontrado con el ID: " + estadoClinicoId));
+    }
+
     private UsuarioEntity buscarUsuario(Long usuarioId) {
         if (usuarioId == null) {
             throw new IllegalArgumentException("El usuario es obligatorio");
@@ -134,14 +165,19 @@ public class evolucionService {
     }
 
     private evolucionDTOs.Response toResponse(evolucionEntity entity) {
+        EpisodioEntity episodio = entity.getEpisodio();
+        estadoClinicoEntity estadoClinico = episodio != null ? episodio.getEstadoClinico() : null;
+
         return new evolucionDTOs.Response(
                 entity.getId(),
                 entity.getEvolucionClinica(),
                 entity.getPlanMedico(),
-                entity.getEpisodio().getId(),
+                episodio != null ? episodio.getId() : null,
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 entity.getFecha(),
-                entity.getEstado());
+                entity.getEstado(),
+                estadoClinico != null ? estadoClinico.getId() : null,
+                estadoClinico != null ? estadoClinico.getNombre() : null);
     }
 }

@@ -38,8 +38,34 @@ public class signosVitalesDTOs {
             Long episodioId,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
-    ) {}
+            Long usuarioId,
+            Long cuidadoId,
+            LocalDateTime fechaHoraProgramada
+    ) {
+        public Request(
+                Integer sistolica,
+                Integer diastolica,
+                Integer frecuenciaCardiaca,
+                Integer frecuenciaRespiratoria,
+                BigDecimal temperatura,
+                Integer saturacion,
+                String observacion,
+                Long episodioId,
+                Long usuarioId) {
+            this(
+                    sistolica,
+                    diastolica,
+                    frecuenciaCardiaca,
+                    frecuenciaRespiratoria,
+                    temperatura,
+                    saturacion,
+                    observacion,
+                    episodioId,
+                    usuarioId,
+                    null,
+                    null);
+        }
+    }
 
     public record Response(
             Long id,

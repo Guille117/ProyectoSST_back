@@ -149,7 +149,7 @@ class PacienteControllerTest {
         void listar_delegaEstadoOpcionalAlServicio() throws Exception {
                 when(service.listar(null)).thenReturn(java.util.List.of(
                                 new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(), "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
-                                                TipoAtencion.HOSPITALIZACION, true)));
+                                                TipoAtencion.HOSPITALIZACION, true, "Estable")));
 
                 mockMvc.perform(get("/api/v1/pacientes"))
                                 .andExpect(status().isOk())
@@ -170,7 +170,7 @@ class PacienteControllerTest {
                 when(service.buscar("ana")).thenReturn(java.util.List.of(
                                 new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(),
                                                 "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
-                                                TipoAtencion.EMERGENCIA, true)));
+                                                TipoAtencion.EMERGENCIA, true, "Estable")));
 
                 mockMvc.perform(get("/api/v1/pacientes/buscar").param("texto", "ana"))
                                 .andExpect(status().isOk())
@@ -189,7 +189,8 @@ class PacienteControllerTest {
                                 42L, TipoAtencion.EMERGENCIA, "Ingreso", java.time.LocalDateTime.now(),
                                 5L, "Dr. Juan Perez", null, null, null, null,
                                 java.util.List.of(new PacienteDTOs.CatalogoDetalle(2L, "Penicilina")),
-                                java.util.List.of(new PacienteDTOs.CatalogoDetalle(1L, "Diabetes"))));
+                                java.util.List.of(new PacienteDTOs.CatalogoDetalle(1L, "Diabetes")),
+                                "Estable"));
 
                 mockMvc.perform(get("/api/v1/pacientes/20"))
                                 .andExpect(status().isOk())

@@ -435,6 +435,7 @@ public class PacienteService {
         Map<Long, Long> episodioIdPorPaciente = new HashMap<>();
         Map<Long, Long> ultimoEpisodioIdPorPaciente = new HashMap<>();
         Map<Long, LocalDateTime> fechaIngresoPorPaciente = new HashMap<>();
+        Map<Long, String> estadoClinicoPorPaciente = new HashMap<>();
         episodioRepository.findByPaciente_IdInOrderByIdDesc(pacienteIds).forEach(episodio -> {
                 Long pacienteId = episodio.getPaciente().getId();
                 tratamientoPorPaciente.putIfAbsent(pacienteId, episodio.getTipoAtencion());
@@ -444,6 +445,10 @@ public class PacienteService {
                 if (episodio.isEstado()) {
                         episodioIdPorPaciente.putIfAbsent(pacienteId, episodio.getId());
                         fechaIngresoPorPaciente.putIfAbsent(pacienteId, episodio.getFechaHoraIngreso());
+                        if (episodio.getEstadoClinico() != null) {
+                                estadoClinicoPorPaciente.putIfAbsent(pacienteId,
+                                                episodio.getEstadoClinico().getNombre());
+                        }
                 }
         });
 
@@ -459,7 +464,8 @@ public class PacienteService {
                         paciente.getPersona().getSexo(),
                         paciente.getPersona().getTelefono(),
                         tratamientoPorPaciente.get(paciente.getId()),
-                        paciente.isEstado()))
+                        paciente.isEstado(),
+                        estadoClinicoPorPaciente.get(paciente.getId())))
                 .toList();
     }
 
@@ -509,7 +515,10 @@ public class PacienteService {
                 responsableDetalle(episodioConResponsable),
                 referenciaDetalle(episodioConResponsable),
                 mapearCatalogo(paciente.getAlergias()),
-                mapearCatalogo(paciente.getEnfermedades()));
+                mapearCatalogo(paciente.getEnfermedades()),
+                episodio != null && episodio.getEstadoClinico() != null
+                        ? episodio.getEstadoClinico().getNombre()
+                        : null);
     }
 
     /**
