@@ -11,6 +11,8 @@ import com.example.demo.modules.farmacia.salidas.SolicitudSalidaMovimientoEntity
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaMovimientoRepository;
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaRepository;
 import com.example.demo.modules.farmacia.salidas.TipoMovimientoSalida;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaEntity;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaRepository;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
@@ -37,6 +39,7 @@ public class ConsumoEpisodioService {
 
     private final EpisodioRepository episodioRepository;
     private final camasRepository camasRepository;
+    private final EstanciaCamaRepository estanciaCamaRepository;
     private final altaRepository altaRepository;
     private final SolicitudSalidaRepository solicitudSalidaRepository;
     private final SolicitudSalidaMovimientoRepository movimientoRepository;
@@ -56,10 +59,7 @@ public class ConsumoEpisodioService {
                         "Episodio no encontrado con el ID: " + episodioId));
 
         List<ConsumoEpisodioDTOs.ItemResponse> items = new ArrayList<>(consumoProductos(episodioId));
-        ConsumoEpisodioDTOs.ItemResponse cama = consumoCama(episodio);
-        if (cama != null) {
-            items.add(cama);
-        }
+        items.addAll(consumoCamas(episodio));
 
         BigDecimal total = items.stream()
                 .map(ConsumoEpisodioDTOs.ItemResponse::subtotal)
@@ -144,6 +144,60 @@ public class ConsumoEpisodioService {
         return movimientosPorDetalle;
     }
 
+    private List<ConsumoEpisodioDTOs.ItemResponse> consumoCamas(EpisodioEntity episodio) {
+        List<EstanciaCamaEntity> estancias = estanciaCamaRepository
+                .findByEpisodio_IdOrderByFechaHoraInicioAsc(episodio.getId());
+        if (estancias.isEmpty()) {
+            ConsumoEpisodioDTOs.ItemResponse legado = consumoCama(episodio);
+            return legado != null ? List.of(legado) : List.of();
+        }
+
+        LocalDateTime finEpisodio = fechaFinEpisodio(episodio);
+        List<ConsumoEpisodioDTOs.ItemResponse> items = new ArrayList<>();
+        for (EstanciaCamaEntity estancia : estancias) {
+            camasEntity cama = estancia.getCama();
+            if (cama == null) {
+                continue;
+            }
+
+            LocalDateTime fin = estancia.getFechaHoraFin() != null
+                    ? estancia.getFechaHoraFin()
+                    : finEpisodio;
+            if (finEpisodio != null && fin.isAfter(finEpisodio)) {
+                fin = finEpisodio;
+            }
+
+            int dias = diasUso(estancia.getFechaHoraInicio(), fin);
+            if (dias <= 0) {
+                continue;
+            }
+
+            BigDecimal precio = estancia.getPrecio() != null
+                    ? estancia.getPrecio()
+                    : (cama.getPrecio() == null ? BigDecimal.ZERO : cama.getPrecio());
+            BigDecimal subtotal = precio.multiply(BigDecimal.valueOf(dias))
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            items.add(new ConsumoEpisodioDTOs.ItemResponse(
+                    "Cama",
+                    "Cama " + cama.getCodigo(),
+                    detalleCama(cama),
+                    dias,
+                    dias == 1 ? "día" : "días",
+                    precio.setScale(2, RoundingMode.HALF_UP),
+                    subtotal));
+        }
+        return items;
+    }
+
+    private LocalDateTime fechaFinEpisodio(EpisodioEntity episodio) {
+        return altaRepository
+                .findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                        episodio.getId(), EstadoAlta.VIGENTE)
+                .map(altaEntity::getFechaHoraEgreso)
+                .orElseGet(LocalDateTime::now);
+    }
+
     private ConsumoEpisodioDTOs.ItemResponse consumoCama(EpisodioEntity episodio) {
         if (episodio.getPaciente() == null) {
             return null;
@@ -157,11 +211,7 @@ public class ConsumoEpisodioService {
             return null;
         }
 
-        LocalDateTime fin = altaRepository
-                .findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
-                        episodio.getId(), EstadoAlta.VIGENTE)
-                .map(altaEntity::getFechaHoraEgreso)
-                .orElseGet(LocalDateTime::now);
+        LocalDateTime fin = fechaFinEpisodio(episodio);
 
         int dias = diasUso(episodio.getFechaHoraIngreso(), fin);
         if (dias <= 0) {

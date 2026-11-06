@@ -4,6 +4,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ public class notaEnfermeriaService {
     private final notaEnfermeriaRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public notaEnfermeriaDTOs.Response crear(notaEnfermeriaDTOs.Request request) {
@@ -29,7 +31,7 @@ public class notaEnfermeriaService {
         notaEnfermeriaEntity entity = notaEnfermeriaEntity.builder()
                 .texto(validarTexto(request.texto()))
                 .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -43,9 +45,13 @@ public class notaEnfermeriaService {
         }
 
         notaEnfermeriaEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
+
         entity.setTexto(validarTexto(request.texto()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
@@ -60,6 +66,7 @@ public class notaEnfermeriaService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEliminadoFalseOrderByFechaDesc(episodioId).stream()
                 .map(this::toResponse)
@@ -69,13 +76,16 @@ public class notaEnfermeriaService {
     @Transactional
     public void eliminar(Long id) {
         notaEnfermeriaEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         entity.setEliminado(true);
         repository.save(entity);
     }
 
     private notaEnfermeriaEntity buscar(Long id) {
-        return repository.findById(id)
+        notaEnfermeriaEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Nota de enfermería no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
     }
 
     private String validarTexto(String texto) {
@@ -91,8 +101,15 @@ public class notaEnfermeriaService {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

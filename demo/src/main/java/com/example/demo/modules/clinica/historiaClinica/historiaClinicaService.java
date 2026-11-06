@@ -1,9 +1,12 @@
 package com.example.demo.modules.clinica.historiaClinica;
 
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoEntity;
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +22,8 @@ public class historiaClinicaService {
     private final historiaClinicaRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final estadoClinicoRepository estadoClinicoRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public historiaClinicaDTOs.Response crear(historiaClinicaDTOs.Request request) {
@@ -26,10 +31,18 @@ public class historiaClinicaService {
             throw new IllegalArgumentException("La solicitud es obligatoria");
         }
 
+        String descripcion = validarDescripcion(request.descripcion());
+        EpisodioEntity episodio = buscarEpisodio(request.episodioId());
+        estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
+        UsuarioEntity usuario = autor(request.usuarioId());
+
+        episodio.setEstadoClinico(estadoClinico);
+        episodioRepository.save(episodio);
+
         historiaClinicaEntity entity = historiaClinicaEntity.builder()
-                .descripcion(validarDescripcion(request.descripcion()))
-                .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .descripcion(descripcion)
+                .episodio(episodio)
+                .usuario(usuario)
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -42,20 +55,27 @@ public class historiaClinicaService {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        historiaClinicaEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Historia clínica no encontrada con el ID: " + id));
+        historiaClinicaEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
-        entity.setDescripcion(validarDescripcion(request.descripcion()));
-        entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
+        String descripcion = validarDescripcion(request.descripcion());
+        EpisodioEntity episodio = buscarEpisodio(request.episodioId());
+        estadoClinicoEntity estadoClinico = buscarEstadoClinico(request.estadoClinicoId());
+
+        episodio.setEstadoClinico(estadoClinico);
+        episodioRepository.save(episodio);
+
+        entity.setDescripcion(descripcion);
+        entity.setEpisodio(episodio);
 
         return toResponse(repository.save(entity));
     }
 
     @Transactional(readOnly = true)
     public historiaClinicaDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Historia clínica no encontrada con el ID: " + id));
+        return toResponse(buscarEntidad(id));
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +88,7 @@ public class historiaClinicaService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(episodioId, activo).stream()
                 .map(this::toResponse)
@@ -76,8 +97,8 @@ public class historiaClinicaService {
 
     @Transactional
     public historiaClinicaDTOs.Response cambiarEstado(Long id) {
-        historiaClinicaEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Historia clínica no encontrada con el ID: " + id));
+        historiaClinicaEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(!entity.isEstado());
         return toResponse(repository.save(entity));
@@ -91,13 +112,37 @@ public class historiaClinicaService {
         return normalizada;
     }
 
+    private historiaClinicaEntity buscarEntidad(Long id) {
+        historiaClinicaEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Historia clínica no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
+    }
+
     private EpisodioEntity buscarEpisodio(Long episodioId) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
+    }
+
+    private estadoClinicoEntity buscarEstadoClinico(Long estadoClinicoId) {
+        if (estadoClinicoId == null) {
+            throw new IllegalArgumentException("El estado clínico es obligatorio");
+        }
+
+        return estadoClinicoRepository.findById(estadoClinicoId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Estado clínico no encontrado con el ID: " + estadoClinicoId));
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {
@@ -119,13 +164,18 @@ public class historiaClinicaService {
     }
 
     private historiaClinicaDTOs.Response toResponse(historiaClinicaEntity entity) {
+        EpisodioEntity episodio = entity.getEpisodio();
+        estadoClinicoEntity estadoClinico = episodio != null ? episodio.getEstadoClinico() : null;
+
         return new historiaClinicaDTOs.Response(
                 entity.getId(),
                 entity.getDescripcion(),
-                entity.getEpisodio().getId(),
+                episodio != null ? episodio.getId() : null,
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 entity.getFecha(),
-                entity.isEstado());
+                entity.isEstado(),
+                estadoClinico != null ? estadoClinico.getId() : null,
+                estadoClinico != null ? estadoClinico.getNombre() : null);
     }
 }

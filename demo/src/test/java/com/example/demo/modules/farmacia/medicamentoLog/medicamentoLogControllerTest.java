@@ -127,6 +127,38 @@ class medicamentoLogControllerTest {
                                 .andExpect(status().isOk());
         }
 
+        @Test
+        void corregir_debeRetornarElMedicamentoCorregido() throws Exception {
+                when(service.corregir(org.mockito.ArgumentMatchers.eq(7L), any())).thenReturn(
+                        new medicamentoLogDTOs.Response(
+                                7L, "Acetaminofén", "MED-7", new BigDecimal("500"), 3L, "mg", 6L,
+                                "Marca A", 4L, "Oral", 5L, "Tableta"));
+
+                mockMvc.perform(patch("/api/v1/medicamentoLog/7/correccion")
+                                .contentType("application/json")
+                                .content("{\"nombre\":\"Acetaminofén\",\"motivo\":\"Error de tipeo\"}"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.nombre").value("Acetaminofén"));
+        }
+
+        @Test
+        void corregir_sinMotivo_debeRetornarBadRequest() throws Exception {
+                mockMvc.perform(patch("/api/v1/medicamentoLog/7/correccion")
+                                .contentType("application/json")
+                                .content("{\"nombre\":\"Acetaminofén\",\"motivo\":\"\"}"))
+                        .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        void cambiarEstado_conConflicto_debeRetornar409() throws Exception {
+                org.mockito.Mockito.doThrow(
+                                new com.example.demo.config.ConflictException("Existen unidades pendientes"))
+                        .when(service).cambiarEstado(7L);
+
+                mockMvc.perform(patch("/api/v1/medicamentoLog/7"))
+                        .andExpect(status().isConflict());
+        }
+
     @MockitoBean
     private com.example.demo.security.JwtUtil jwtUtil;
 

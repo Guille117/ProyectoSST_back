@@ -2,6 +2,7 @@ package com.example.demo.modules.clinica.parteCuerpo;
 
 import com.example.demo.modules.catalogo.controllerBase;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoService;
+import com.example.demo.modules.clinica.estadoClinico.estadoClinicoService;
 import com.example.demo.modules.clinica.procedimiento.procedimientoService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,17 +14,21 @@ public class parteCuerpoController extends controllerBase<parteCuerpoEntity> {
     private final parteCuerpoService parteCuerpoService;
     private final condicionEgresoService condicionEgresoService;
     private final procedimientoService procedimientoService;
+    private final estadoClinicoService estadoClinicoService;
 
-    public record ConteoCatalogosResponse(long partesCuerpo, long condicionesEgreso, long procedimientos) {}
+    public record ConteoCatalogosResponse(
+            long partesCuerpo, long condicionesEgreso, long procedimientos, long estadosClinico) {}
 
     // Constructor para inicializar los servicios de los catálogos de gestión clínica
     public parteCuerpoController(
             parteCuerpoService parteCuerpoService,
             condicionEgresoService condicionEgresoService,
-            procedimientoService procedimientoService) {
+            procedimientoService procedimientoService,
+            estadoClinicoService estadoClinicoService) {
         this.parteCuerpoService = parteCuerpoService;
         this.condicionEgresoService = condicionEgresoService;
         this.procedimientoService = procedimientoService;
+        this.estadoClinicoService = estadoClinicoService;
     }
 
     @Override
@@ -37,6 +42,7 @@ public class parteCuerpoController extends controllerBase<parteCuerpoEntity> {
         return new ConteoCatalogosResponse(
                 parteCuerpoService.contarPartesCuerpo(),
                 condicionEgresoService.contarCondicionesEgreso(),
-                procedimientoService.contarProcedimientos());
+                procedimientoService.contarProcedimientos(),
+                estadoClinicoService.contarEstadosClinicos());
     }
 }

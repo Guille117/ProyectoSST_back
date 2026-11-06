@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -20,6 +21,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
+    private final HorarioLaboralService horarioLaboralService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -28,13 +30,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = getTokenFromRequest(request);
         if (StringUtils.hasText(token) && jwtUtil.validateToken(token)) {
             String username = jwtUtil.getUsernameFromToken(token);
-            var userDetails = userDetailsService.loadUserByUsername(username);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            try {
+                var userDetails = userDetailsService.loadUserByUsername(username);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                if (!esCierreDeSesion(request)) {
+                    horarioLaboralService.validarAccesoPorUsername(username);
+                }
+            } catch (AuthenticationException e) {
+                SecurityContextHolder.clearContext();
+            } catch (HorarioAccessException e) {
+                SecurityContextHolder.clearContext();
+                escribirFueraDeHorario(response, e.getMessage());
+                return;
+            }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private boolean esCierreDeSesion(HttpServletRequest request) {
+        return request.getRequestURI() != null
+                && request.getRequestURI().endsWith("/api/v1/auth/logout");
+    }
+
+    private void escribirFueraDeHorario(HttpServletResponse response, String mensaje) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"status\":403,\"codigo\":\"FUERA_DE_HORARIO\",\"message\":\""
+                + mensaje + "\"}");
     }
 
     private String getTokenFromRequest(HttpServletRequest request) {

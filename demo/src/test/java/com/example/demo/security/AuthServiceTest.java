@@ -1,10 +1,12 @@
 package com.example.demo.security;
 
+import com.example.demo.modules.bitacora.BitacoraService;
 import com.example.demo.modules.usuarios.usuarios.*;
 import com.example.demo.modules.usuarios.puesto.puestoEntity;
 import com.example.demo.modules.usuarios.horarios.DiaSemana;
 import com.example.demo.modules.usuarios.horarios.HorarioEntity;
 import com.example.demo.modules.usuarios.horarios.HorarioSemanalDetalleEntity;
+import com.example.demo.modules.usuarios.horarios.HorarioTurnoDetalleEntity;
 import com.example.demo.modules.usuarios.roles.ModuloEntity;
 import com.example.demo.modules.usuarios.roles.RolEntity;
 import com.example.demo.modules.usuarios.roles.RolPermisoEntity;
@@ -44,12 +46,15 @@ class AuthServiceTest {
     @Mock
     private JwtUtil jwtUtil;
 
-    @InjectMocks
+    @Mock
+    private BitacoraService bitacoraService;
+
     private AuthService authService;
 
     private UsuarioEntity usuarioSemanal;
     private UsuarioEntity usuarioRotativo;
     private UsuarioEntity usuarioAdmin;
+    private UsuarioEntity usuarioMedico;
 
     @BeforeEach
     void setUp() {
@@ -68,6 +73,8 @@ class AuthServiceTest {
         HorarioEntity horarioRotativo = HorarioEntity.builder()
                 .id(2L).codigo("HOR-02").nombre("Rotativo").esRotativo(true).estado(true)
                 .build();
+        horarioRotativo.setTurnoDetalle(HorarioTurnoDetalleEntity.builder()
+                .id(20L).horario(horarioRotativo).horasTrabajo(24).horasDescanso(48).build());
 
         PersonaEntity persona = PersonaEntity.builder()
                 .id(1L).cui("1234567890123").nombres("Juan").apellidos("Perez")
@@ -76,6 +83,8 @@ class AuthServiceTest {
 
         puestoEntity puestoDoctor = new puestoEntity();
         puestoDoctor.setId(1L); puestoDoctor.setNombre("Doctor"); puestoDoctor.setEstado(true);
+        puestoEntity puestoEnfermera = new puestoEntity();
+        puestoEnfermera.setId(2L); puestoEnfermera.setNombre("Enfermera"); puestoEnfermera.setEstado(true);
         puestoEntity puestoAdmin = new puestoEntity();
         puestoAdmin.setId(5L); puestoAdmin.setNombre("Administrador"); puestoAdmin.setEstado(true);
         puestoEntity puestoDirector = new puestoEntity();
@@ -92,18 +101,28 @@ class AuthServiceTest {
 
         usuarioSemanal = UsuarioEntity.builder()
                 .id(1L).codigo("USR-01").username("jperez").password("encodedPass").estado(true)
-                .persona(persona).puesto(puestoDoctor).horario(horarioSemanal).roles(java.util.Set.of(rolNormal))
+                .persona(persona).puesto(puestoEnfermera).horario(horarioSemanal).roles(java.util.Set.of(rolNormal))
                 .build();
 
         usuarioRotativo = UsuarioEntity.builder()
                 .id(2L).codigo("USR-02").username("rotativo").password("encodedPass").estado(true)
-                .persona(persona).puesto(puestoDoctor).horario(horarioRotativo).roles(java.util.Set.of(rolNormal))
+                .persona(persona).puesto(puestoEnfermera).horario(horarioRotativo).roles(java.util.Set.of(rolNormal))
+                .build();
+
+        usuarioMedico = UsuarioEntity.builder()
+                .id(4L).codigo("USR-04").username("medico").password("encodedPass").estado(true)
+                .persona(persona).puesto(puestoDoctor).horario(null).roles(java.util.Set.of(rolNormal))
                 .build();
 
         usuarioAdmin = UsuarioEntity.builder()
                 .id(3L).codigo("USR-03").username("admin").password("encodedPass").estado(true)
                 .persona(persona).puesto(puestoAdmin).horario(horarioSemanal).roles(java.util.Set.of(rolAdmin))
                 .build();
+
+        HorarioLaboralService horarioLaboralService =
+                new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository);
+        authService = new AuthService(usuarioRepository, pinRepository, passwordEncoder, jwtUtil,
+                bitacoraService, horarioLaboralService);
     }
 
     @Test
@@ -140,20 +159,20 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_PermiteAcceso_PorFueraDeHorario() {
+    void login_DeniegaAcceso_FueraDeHorario() {
         AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("jperez", "password123");
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
 
-        // El horario no se valida por ahora.
         LocalDate lunes = LocalDate.of(2026, 8, 24);
         LocalTime horaFuera = LocalTime.of(20, 0);
 
-        assertDoesNotThrow(() -> authService.login(req, lunes, horaFuera));
+        assertThrows(HorarioAccessException.class, () -> authService.login(req, lunes, horaFuera));
+        verify(jwtUtil, never()).generateToken(anyString(), any());
     }
 
     @Test
-    void login_PermiteAcceso_PorDiaNoConfigurado() {
+    void login_DeniegaAcceso_PorDiaNoConfigurado() {
         AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("jperez", "password123");
         when(usuarioRepository.findByUsernameIgnoreCase("jperez")).thenReturn(Optional.of(usuarioSemanal));
         when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
@@ -161,7 +180,21 @@ class AuthServiceTest {
         LocalDate martes = LocalDate.of(2026, 8, 25); // Martes no tiene detalle
         LocalTime hora = LocalTime.of(10, 0);
 
-        assertDoesNotThrow(() -> authService.login(req, martes, hora));
+        assertThrows(HorarioAccessException.class, () -> authService.login(req, martes, hora));
+        verify(jwtUtil, never()).generateToken(anyString(), any());
+    }
+
+    @Test
+    void login_DeberiaPermitir_Medico_SinHorario() {
+        AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("medico", "password123");
+        when(usuarioRepository.findByUsernameIgnoreCase("medico")).thenReturn(Optional.of(usuarioMedico));
+        when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
+        when(jwtUtil.generateToken("medico", 4L)).thenReturn("medico-token");
+
+        AuthDTOs.AuthResponse resp = authService.login(req,
+                LocalDate.of(2026, 8, 24), LocalTime.of(23, 0));
+
+        assertEquals("medico-token", resp.token());
     }
 
     @Test
@@ -182,15 +215,40 @@ class AuthServiceTest {
     }
 
     @Test
-    void login_DeberiaPermitir_Rotativo_SinValidacionHoraria() {
+    void login_DeberiaPermitir_Rotativo_DentroDeGuardia() {
+        usuarioRotativo.setInicioGuardia(LocalDateTime.of(2026, 8, 24, 8, 0));
         AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("rotativo", "password123");
         when(usuarioRepository.findByUsernameIgnoreCase("rotativo")).thenReturn(Optional.of(usuarioRotativo));
         when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
         when(jwtUtil.generateToken("rotativo", 2L)).thenReturn("rotativo-token");
 
-        AuthDTOs.AuthResponse resp = authService.login(req, LocalDate.now(), LocalTime.now());
+        AuthDTOs.AuthResponse resp = authService.login(req,
+                LocalDate.of(2026, 8, 25), LocalTime.of(7, 0));
 
         assertEquals("rotativo-token", resp.token());
+    }
+
+    @Test
+    void login_DeniegaAcceso_Rotativo_DuranteDescanso() {
+        usuarioRotativo.setInicioGuardia(LocalDateTime.of(2026, 8, 24, 8, 0));
+        AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("rotativo", "password123");
+        when(usuarioRepository.findByUsernameIgnoreCase("rotativo")).thenReturn(Optional.of(usuarioRotativo));
+        when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
+
+        assertThrows(HorarioAccessException.class, () -> authService.login(req,
+                LocalDate.of(2026, 8, 25), LocalTime.of(10, 0)));
+        verify(jwtUtil, never()).generateToken(anyString(), any());
+    }
+
+    @Test
+    void login_DeniegaAcceso_Rotativo_SinInicioDeGuardia() {
+        AuthDTOs.LoginRequest req = new AuthDTOs.LoginRequest("rotativo", "password123");
+        when(usuarioRepository.findByUsernameIgnoreCase("rotativo")).thenReturn(Optional.of(usuarioRotativo));
+        when(passwordEncoder.matches("password123", "encodedPass")).thenReturn(true);
+
+        assertThrows(HorarioAccessException.class, () -> authService.login(req,
+                LocalDate.of(2026, 8, 24), LocalTime.of(10, 0)));
+        verify(jwtUtil, never()).generateToken(anyString(), any());
     }
 
     @Test
@@ -250,6 +308,7 @@ class AuthServiceTest {
     @Test
     void establecerCredenciales_Exitoso() {
         usuarioSemanal.setPassword(null);
+        usuarioSemanal.setHorario(horarioSinLimite());
         UsuarioPinEntity pin = UsuarioPinEntity.builder()
                 .id(1L).usuario(usuarioSemanal).codigo("123456")
                 .fechaCreacion(LocalDateTime.now()).fechaExpiracion(LocalDateTime.now().plusHours(1))
@@ -316,5 +375,21 @@ class AuthServiceTest {
 
         assertThrows(IllegalArgumentException.class, () -> authService.establecerCredenciales(req));
         verify(pinRepository, never()).save(any());
+    }
+
+    private HorarioEntity horarioSinLimite() {
+        HorarioEntity horario = HorarioEntity.builder()
+                .id(9L).codigo("HOR-09").nombre("Sin limite").esRotativo(false).estado(true)
+                .build();
+        for (DiaSemana dia : DiaSemana.values()) {
+            horario.getSemanalDetalles().add(HorarioSemanalDetalleEntity.builder()
+                    .horario(horario)
+                    .diaSemana(dia)
+                    .horaEntrada(LocalTime.MIN)
+                    .horaSalida(LocalTime.MAX)
+                    .activo(true)
+                    .build());
+        }
+        return horario;
     }
 }

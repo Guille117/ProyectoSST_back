@@ -5,8 +5,10 @@ import com.example.demo.modules.clinica.procedimientoMedico.EstadoProcedimientoM
 import com.example.demo.modules.clinica.procedimientoMedico.TipoRecursoProcedimiento;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoEntity;
 import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRecursoEntity;
+import com.example.demo.modules.enfermeria.tratamientos.DisponibilidadMedicamentoService;
 import com.example.demo.modules.farmacia.lotes.LoteEntity;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
+import com.example.demo.modules.farmacia.insumosLog.insumosLogEntity;
 import com.example.demo.modules.farmacia.insumosLog.insumosLogRepository;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
@@ -63,6 +65,8 @@ class SolicitudSalidaServiceTest {
     private medicamentoLogRepository medicamentoLogRepository;
     @Mock
     private insumosLogRepository insumosLogRepository;
+    @Mock
+    private DisponibilidadMedicamentoService disponibilidadService;
 
     @InjectMocks
     private SolicitudSalidaService service;
@@ -300,13 +304,54 @@ class SolicitudSalidaServiceTest {
 
         SolicitudSalidaDTOs.Response response = service.crearSolicitudMedicamentos(
                 new SolicitudSalidaDTOs.SolicitudMedicamentoRequest(10L, 1L, List.of(
-                        new SolicitudSalidaDTOs.MedicamentoSolicitudRequest(4L, 2),
-                        new SolicitudSalidaDTOs.MedicamentoSolicitudRequest(4L, 4))));
+                        new SolicitudSalidaDTOs.RecursoSolicitudRequest(
+                                TipoRecursoProcedimiento.MEDICAMENTO, 4L, 2),
+                        new SolicitudSalidaDTOs.RecursoSolicitudRequest(
+                                TipoRecursoProcedimiento.MEDICAMENTO, 4L, 4))));
 
         assertEquals("SOL-E00050", response.codigo());
         assertEquals("Solicitud de enfermería", response.procedimiento());
         assertEquals(1, response.detalles().size());
         assertEquals(6, response.detalles().getFirst().solicitado());
+    }
+
+    @Test
+    void crearSolicitudMedicamentos_incluyeMedicamentosEInsumos() {
+        EpisodioEntity episodio = episodio();
+        UsuarioEntity usuario = usuario(1L);
+        medicamentoLogEntity medicamento = medicamento(4L);
+        insumosLogEntity insumo = insumosLogEntity.builder().id(6L).nombre("Jeringa").estado(true).build();
+
+        when(episodioRepository.findById(10L)).thenReturn(Optional.of(episodio));
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario));
+        when(medicamentoLogRepository.findByIdAndEstado(4L, true))
+                .thenReturn(Optional.of(medicamento));
+        when(insumosLogRepository.findById(6L)).thenReturn(Optional.of(insumo));
+        when(repository.saveAndFlush(any(SolicitudSalidaEntity.class))).thenAnswer(invocation -> {
+            SolicitudSalidaEntity solicitud = invocation.getArgument(0);
+            solicitud.setId(50L);
+            return solicitud;
+        });
+        when(repository.save(any(SolicitudSalidaEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(movimientoRepository.findByDetalle_Solicitud_IdOrderByFechaHoraAsc(50L))
+                .thenReturn(List.of());
+        when(loteRepository.findByMedicamentoLog_IdAndEstadoAndDisponibleGreaterThan(4L, true, 0))
+                .thenReturn(List.of());
+        when(loteRepository.findByInsumoLog_IdAndEstadoAndDisponibleGreaterThan(6L, true, 0))
+                .thenReturn(List.of());
+
+        SolicitudSalidaDTOs.Response response = service.crearSolicitudMedicamentos(
+                new SolicitudSalidaDTOs.SolicitudMedicamentoRequest(10L, 1L, List.of(
+                        new SolicitudSalidaDTOs.RecursoSolicitudRequest(
+                                TipoRecursoProcedimiento.MEDICAMENTO, 4L, 2),
+                        new SolicitudSalidaDTOs.RecursoSolicitudRequest(
+                                TipoRecursoProcedimiento.INSUMO, 6L, 3))));
+
+        assertEquals(2, response.detalles().size());
+        assertEquals(TipoRecursoProcedimiento.MEDICAMENTO, response.detalles().get(0).tipo());
+        assertEquals(TipoRecursoProcedimiento.INSUMO, response.detalles().get(1).tipo());
+        assertEquals("Jeringa", response.detalles().get(1).nombre());
     }
 
     @Test
@@ -421,6 +466,7 @@ class SolicitudSalidaServiceTest {
                 .thenReturn(List.of(entrega));
         when(loteRepository.findByMedicamentoLog_IdAndEstadoAndDisponibleGreaterThan(eq(4L), anyBoolean(), any()))
                 .thenReturn(List.of(lote));
+        when(disponibilidadService.disponibleEnPiso(any(), any())).thenReturn(999);
 
         service.devolver(100L, devolucion(1L, 200L, 50L, 3, CondicionDevolucion.APTO));
 
@@ -456,6 +502,7 @@ class SolicitudSalidaServiceTest {
                 .thenReturn(List.of(entrega));
         when(loteRepository.findByMedicamentoLog_IdAndEstadoAndDisponibleGreaterThan(eq(4L), anyBoolean(), any()))
                 .thenReturn(List.of(lote));
+        when(disponibilidadService.disponibleEnPiso(any(), any())).thenReturn(999);
 
         service.devolver(100L, devolucion(1L, 200L, 50L, 3, CondicionDevolucion.NO_APTO));
 
@@ -479,9 +526,25 @@ class SolicitudSalidaServiceTest {
         when(loteRepository.findById(50L)).thenReturn(Optional.of(lote));
         when(motivoBajaRepository.findById(7L)).thenReturn(Optional.of(motivo(7L)));
         when(movimientoRepository.findByDetalle_IdOrderByFechaHoraAsc(200L)).thenReturn(List.of(entrega));
+        when(disponibilidadService.disponibleEnPiso(any(), any())).thenReturn(999);
 
         assertThrows(IllegalArgumentException.class,
                 () -> service.devolver(100L, devolucion(1L, 200L, 50L, 6, CondicionDevolucion.APTO)));
+        verify(movimientoRepository, never()).save(any());
+    }
+
+    @Test
+    void devolver_rechazaCuandoSuperaLaCantidadEnPiso() {
+        SolicitudSalidaEntity solicitud = solicitud(100L, EstadoSolicitudSalida.PARCIAL);
+        solicitud.agregarDetalle(
+                detalle(200L, TipoRecursoProcedimiento.MEDICAMENTO, 4L, "Amoxicilina", 10, 5));
+
+        when(repository.findByIdForUpdate(100L)).thenReturn(Optional.of(solicitud));
+        when(usuarioRepository.findById(1L)).thenReturn(Optional.of(usuario(1L)));
+        when(disponibilidadService.disponibleEnPiso(any(), any())).thenReturn(2);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> service.devolver(100L, devolucion(1L, 200L, 50L, 3, CondicionDevolucion.APTO)));
         verify(movimientoRepository, never()).save(any());
     }
 

@@ -1,5 +1,7 @@
 package com.example.demo.modules.pacientes.paciente;
 
+import com.example.demo.modules.clinica.alta.altaEntity;
+import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -44,4 +46,12 @@ public class DocumentoEpisodioEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "procedimiento_medico_id")
+    private procedimientoMedicoEntity procedimientoMedico;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alta_id")
+    private altaEntity alta;
 }

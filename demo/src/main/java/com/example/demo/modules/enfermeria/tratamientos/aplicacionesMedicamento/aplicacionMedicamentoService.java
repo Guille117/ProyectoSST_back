@@ -3,8 +3,10 @@ package com.example.demo.modules.enfermeria.tratamientos.aplicacionesMedicamento
 import com.example.demo.modules.clinica.indicaciones.medicamentos.EstadoIndicacionMedicamento;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.indicacionMedicamentoEntity;
 import com.example.demo.modules.clinica.indicaciones.medicamentos.indicacionMedicamentoRepository;
+import com.example.demo.modules.enfermeria.tratamientos.DisponibilidadMedicamentoService;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +22,8 @@ public class aplicacionMedicamentoService {
     private final aplicacionMedicamentoRepository repository;
     private final indicacionMedicamentoRepository indicacionRepository;
     private final UsuarioRepository usuarioRepository;
+    private final DisponibilidadMedicamentoService disponibilidadService;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public aplicacionMedicamentoDTOs.Response crear(aplicacionMedicamentoDTOs.Request request) {
@@ -39,13 +43,15 @@ public class aplicacionMedicamentoService {
             throw new IllegalArgumentException("Ya existe un registro para esa aplicación");
         }
 
+        validarDisponibleParaAdministrar(indicacion, request.estado(), request.cantidad());
+
         aplicacionMedicamentoEntity entity = aplicacionMedicamentoEntity.builder()
                 .indicacion(indicacion)
                 .fechaHoraProgramada(request.fechaHoraProgramada())
                 .estado(validarEstado(request.estado()))
                 .cantidad(request.cantidad())
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fechaRegistro(LocalDateTime.now())
                 .build();
 
@@ -59,10 +65,18 @@ public class aplicacionMedicamentoService {
         }
 
         aplicacionMedicamentoEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
+
+        validarFechaProgramadaParaActualizar(entity, request.fechaHoraProgramada());
+        validarDisponibleParaActualizar(entity, request.estado(), request.cantidad());
+
+        entity.setFechaHoraProgramada(request.fechaHoraProgramada());
         entity.setEstado(validarEstado(request.estado()));
         entity.setCantidad(request.cantidad());
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
@@ -96,6 +110,8 @@ public class aplicacionMedicamentoService {
 
     @Transactional(readOnly = true)
     public List<aplicacionMedicamentoDTOs.Response> buscarPorEpisodio(Long episodioId) {
+        registroAcceso.validarAccesoEpisodio(episodioId);
+
         return repository.findByIndicacion_Episodio_IdAndEliminadoFalseOrderByFechaHoraProgramadaAsc(episodioId)
                 .stream()
                 .map(this::toResponse)
@@ -105,21 +121,26 @@ public class aplicacionMedicamentoService {
     @Transactional
     public void eliminar(Long id) {
         aplicacionMedicamentoEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         entity.setEliminado(true);
         repository.save(entity);
     }
 
     private aplicacionMedicamentoEntity buscar(Long id) {
-        return repository.findById(id)
+        aplicacionMedicamentoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Aplicación de medicamento no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getIndicacion().getEpisodio());
+        return entity;
     }
 
     private indicacionMedicamentoEntity buscarIndicacion(Long indicacionId) {
         if (indicacionId == null) {
             throw new IllegalArgumentException("La indicación es obligatoria");
         }
-        return indicacionRepository.findById(indicacionId)
+        indicacionMedicamentoEntity indicacion = indicacionRepository.findById(indicacionId)
                 .orElseThrow(() -> new IllegalArgumentException("Indicación no encontrada con el ID: " + indicacionId));
+        registroAcceso.validarAccesoEpisodio(indicacion.getEpisodio());
+        return indicacion;
     }
 
     private EstadoAplicacionMedicamento validarEstado(EstadoAplicacionMedicamento estado) {
@@ -127,6 +148,70 @@ public class aplicacionMedicamentoService {
             throw new IllegalArgumentException("El estado es obligatorio");
         }
         return estado;
+    }
+
+    /** Al editar se valida que la nueva fecha programada no duplique otro registro vigente. */
+    private void validarFechaProgramadaParaActualizar(
+            aplicacionMedicamentoEntity entity, LocalDateTime fechaHoraProgramada) {
+        if (fechaHoraProgramada == null) {
+            throw new IllegalArgumentException("La fecha y hora programada son obligatorias");
+        }
+        if (repository.existsByIndicacion_IdAndFechaHoraProgramadaAndEliminadoFalseAndIdNot(
+                entity.getIndicacion().getId(), fechaHoraProgramada, entity.getId())) {
+            throw new IllegalArgumentException("Ya existe un registro para esa aplicación");
+        }
+    }
+
+    /** Al registrar una administración se exige stock en piso del medicamento del catálogo. */
+    private void validarDisponibleParaAdministrar(
+            indicacionMedicamentoEntity indicacion,
+            EstadoAplicacionMedicamento estado,
+            Integer cantidad) {
+        if (estado != EstadoAplicacionMedicamento.ADMINISTRADO
+                || indicacion.getMedicamentoLog() == null
+                || cantidad == null
+                || cantidad <= 0) {
+            return;
+        }
+
+        int disponible = disponibilidadService.disponibleEnPiso(
+                indicacion.getEpisodio().getId(), indicacion.getMedicamentoLog().getId());
+        if (cantidad > disponible) {
+            throw new IllegalArgumentException(
+                    "No hay suficiente medicamento entregado por Farmacia. Disponible en piso: "
+                            + disponible + ".");
+        }
+    }
+
+    /** Al editar una administración se valida contra el stock en piso sin contar la aplicación editada. */
+    private void validarDisponibleParaActualizar(
+            aplicacionMedicamentoEntity entity,
+            EstadoAplicacionMedicamento estado,
+            Integer cantidad) {
+        if (estado != EstadoAplicacionMedicamento.ADMINISTRADO
+                || entity.getIndicacion().getMedicamentoLog() == null
+                || cantidad == null
+                || cantidad <= 0) {
+            return;
+        }
+
+        int anterior = (entity.getEstado() == EstadoAplicacionMedicamento.ADMINISTRADO
+                && entity.getCantidad() != null)
+                        ? entity.getCantidad()
+                        : 0;
+        int disponible = disponibilidadService.disponibleEnPiso(
+                entity.getIndicacion().getEpisodio().getId(),
+                entity.getIndicacion().getMedicamentoLog().getId());
+        if (cantidad > disponible + anterior) {
+            throw new IllegalArgumentException(
+                    "No hay suficiente medicamento entregado por Farmacia. Disponible en piso: "
+                            + (disponible + anterior) + ".");
+        }
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {

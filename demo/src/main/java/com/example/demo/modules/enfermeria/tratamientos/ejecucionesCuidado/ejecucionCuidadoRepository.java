@@ -15,4 +15,7 @@ public interface ejecucionCuidadoRepository extends JpaRepository<ejecucionCuida
 
     boolean existsByCuidado_IdAndFechaHoraProgramadaAndEliminadoFalse(
             Long cuidadoId, LocalDateTime fechaHoraProgramada);
+
+    boolean existsByCuidado_IdAndFechaHoraProgramadaAndEliminadoFalseAndIdNot(
+            Long cuidadoId, LocalDateTime fechaHoraProgramada, Long id);
 }

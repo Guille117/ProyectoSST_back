@@ -21,7 +21,10 @@ public class evolucionDTOs {
             Long episodioId,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
+            Long usuarioId,
+            @NotNull(message = "El estado clínico es obligatorio")
+            @Positive(message = "El estado clínico debe ser un ID válido")
+            Long estadoClinicoId
     ) {}
 
     public record Response(
@@ -32,6 +35,8 @@ public class evolucionDTOs {
             Long usuarioId,
             String usuarioNombre,
             LocalDateTime fecha,
-            EstadoEvolucion estado
+            EstadoEvolucion estado,
+            Long estadoClinicoId,
+            String estadoClinicoNombre
     ) {}
 }

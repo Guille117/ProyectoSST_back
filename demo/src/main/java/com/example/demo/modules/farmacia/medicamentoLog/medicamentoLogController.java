@@ -63,4 +63,11 @@ public class medicamentoLogController {
         service.cambiarEstado(id);
         return ResponseEntity.ok().build();
     }
+
+    @PatchMapping("/{id}/correccion")
+    public ResponseEntity<medicamentoLogDTOs.Response> corregir(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody medicamentoLogDTOs.CorreccionRequest request) {
+        return ResponseEntity.ok(service.corregir(id, request));
+    }
 }

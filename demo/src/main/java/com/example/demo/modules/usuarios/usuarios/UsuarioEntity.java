@@ -37,8 +37,12 @@ public class UsuarioEntity {
     private especialidadEntity especialidad;
 
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "horario_id", nullable = false)
+    @JoinColumn(name = "horario_id")
     private HorarioEntity horario;
+
+    // Solo aplica a usuarios no médicos con horario de guardia (rotativo).
+    @Column(name = "inicio_guardia")
+    private java.time.LocalDateTime inicioGuardia;
 
         @ManyToMany(fetch = FetchType.EAGER)
         @JoinTable(

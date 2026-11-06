@@ -1,10 +1,12 @@
 package com.example.demo.modules.farmacia.medicamentoLog;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -56,6 +58,11 @@ public interface medicamentoLogRepository extends JpaRepository<medicamentoLogEn
 
     List<medicamentoLogEntity> findByEstado(boolean estado);
     Optional<medicamentoLogEntity> findByIdAndEstado(Long id, boolean estado);
+
+    /** Bloquea la fila del medicamento para serializar la deshabilitación con el alta de existencias. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT m FROM medicamentoLogEntity m WHERE m.id = :id")
+    Optional<medicamentoLogEntity> findByIdForUpdate(@Param("id") Long id);
     boolean existsByMarca_Id(Long marcaId);
     boolean existsByPresentacion_Id(Long presentacionId);
     boolean existsByUnidadMedida_Id(Long unidadMedidaId);

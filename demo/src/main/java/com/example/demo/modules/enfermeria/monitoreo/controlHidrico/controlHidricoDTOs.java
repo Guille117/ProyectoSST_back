@@ -26,8 +26,20 @@ public class controlHidricoDTOs {
             Long episodioId,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
-    ) {}
+            Long usuarioId,
+            Long cuidadoId,
+            LocalDateTime fechaHoraProgramada
+    ) {
+        public Request(
+                TipoRegistroHidrico tipo,
+                String via,
+                Integer cantidad,
+                String descripcion,
+                Long episodioId,
+                Long usuarioId) {
+            this(tipo, via, cantidad, descripcion, episodioId, usuarioId, null, null);
+        }
+    }
 
     public record Response(
             Long id,

@@ -1,21 +1,20 @@
 package com.example.demo.security;
 
+import com.example.demo.modules.bitacora.BitacoraService;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioPinEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioPinRepository;
 import com.example.demo.modules.usuarios.usuarios.NombrePersonaParser;
-import com.example.demo.modules.usuarios.horarios.DiaSemana;
-import com.example.demo.modules.usuarios.horarios.HorarioSemanalDetalleEntity;
 import com.example.demo.modules.usuarios.roles.RolEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -31,28 +30,59 @@ public class AuthService {
     private final UsuarioPinRepository pinRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final BitacoraService bitacoraService;
+    private final HorarioLaboralService horarioLaboralService;
 
     @Transactional(readOnly = true)
     public AuthDTOs.AuthResponse login(AuthDTOs.LoginRequest request) {
-        return login(request, LocalDate.now(), LocalTime.now());
+        AuthDTOs.AuthResponse response = login(request, LocalDate.now(), LocalTime.now());
+        try {
+            bitacoraService.registrarLogin(response.id(), response.username());
+        } catch (Exception ignorada) {
+            // La bitÃ¡cora no debe impedir el inicio de sesiÃ³n.
+        }
+        return response;
     }
 
     // Overload para testing con tiempo controlado
     @Transactional(readOnly = true)
     public AuthDTOs.AuthResponse login(AuthDTOs.LoginRequest request, LocalDate fechaActual, LocalTime horaActual) {
         UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(request.username().trim())
-                .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
+                .orElseThrow(() -> new BadCredentialsException("Credenciales invÃ¡lidas"));
 
-        // password null: el usuario aún no completó el primer ingreso (establecer-credenciales).
+        // password null: el usuario aÃºn no completÃ³ el primer ingreso (establecer-credenciales).
         if (usuario.getPassword() == null || !passwordEncoder.matches(request.password(), usuario.getPassword())) {
-            throw new BadCredentialsException("Credenciales inválidas");
+            throw new BadCredentialsException("Credenciales invÃ¡lidas");
         }
 
         if (!usuario.isEstado()) {
             throw new BadCredentialsException("Usuario inactivo");
         }
 
+        horarioLaboralService.validarAcceso(usuario, LocalDateTime.of(fechaActual, horaActual));
+
         return construirAuthResponse(usuario);
+    }
+
+    /**
+     * Registra el cierre de sesiÃ³n en la bitÃ¡cora. Nunca lanza errores hacia el
+     * cliente: un fallo en la bitÃ¡cora no debe impedir salir de la sesiÃ³n.
+     */
+    public void logout(String username) {
+        usuarioRepository.findByUsernameIgnoreCase(username).ifPresent(usuario -> {
+            try {
+                bitacoraService.registrarLogout(usuario.getId(), usuario.getUsername());
+            } catch (Exception ignorada) {
+                // La bitÃ¡cora no debe impedir el cierre de sesiÃ³n.
+            }
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public AuthDTOs.MeResponse me(String username) {
+        UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(username)
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado: " + username));
+        return new AuthDTOs.MeResponse(usuario.getId(), usuario.getUsername(), usuario.isEstado());
     }
 
     private static final int MAX_INTENTOS_PIN = 3;
@@ -61,11 +91,11 @@ public class AuthService {
         public AuthDTOs.CambioCredencialesPinResponse solicitarCambioCredenciales(
             AuthDTOs.SolicitudCambioCredencialesRequest request) {
         UsuarioEntity actor = usuarioRepository.findById(request.usuarioActualId())
-            .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
+            .orElseThrow(() -> new BadCredentialsException("Credenciales invÃ¡lidas"));
 
         if (!actor.isEstado() || actor.getPassword() == null
             || !passwordEncoder.matches(request.passwordActual(), actor.getPassword())) {
-            throw new BadCredentialsException("Credenciales inválidas");
+            throw new BadCredentialsException("Credenciales invÃ¡lidas");
         }
 
         UsuarioEntity objetivo = usuarioRepository.findById(request.usuarioId())
@@ -97,7 +127,7 @@ public class AuthService {
     @Transactional
     public AuthDTOs.AuthResponse establecerCredenciales(AuthDTOs.EstablecerCredencialesRequest request) {
         UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(request.username().trim())
-                .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
+                .orElseThrow(() -> new BadCredentialsException("Credenciales invÃ¡lidas"));
 
         UsuarioPinEntity pin = pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(usuario.getId())
                 .orElseThrow(() -> new IllegalArgumentException("No hay un PIN activo para este usuario. Solicite uno nuevo."));
@@ -109,7 +139,7 @@ public class AuthService {
         }
 
         if (pin.getIntentos() >= MAX_INTENTOS_PIN) {
-            throw new IllegalArgumentException("Se alcanzó el límite de intentos para este PIN. Solicite uno nuevo.");
+            throw new IllegalArgumentException("Se alcanzÃ³ el lÃ­mite de intentos para este PIN. Solicite uno nuevo.");
         }
 
         if (!pin.getCodigo().equals(request.pin().trim())) {
@@ -124,6 +154,8 @@ public class AuthService {
         pin.setUsado(true);
         pin.setFechaUso(LocalDateTime.now());
         pinRepository.save(pin);
+
+        horarioLaboralService.validarAcceso(usuario, LocalDateTime.now());
 
         return construirAuthResponse(usuario);
     }
@@ -175,57 +207,4 @@ public class AuthService {
         );
     }
 
-    private void validarHorarioLaboral(UsuarioEntity usuario, LocalDate fechaActual, LocalTime horaActual) {
-        // Bypass para ADMINISTRADOR o puesto Administrador / Director
-        boolean esAdministrador = usuario.getRoles() != null && usuario.getRoles().stream()
-            .anyMatch(rol -> rol.getNombre() != null && rol.getNombre().equalsIgnoreCase("ADMINISTRADOR"));
-        String puestoNombre = usuario.getPuesto() != null ? usuario.getPuesto().getNombre() : "";
-
-        if (esAdministrador) {
-            return;
-        }
-        if (puestoNombre != null && (puestoNombre.equalsIgnoreCase("Administrador") || puestoNombre.equalsIgnoreCase("Director"))) {
-            return;
-        }
-
-        var horario = usuario.getHorario();
-        if (horario == null) {
-            return;
-        }
-
-        if (horario.isEsRotativo()) {
-            // Si es rotativo, permitir acceso según regla de turno configurada (actualmente irrestricto)
-            return;
-        }
-
-        // Horario SEMANAL
-        DiaSemana diaActual = mapDayOfWeek(fechaActual.getDayOfWeek());
-        HorarioSemanalDetalleEntity detalle = horario.getSemanalDetalles().stream()
-                .filter(d -> d.getDiaSemana() == diaActual)
-                .findFirst()
-                .orElse(null);
-
-        if (detalle == null) {
-            throw new HorarioAccessException("Acceso denegado: Fuera del horario de trabajo asignado");
-        }
-        if (!detalle.isActivo()) {
-            throw new HorarioAccessException("Acceso denegado: Fuera del horario de trabajo asignado");
-        }
-        // Rango [horaEntrada, horaSalida] inclusive
-        if (horaActual.isBefore(detalle.getHoraEntrada()) || horaActual.isAfter(detalle.getHoraSalida())) {
-            throw new HorarioAccessException("Acceso denegado: Fuera del horario de trabajo asignado");
-        }
-    }
-
-    private DiaSemana mapDayOfWeek(DayOfWeek dow) {
-        return switch (dow) {
-            case MONDAY -> DiaSemana.LUNES;
-            case TUESDAY -> DiaSemana.MARTES;
-            case WEDNESDAY -> DiaSemana.MIERCOLES;
-            case THURSDAY -> DiaSemana.JUEVES;
-            case FRIDAY -> DiaSemana.VIERNES;
-            case SATURDAY -> DiaSemana.SABADO;
-            case SUNDAY -> DiaSemana.DOMINGO;
-        };
-    }
 }

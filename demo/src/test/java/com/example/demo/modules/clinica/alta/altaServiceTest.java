@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.alta;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
@@ -64,6 +66,11 @@ class altaServiceTest {
     @Mock
     private SolicitudSalidaService solicitudSalidaService;
 
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
+
     @InjectMocks
     private altaService service;
 
@@ -119,7 +126,7 @@ class altaServiceTest {
                 eq(10L), eq(episodio), eq(usuario), captor.capture());
         assertEquals(1, captor.getValue().size());
         assertEquals(9L, captor.getValue().get(0).referenciaId());
-        assertEquals(44, captor.getValue().get(0).cantidad());
+        assertEquals(42, captor.getValue().get(0).cantidad());
     }
 
     @Test
@@ -304,7 +311,7 @@ class altaServiceTest {
                 ArgumentCaptor.forClass(List.class);
         verify(solicitudSalidaService).sincronizarDesdeAlta(
                 eq(5L), eq(existente.getEpisodio()), eq(usuario), captor.capture());
-        assertEquals(44, captor.getValue().get(0).cantidad());
+        assertEquals(42, captor.getValue().get(0).cantidad());
     }
 
     @Test
@@ -451,7 +458,7 @@ class altaServiceTest {
 
         when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
         when(repository
-                .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Medico_IdOrderByFechaHoraEgresoDesc(
+                .findByEstadoAndFechaHoraEgresoGreaterThanEqualAndEpisodio_Paciente_Medicos_IdOrderByFechaHoraEgresoDesc(
                         any(EstadoAlta.class), any(LocalDateTime.class), eq(5L)))
                 .thenReturn(List.of(alta));
 

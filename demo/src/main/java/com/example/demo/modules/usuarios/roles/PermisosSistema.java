@@ -69,7 +69,9 @@ public final class PermisosSistema {
             submodulo(MODULO_REPORTES, "Reportes", "REPORTES-PACIENTES", "Reportes de pacientes"),
             submodulo(MODULO_REPORTES, "Reportes", "REPORTES-USUARIOS", "Reportes de usuarios"),
             submodulo(MODULO_REPORTES, "Reportes", "REPORTES-MEDICA", "Reportes médicos"),
-            submodulo(MODULO_REPORTES, "Reportes", "REPORTES-ENFERMERIA", "Reportes de enfermería"));
+            submodulo(MODULO_REPORTES, "Reportes", "REPORTES-ENFERMERIA", "Reportes de enfermería"),
+            submodulo(MODULO_REPORTES, "Reportes", "REPORTES-BITACORA-PACIENTES", "Bitácora de pacientes"),
+            submodulo(MODULO_REPORTES, "Reportes", "REPORTES-BITACORA-GENERAL", "Bitácora general"));
 
     private static final Map<String, List<DefinicionPermiso>> PERMISOS_POR_ROL = crearPermisosPorRol();
 

@@ -94,7 +94,10 @@ public class CompraService {
                 .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
 
         if (req != null && req.proveedorId() != null) {
-            existente.setProveedor(validarProveedorActivo(req.proveedorId()));
+            Long proveedorActualId = existente.getProveedor() == null ? null : existente.getProveedor().getId();
+            if (!req.proveedorId().equals(proveedorActualId)) {
+                existente.setProveedor(validarProveedorActivo(req.proveedorId()));
+            }
         }
         if (req != null && req.lotes() != null) {
             actualizarLotes(existente.getId(), req.lotes());
@@ -166,14 +169,22 @@ public class CompraService {
         repository.save(entity);
     }
 
+    /** Elimina lógicamente la compra: la marca inactiva y saca sus lotes del inventario. */
     @Transactional
     public void eliminar(Long id) {
         CompraEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
         validarCompraSinUso(entity, "eliminar");
-        comprobanteStorage.eliminar(entity.getComprobante());
-        loteRepository.deleteAll(loteRepository.findByCompra_Id(id));
-        repository.delete(entity);
+
+        List<LoteEntity> lotes = loteRepository.findByCompra_Id(id);
+        for (LoteEntity lote : lotes) {
+            lote.setEstado(false);
+            lote.setDisponible(0);
+        }
+        loteRepository.saveAll(lotes);
+
+        entity.setEstado(false);
+        repository.save(entity);
     }
 
     @Transactional(readOnly = true)

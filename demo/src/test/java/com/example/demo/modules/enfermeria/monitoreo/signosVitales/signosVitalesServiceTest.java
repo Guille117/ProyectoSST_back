@@ -1,5 +1,10 @@
 package com.example.demo.modules.enfermeria.monitoreo.signosVitales;
 
+import com.example.demo.security.RegistroAccesoService;
+
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.EstadoEjecucionCuidado;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoDTOs;
+import com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado.ejecucionCuidadoService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
@@ -7,6 +12,7 @@ import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -34,6 +40,14 @@ class signosVitalesServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    @Mock
+    private ejecucionCuidadoService ejecucionCuidadoService;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
+
     @InjectMocks
     private signosVitalesService service;
 
@@ -60,6 +74,41 @@ class signosVitalesServiceTest {
         assertEquals("Paciente estable", response.observacion());
         assertEquals("Carlos Mendez", response.usuarioNombre());
         assertFalse(response.eliminado());
+    }
+
+    @Test
+    void crear_conCuidado_debeRegistrarLaEjecucionDelControl() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(signosVitalesEntity.class))).thenAnswer(invocation -> {
+            signosVitalesEntity entity = invocation.getArgument(0);
+            entity.setId(10L);
+            return entity;
+        });
+
+        service.crear(new signosVitalesDTOs.Request(
+                120, 80, 82, 18, new BigDecimal("36.8"), 98, null, 1L, 2L, 55L, FECHA));
+
+        ArgumentCaptor<ejecucionCuidadoDTOs.Request> captor =
+                ArgumentCaptor.forClass(ejecucionCuidadoDTOs.Request.class);
+        verify(ejecucionCuidadoService).crear(captor.capture());
+
+        assertEquals(55L, captor.getValue().cuidadoId());
+        assertEquals(10L, captor.getValue().signosVitalesId());
+        assertEquals(EstadoEjecucionCuidado.REALIZADO, captor.getValue().estado());
+        assertEquals(FECHA, captor.getValue().fechaHoraProgramada());
+    }
+
+    @Test
+    void crear_sinCuidado_noDebeRegistrarEjecucion() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(signosVitalesEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.crear(new signosVitalesDTOs.Request(
+                120, 80, 82, 18, new BigDecimal("36.8"), 98, null, 1L, 2L));
+
+        verify(ejecucionCuidadoService, never()).crear(any());
     }
 
     @Test

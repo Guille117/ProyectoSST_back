@@ -32,9 +32,16 @@ public class ApiExceptionHandler {
         return respuestaError(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex) {
+        return respuestaError(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(HorarioAccessException.class)
     public ResponseEntity<Map<String, Object>> handleHorarioAccess(HorarioAccessException ex) {
-        return respuestaError(HttpStatus.FORBIDDEN, ex.getMessage());
+        Map<String, Object> body = cuerpoError(HttpStatus.FORBIDDEN, ex.getMessage());
+        body.put("codigo", "FUERA_DE_HORARIO");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -65,11 +72,15 @@ public class ApiExceptionHandler {
     }
 
     private ResponseEntity<Map<String, Object>> respuestaError(HttpStatus estado, String mensaje) {
+        return ResponseEntity.status(estado).body(cuerpoError(estado, mensaje));
+    }
+
+    private Map<String, Object> cuerpoError(HttpStatus estado, String mensaje) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("timestamp", Instant.now().toString());
         body.put("status", estado.value());
         body.put("error", estado.getReasonPhrase());
         body.put("message", mensaje);
-        return ResponseEntity.status(estado).body(body);
+        return body;
     }
 }

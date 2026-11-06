@@ -65,7 +65,8 @@ public interface UsuarioMapper {
             rolIds,
             roles,
             entity.isEstado(),
-            especialidad == null ? null : new UsuarioDTOs.EspecialidadResponse(especialidad.getId(), especialidad.getNombre())
+            especialidad == null ? null : new UsuarioDTOs.EspecialidadResponse(especialidad.getId(), especialidad.getNombre()),
+            entity.getInicioGuardia()
         );
     }
 

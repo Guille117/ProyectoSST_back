@@ -3,8 +3,15 @@ package com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado;
 import com.example.demo.modules.clinica.indicaciones.cuidados.EstadoCuidado;
 import com.example.demo.modules.clinica.indicaciones.cuidados.cuidadoEntity;
 import com.example.demo.modules.clinica.indicaciones.cuidados.cuidadoRepository;
+import com.example.demo.modules.enfermeria.monitoreo.controlHidrico.controlHidricoEntity;
+import com.example.demo.modules.enfermeria.monitoreo.controlHidrico.controlHidricoRepository;
+import com.example.demo.modules.enfermeria.monitoreo.glucosa.glucosaEntity;
+import com.example.demo.modules.enfermeria.monitoreo.glucosa.glucosaRepository;
+import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitalesEntity;
+import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitalesRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -12,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +28,10 @@ public class ejecucionCuidadoService {
     private final ejecucionCuidadoRepository repository;
     private final cuidadoRepository cuidadoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final signosVitalesRepository signosVitalesRepository;
+    private final glucosaRepository glucosaRepository;
+    private final controlHidricoRepository controlHidricoRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public ejecucionCuidadoDTOs.Response crear(ejecucionCuidadoDTOs.Request request) {
@@ -44,9 +56,11 @@ public class ejecucionCuidadoService {
                 .fechaHoraProgramada(request.fechaHoraProgramada())
                 .estado(validarEstado(request.estado()))
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fechaRegistro(LocalDateTime.now())
                 .build();
+
+        asignarMonitoreo(entity, request, cuidado);
 
         return toResponse(repository.save(entity));
     }
@@ -58,9 +72,16 @@ public class ejecucionCuidadoService {
         }
 
         ejecucionCuidadoEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
+
+        validarFechaProgramadaParaActualizar(entity, request.fechaHoraProgramada());
+
+        entity.setFechaHoraProgramada(request.fechaHoraProgramada());
         entity.setEstado(validarEstado(request.estado()));
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
@@ -94,6 +115,8 @@ public class ejecucionCuidadoService {
 
     @Transactional(readOnly = true)
     public List<ejecucionCuidadoDTOs.Response> buscarPorEpisodio(Long episodioId) {
+        registroAcceso.validarAccesoEpisodio(episodioId);
+
         return repository.findByCuidado_Episodio_IdAndEliminadoFalseOrderByFechaHoraProgramadaAsc(episodioId)
                 .stream()
                 .map(this::toResponse)
@@ -103,21 +126,98 @@ public class ejecucionCuidadoService {
     @Transactional
     public void eliminar(Long id) {
         ejecucionCuidadoEntity entity = buscar(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
         entity.setEliminado(true);
         repository.save(entity);
     }
 
+    private void asignarMonitoreo(
+            ejecucionCuidadoEntity entity,
+            ejecucionCuidadoDTOs.Request request,
+            cuidadoEntity cuidado) {
+        int referencias = 0;
+        if (request.signosVitalesId() != null) referencias++;
+        if (request.glucosaId() != null) referencias++;
+        if (request.controlHidricoId() != null) referencias++;
+
+        if (referencias > 1) {
+            throw new IllegalArgumentException("Una ejecución solo puede vincular un registro de monitoreo");
+        }
+        if (referencias == 1 && entity.getEstado() != EstadoEjecucionCuidado.REALIZADO) {
+            throw new IllegalArgumentException("Un control vinculado debe estar realizado");
+        }
+
+        if (request.signosVitalesId() != null) {
+            signosVitalesEntity signos = buscarSignosVitales(request.signosVitalesId());
+            validarEpisodio(cuidado, signos.getEpisodio().getId(), "signos vitales");
+            entity.setSignosVitales(signos);
+        }
+
+        if (request.glucosaId() != null) {
+            glucosaEntity glucosa = buscarGlucosa(request.glucosaId());
+            validarEpisodio(cuidado, glucosa.getEpisodio().getId(), "glucosa");
+            entity.setGlucosa(glucosa);
+        }
+
+        if (request.controlHidricoId() != null) {
+            controlHidricoEntity hidrico = buscarControlHidrico(request.controlHidricoId());
+            validarEpisodio(cuidado, hidrico.getEpisodio().getId(), "control hídrico");
+            entity.setControlHidrico(hidrico);
+        }
+    }
+
+    private signosVitalesEntity buscarSignosVitales(Long id) {
+        signosVitalesEntity entity = signosVitalesRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Registro de signos vitales no encontrado con el ID: " + id));
+        if (entity.isEliminado()) {
+            throw new IllegalArgumentException("El registro de signos vitales está eliminado");
+        }
+        return entity;
+    }
+
+    private glucosaEntity buscarGlucosa(Long id) {
+        glucosaEntity entity = glucosaRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Registro de glucosa no encontrado con el ID: " + id));
+        if (entity.isEliminado()) {
+            throw new IllegalArgumentException("El registro de glucosa está eliminado");
+        }
+        return entity;
+    }
+
+    private controlHidricoEntity buscarControlHidrico(Long id) {
+        controlHidricoEntity entity = controlHidricoRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Registro de control hídrico no encontrado con el ID: " + id));
+        if (entity.isEliminado()) {
+            throw new IllegalArgumentException("El registro de control hídrico está eliminado");
+        }
+        return entity;
+    }
+
+    private void validarEpisodio(cuidadoEntity cuidado, Long episodioId, String tipo) {
+        if (!Objects.equals(cuidado.getEpisodio().getId(), episodioId)) {
+            throw new IllegalArgumentException(
+                    "El registro de " + tipo + " no pertenece al episodio del cuidado");
+        }
+    }
+
     private ejecucionCuidadoEntity buscar(Long id) {
-        return repository.findById(id)
+        ejecucionCuidadoEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Ejecución de cuidado no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getCuidado().getEpisodio());
+        return entity;
     }
 
     private cuidadoEntity buscarCuidado(Long cuidadoId) {
         if (cuidadoId == null) {
             throw new IllegalArgumentException("El cuidado es obligatorio");
         }
-        return cuidadoRepository.findById(cuidadoId)
+        cuidadoEntity cuidado = cuidadoRepository.findById(cuidadoId)
                 .orElseThrow(() -> new IllegalArgumentException("Cuidado no encontrado con el ID: " + cuidadoId));
+        registroAcceso.validarAccesoEpisodio(cuidado.getEpisodio());
+        return cuidado;
     }
 
     private EstadoEjecucionCuidado validarEstado(EstadoEjecucionCuidado estado) {
@@ -125,6 +225,23 @@ public class ejecucionCuidadoService {
             throw new IllegalArgumentException("El estado es obligatorio");
         }
         return estado;
+    }
+
+    /** Al editar se valida que la nueva fecha programada no duplique otro registro vigente. */
+    private void validarFechaProgramadaParaActualizar(
+            ejecucionCuidadoEntity entity, LocalDateTime fechaHoraProgramada) {
+        if (fechaHoraProgramada == null) {
+            throw new IllegalArgumentException("La fecha y hora programada son obligatorias");
+        }
+        if (repository.existsByCuidado_IdAndFechaHoraProgramadaAndEliminadoFalseAndIdNot(
+                entity.getCuidado().getId(), fechaHoraProgramada, entity.getId())) {
+            throw new IllegalArgumentException("Ya existe un registro para esa ejecución");
+        }
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {
@@ -153,6 +270,9 @@ public class ejecucionCuidadoService {
                 entity.getObservacion(),
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
-                entity.getFechaRegistro());
+                entity.getFechaRegistro(),
+                entity.getSignosVitales() != null ? entity.getSignosVitales().getId() : null,
+                entity.getGlucosa() != null ? entity.getGlucosa().getId() : null,
+                entity.getControlHidrico() != null ? entity.getControlHidrico().getId() : null);
     }
 }

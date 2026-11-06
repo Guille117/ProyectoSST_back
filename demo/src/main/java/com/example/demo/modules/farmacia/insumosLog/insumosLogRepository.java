@@ -1,8 +1,12 @@
 package com.example.demo.modules.farmacia.insumosLog;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,4 +22,9 @@ public interface insumosLogRepository extends JpaRepository<insumosLogEntity, Lo
     boolean existsByMarca_Id(Long marcaId);
 
     boolean existsByCodigo(String codigo);
+
+    /** Bloquea la fila del insumo para serializar la deshabilitación con el alta de existencias. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM insumosLogEntity i WHERE i.id = :id")
+    Optional<insumosLogEntity> findByIdForUpdate(@Param("id") Long id);
 }

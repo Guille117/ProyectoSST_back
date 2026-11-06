@@ -7,6 +7,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class indicacionMedicamentoService {
     private final medicamentoLogRepository medicamentoLogRepository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public indicacionMedicamentoDTOs.Response crear(indicacionMedicamentoDTOs.Request request) {
@@ -43,10 +45,12 @@ public class indicacionMedicamentoService {
                 .tipoDuracion(request.tipoDuracion())
                 .observaciones(StringNormalizer.normalizarNullable(request.observaciones()))
                 .episodio(buscarEpisodio(request.episodioId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fecha(LocalDateTime.now())
                 .fechaInicio(validarFechaInicio(request.fechaInicio()))
                 .build();
+
+        aplicarSnapshot(entity, medicamento);
 
         return toResponse(repository.save(entity));
     }
@@ -57,10 +61,16 @@ public class indicacionMedicamentoService {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        indicacionMedicamentoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
+        indicacionMedicamentoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
-        entity.setMedicamentoLog(resolverMedicamentoLog(request.medicamentoLogId()));
+        Long medicamentoAnteriorId = entity.getMedicamentoLog() == null
+                ? null : entity.getMedicamentoLog().getId();
+        medicamentoLogEntity medicamento = resolverMedicamentoLog(request.medicamentoLogId());
+
+        entity.setMedicamentoLog(medicamento);
         entity.setMedicamentoLibre(resolverMedicamentoLibre(request));
         entity.setPresentacion(StringNormalizer.normalizarNullable(request.presentacion()));
         entity.setCantidad(validarCantidad(request.cantidad()));
@@ -69,16 +79,19 @@ public class indicacionMedicamentoService {
         entity.setTipoDuracion(request.tipoDuracion());
         entity.setObservaciones(StringNormalizer.normalizarNullable(request.observaciones()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
         entity.setFechaInicio(validarFechaInicio(request.fechaInicio()));
+
+        Long medicamentoNuevoId = medicamento == null ? null : medicamento.getId();
+        if (!java.util.Objects.equals(medicamentoAnteriorId, medicamentoNuevoId)) {
+            aplicarSnapshot(entity, medicamento);
+        }
 
         return toResponse(repository.save(entity));
     }
 
     @Transactional(readOnly = true)
     public indicacionMedicamentoDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
+        return toResponse(buscarEntidad(id));
     }
 
     @Transactional(readOnly = true)
@@ -91,6 +104,7 @@ public class indicacionMedicamentoService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(episodioId, validarEstado(estado)).stream()
                 .map(this::toResponse)
@@ -99,8 +113,8 @@ public class indicacionMedicamentoService {
 
     @Transactional
     public indicacionMedicamentoDTOs.Response cambiarEstado(Long id, EstadoIndicacionMedicamento estado) {
-        indicacionMedicamentoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
+        indicacionMedicamentoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(validarEstado(estado));
         return toResponse(repository.save(entity));
@@ -108,8 +122,8 @@ public class indicacionMedicamentoService {
 
     @Transactional
     public void eliminar(Long id) {
-        indicacionMedicamentoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
+        indicacionMedicamentoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(EstadoIndicacionMedicamento.ELIMINADO);
         repository.save(entity);
@@ -154,6 +168,26 @@ public class indicacionMedicamentoService {
         return medicamentoLogId == null ? null : buscarMedicamento(medicamentoLogId);
     }
 
+    /** Congela los datos del catálogo en la indicación para que las correcciones no alteren el historial. */
+    private void aplicarSnapshot(indicacionMedicamentoEntity entity, medicamentoLogEntity medicamento) {
+        if (medicamento == null) {
+            entity.setMedicamentoLogNombre(null);
+            entity.setMedicamentoLogDosis(null);
+            entity.setMedicamentoLogUnidad(null);
+            entity.setMedicamentoLogPresentacion(null);
+            entity.setMedicamentoLogViaAdmin(null);
+            return;
+        }
+        entity.setMedicamentoLogNombre(medicamento.getNombre());
+        entity.setMedicamentoLogDosis(medicamento.getDosis());
+        entity.setMedicamentoLogUnidad(
+                medicamento.getUnidadMedida() == null ? null : medicamento.getUnidadMedida().getAbreviatura());
+        entity.setMedicamentoLogPresentacion(
+                medicamento.getPresentacion() == null ? null : medicamento.getPresentacion().getNombre());
+        entity.setMedicamentoLogViaAdmin(
+                medicamento.getViaAdmin() == null ? null : medicamento.getViaAdmin().getNombre());
+    }
+
     private String resolverMedicamentoLibre(indicacionMedicamentoDTOs.Request request) {
         if (request.medicamentoLogId() != null) {
             return null;
@@ -171,13 +205,27 @@ public class indicacionMedicamentoService {
                 .orElseThrow(() -> new IllegalArgumentException("Medicamento no encontrado con el ID: " + medicamentoLogId));
     }
 
+    private indicacionMedicamentoEntity buscarEntidad(Long id) {
+        indicacionMedicamentoEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Indicación médica no encontrada con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
+    }
+
     private EpisodioEntity buscarEpisodio(Long episodioId) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
     }
 
     private UsuarioEntity buscarUsuario(Long usuarioId) {
@@ -202,7 +250,10 @@ public class indicacionMedicamentoService {
         Long medicamentoLogId = entity.getMedicamentoLog() == null
                 ? null : entity.getMedicamentoLog().getId();
         String medicamento = entity.getMedicamentoLog() == null
-                ? entity.getMedicamentoLibre() : entity.getMedicamentoLog().getNombre();
+                ? entity.getMedicamentoLibre()
+                : (entity.getMedicamentoLogNombre() != null
+                        ? entity.getMedicamentoLogNombre()
+                        : entity.getMedicamentoLog().getNombre());
 
         return new indicacionMedicamentoDTOs.Response(
                 entity.getId(),

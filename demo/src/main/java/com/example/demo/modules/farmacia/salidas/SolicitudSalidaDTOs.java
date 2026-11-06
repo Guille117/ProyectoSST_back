@@ -16,17 +16,19 @@ public class SolicitudSalidaDTOs {
     /** Medicamento indicado en el alta que debe solicitarse a Farmacia. */
     public record LineaAlta(Long referenciaId, String nombre, Integer cantidad) {}
 
-    /** Medicamento que Enfermería solicita a Farmacia. */
-    public record MedicamentoSolicitudRequest(
-            @NotNull(message = "El medicamento es obligatorio")
-            @Positive(message = "El medicamento debe ser un ID válido")
+    /** Recurso (medicamento o insumo) que Enfermería solicita a Farmacia. */
+    public record RecursoSolicitudRequest(
+            @NotNull(message = "El tipo de recurso es obligatorio")
+            TipoRecursoProcedimiento tipo,
+            @NotNull(message = "El recurso es obligatorio")
+            @Positive(message = "El recurso debe ser un ID válido")
             Long referenciaId,
             @NotNull(message = "La cantidad es obligatoria")
             @Positive(message = "La cantidad debe ser mayor a 0")
             Integer cantidad
     ) {}
 
-    /** Solicitud directa de medicamentos de Enfermería, sin procedimiento médico. */
+    /** Solicitud directa de medicamentos e insumos de Enfermería, sin procedimiento médico. */
     public record SolicitudMedicamentoRequest(
             @NotNull(message = "El episodio es obligatorio")
             @Positive(message = "El episodio debe ser un ID válido")
@@ -34,8 +36,8 @@ public class SolicitudSalidaDTOs {
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
             Long usuarioId,
-            @NotEmpty(message = "Debe indicar al menos un medicamento")
-            List<@Valid MedicamentoSolicitudRequest> medicamentos
+            @NotEmpty(message = "Debe indicar al menos un recurso")
+            List<@Valid RecursoSolicitudRequest> recursos
     ) {}
 
     public record EntregaLineaRequest(
@@ -174,6 +176,7 @@ public class SolicitudSalidaDTOs {
             String codigo,
             String paciente,
             String solicitante,
+            String solicitantePuesto,
             String tipoAtencion,
             String procedimiento,
             LocalDateTime fecha,

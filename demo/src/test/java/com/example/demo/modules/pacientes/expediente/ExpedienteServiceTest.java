@@ -90,7 +90,7 @@ class ExpedienteServiceTest {
     void listarEpisodios_conMedicoNoAsignado_lanzaAccessDenied() {
         when(pacienteRepository.existsById(3L)).thenReturn(true);
         when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
-        when(episodioRepository.existsByPaciente_IdAndMedico_Id(3L, 5L)).thenReturn(false);
+        when(pacienteRepository.existsByIdAndMedicos_Id(3L, 5L)).thenReturn(false);
 
         assertThrows(AccessDeniedException.class, () -> service.listarEpisodios(3L));
     }
@@ -99,7 +99,7 @@ class ExpedienteServiceTest {
     void listarEpisodios_conMedicoAsignado_devuelveSusEpisodios() {
         when(pacienteRepository.existsById(3L)).thenReturn(true);
         when(usuarioActualService.medicoRestringidoId()).thenReturn(Optional.of(5L));
-        when(episodioRepository.existsByPaciente_IdAndMedico_Id(3L, 5L)).thenReturn(true);
+        when(pacienteRepository.existsByIdAndMedicos_Id(3L, 5L)).thenReturn(true);
         when(episodioRepository.findByPaciente_IdOrderByIdDesc(3L)).thenReturn(List.of());
 
         assertTrue(service.listarEpisodios(3L).isEmpty());

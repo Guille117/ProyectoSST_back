@@ -209,6 +209,72 @@ class ProveedorServiceTest {
     }
 
     @Test
+    void crear_debeGuardarCuandoNitEsDeOchoDigitosSinGuion() {
+        ProveedorDTOs.Request req = new ProveedorDTOs.Request(
+                "Farmacia Central",
+                "12345678",
+                "12345678",
+                "admin@farmacia.com",
+                true
+        );
+
+        ProveedorEntity entity = new ProveedorEntity();
+        entity.setNombre("Farmacia Central");
+        entity.setNit("12345678");
+
+        ProveedorEntity guardado = new ProveedorEntity();
+        guardado.setId(1L);
+        guardado.setCodigo("PROV-01");
+        guardado.setNombre("Farmacia Central");
+        guardado.setNit("12345678");
+
+        ProveedorDTOs.Response response = new ProveedorDTOs.Response(
+                1L,
+                "PROV-01",
+                "Farmacia Central",
+                "12345678",
+                "12345678",
+                "admin@farmacia.com",
+                true
+        );
+
+        when(repository.findByNombreIgnoreCase("Farmacia Central")).thenReturn(java.util.Optional.empty());
+        when(repository.findByNitIgnoreCase("12345678")).thenReturn(java.util.Optional.empty());
+        when(repository.findByTelefono("12345678")).thenReturn(java.util.Optional.empty());
+        when(repository.findByEmailIgnoreCase("admin@farmacia.com")).thenReturn(java.util.Optional.empty());
+        when(repository.count()).thenReturn(0L);
+        when(mapper.toEntity(req)).thenReturn(entity);
+        when(repository.save(any(ProveedorEntity.class))).thenReturn(guardado);
+        when(mapper.toDTO(guardado)).thenReturn(response);
+
+        ProveedorDTOs.Response resultado = service.crear(req);
+
+        assertEquals(response, resultado);
+        verify(repository).save(any(ProveedorEntity.class));
+    }
+
+    @Test
+    void crear_debeRechazarNitSinGuionQueNoTengaOchoDigitos() {
+        ProveedorDTOs.Request req = new ProveedorDTOs.Request(
+                "Farmacia Central",
+                "1234567",
+                "12345678",
+                "admin@farmacia.com",
+                true
+        );
+
+        when(repository.findByNombreIgnoreCase("Farmacia Central")).thenReturn(java.util.Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(req)
+        );
+
+        assertTrue(exception.getMessage().startsWith("NIT inválido"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
     void crear_debeGuardarCuandoDatosSonValidos() {
         ProveedorDTOs.Request req = new ProveedorDTOs.Request(
                 "Farmacia Central",

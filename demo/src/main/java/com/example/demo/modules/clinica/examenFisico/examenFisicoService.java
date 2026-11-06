@@ -6,6 +6,7 @@ import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ public class examenFisicoService {
     private final EpisodioRepository episodioRepository;
     private final parteCuerpoRepository parteCuerpoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final RegistroAccesoService registroAcceso;
 
     @Transactional
     public examenFisicoDTOs.Response crear(examenFisicoDTOs.Request request) {
@@ -33,7 +35,7 @@ public class examenFisicoService {
                 .descripcion(validarDescripcion(request.descripcion()))
                 .episodio(buscarEpisodio(request.episodioId()))
                 .parteCuerpo(buscarParteCuerpo(request.parteCuerpoId()))
-                .usuario(buscarUsuario(request.usuarioId()))
+                .usuario(autor(request.usuarioId()))
                 .fecha(LocalDateTime.now())
                 .build();
 
@@ -46,21 +48,21 @@ public class examenFisicoService {
             throw new IllegalArgumentException("Sin datos para actualizar");
         }
 
-        examenFisicoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen físico no encontrado con el ID: " + id));
+        examenFisicoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
+        UsuarioEntity autorActualizado = registroAcceso.autorParaEdicion(entity.getUsuario(), request.usuarioId());
+        entity.setUsuario(autorActualizado != null ? autorActualizado : buscarUsuario(request.usuarioId()));
 
         entity.setDescripcion(validarDescripcion(request.descripcion()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
         entity.setParteCuerpo(buscarParteCuerpo(request.parteCuerpoId()));
-        entity.setUsuario(buscarUsuario(request.usuarioId()));
 
         return toResponse(repository.save(entity));
     }
 
     @Transactional(readOnly = true)
     public examenFisicoDTOs.Response obtenerPorId(Long id) {
-        return repository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new RuntimeException("Examen físico no encontrado con el ID: " + id));
+        return toResponse(buscarEntidad(id));
     }
 
     @Transactional(readOnly = true)
@@ -73,6 +75,7 @@ public class examenFisicoService {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio para la búsqueda");
         }
+        registroAcceso.validarAccesoEpisodio(episodioId);
 
         return repository.findByEpisodio_IdAndEstadoOrderByFechaDesc(episodioId, activo).stream()
                 .map(this::toResponse)
@@ -92,8 +95,8 @@ public class examenFisicoService {
 
     @Transactional
     public examenFisicoDTOs.Response cambiarEstado(Long id) {
-        examenFisicoEntity entity = repository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Examen físico no encontrado con el ID: " + id));
+        examenFisicoEntity entity = buscarEntidad(id);
+        registroAcceso.validarEdicion(entity.getUsuario());
 
         entity.setEstado(!entity.isEstado());
         return toResponse(repository.save(entity));
@@ -107,13 +110,27 @@ public class examenFisicoService {
         return normalizada;
     }
 
+    private examenFisicoEntity buscarEntidad(Long id) {
+        examenFisicoEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Examen físico no encontrado con el ID: " + id));
+        registroAcceso.validarAccesoEpisodio(entity.getEpisodio());
+        return entity;
+    }
+
+    private UsuarioEntity autor(Long usuarioId) {
+        UsuarioEntity autenticado = registroAcceso.autorActual(usuarioId);
+        return autenticado != null ? autenticado : buscarUsuario(usuarioId);
+    }
+
     private EpisodioEntity buscarEpisodio(Long episodioId) {
         if (episodioId == null) {
             throw new IllegalArgumentException("El episodio es obligatorio");
         }
 
-        return episodioRepository.findById(episodioId)
+        EpisodioEntity episodio = episodioRepository.findById(episodioId)
                 .orElseThrow(() -> new IllegalArgumentException("Episodio no encontrado con el ID: " + episodioId));
+        registroAcceso.validarAccesoEpisodio(episodio);
+        return episodio;
     }
 
     private parteCuerpoEntity buscarParteCuerpo(Long parteCuerpoId) {

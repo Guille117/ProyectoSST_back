@@ -38,7 +38,8 @@ class DocumentoEpisodioControllerTest {
         return new DocumentoEpisodioDTOs.Response(
                 10L, TipoDocumentoEpisodio.REFERENCIA, "hoja.pdf",
                 "uploads/documentos/episodio-8-REFERENCIA-uuid.pdf",
-                LocalDateTime.of(2026, 10, 17, 10, 30), 3L, "Juan Pérez López", true);
+                LocalDateTime.of(2026, 10, 17, 10, 30), 3L, "Juan Pérez López", true,
+                null, null);
     }
 
     @Test
@@ -60,7 +61,8 @@ class DocumentoEpisodioControllerTest {
     void subir_debeRetornarCreated() throws Exception {
         MockMultipartFile archivo = new MockMultipartFile(
                 "archivos", "hoja.pdf", "application/pdf", "%PDF-1.7\ncontenido".getBytes());
-        when(service.subir(eq(8L), eq(TipoDocumentoEpisodio.REFERENCIA), eq(3L), any()))
+        when(service.subir(eq(8L), eq(TipoDocumentoEpisodio.REFERENCIA), eq(3L),
+                eq(null), eq(null), any()))
                 .thenReturn(List.of(respuesta()));
 
         mockMvc.perform(multipart("/api/v1/episodios/8/documentos")
@@ -70,6 +72,22 @@ class DocumentoEpisodioControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$[0].id").value(10))
                 .andExpect(jsonPath("$[0].nombreOriginal").value("hoja.pdf"));
+    }
+
+    @Test
+    void subir_debeReenviarProcedimientoYAlta() throws Exception {
+        MockMultipartFile archivo = new MockMultipartFile(
+                "archivos", "receta.pdf", "application/pdf", "%PDF-1.7\ncontenido".getBytes());
+        when(service.subir(8L, TipoDocumentoEpisodio.RECETA, 3L, null, 30L, List.of(archivo)))
+                .thenReturn(List.of(respuesta()));
+
+        mockMvc.perform(multipart("/api/v1/episodios/8/documentos")
+                        .file(archivo)
+                        .param("tipo", "RECETA")
+                        .param("usuarioId", "3")
+                        .param("altaId", "30"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[0].id").value(10));
     }
 
     @Test

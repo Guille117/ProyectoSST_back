@@ -37,6 +37,9 @@ class parteCuerpoControllerTest {
     private com.example.demo.modules.clinica.procedimiento.procedimientoService procedimientoService;
 
     @MockitoBean
+    private com.example.demo.modules.clinica.estadoClinico.estadoClinicoService estadoClinicoService;
+
+    @MockitoBean
     private com.example.demo.security.JwtUtil jwtUtil;
 
     @MockitoBean
@@ -50,12 +53,14 @@ class parteCuerpoControllerTest {
         when(service.contarPartesCuerpo()).thenReturn(5L);
         when(condicionEgresoService.contarCondicionesEgreso()).thenReturn(4L);
         when(procedimientoService.contarProcedimientos()).thenReturn(3L);
+        when(estadoClinicoService.contarEstadosClinicos()).thenReturn(2L);
 
         mockMvc.perform(get("/api/v1/partesCuerpo/conteo"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.partesCuerpo").value(5))
                 .andExpect(jsonPath("$.condicionesEgreso").value(4))
-                .andExpect(jsonPath("$.procedimientos").value(3));
+                .andExpect(jsonPath("$.procedimientos").value(3))
+                .andExpect(jsonPath("$.estadosClinico").value(2));
     }
 
     @Test

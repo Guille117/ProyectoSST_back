@@ -77,6 +77,36 @@ class insumosLogControllerTest {
         verify(service).cambiarEstado(10L);
     }
 
+    @Test
+    void corregir_debeRetornarElInsumoCorregido() throws Exception {
+        when(service.corregir(org.mockito.ArgumentMatchers.eq(10L), any())).thenReturn(
+                new insumosLogDTOs.Response(10L, "Gasa", "INS-10", "Uso médico", 4L, "Marca A"));
+
+        mockMvc.perform(patch("/api/v1/insumosLog/10/correccion")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"nombre\":\"Gasa\",\"motivo\":\"Error de tipeo\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.nombre").value("Gasa"));
+    }
+
+    @Test
+    void corregir_sinMotivo_debeRetornarBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/v1/insumosLog/10/correccion")
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"nombre\":\"Gasa\",\"motivo\":\"  \"}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cambiarEstado_conConflicto_debeRetornar409() throws Exception {
+        org.mockito.Mockito.doThrow(
+                        new com.example.demo.config.ConflictException("Existen unidades pendientes"))
+                .when(service).cambiarEstado(10L);
+
+        mockMvc.perform(patch("/api/v1/insumosLog/10"))
+                .andExpect(status().isConflict());
+    }
+
     @MockitoBean
     private com.example.demo.security.JwtUtil jwtUtil;
 

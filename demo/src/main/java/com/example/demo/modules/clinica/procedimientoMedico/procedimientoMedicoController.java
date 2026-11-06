@@ -51,4 +51,10 @@ public class procedimientoMedicoController {
         service.eliminar(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PatchMapping("/{id}/autorizacion-generada")
+    public ResponseEntity<Void> marcarAutorizacionGenerada(@PathVariable("id") Long id) {
+        service.marcarAutorizacionGenerada(id);
+        return ResponseEntity.noContent().build();
+    }
 }

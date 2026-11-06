@@ -20,8 +20,20 @@ public class ejecucionCuidadoDTOs {
             String observacion,
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
-            Long usuarioId
-    ) {}
+            Long usuarioId,
+            Long signosVitalesId,
+            Long glucosaId,
+            Long controlHidricoId
+    ) {
+        public Request(
+                Long cuidadoId,
+                LocalDateTime fechaHoraProgramada,
+                EstadoEjecucionCuidado estado,
+                String observacion,
+                Long usuarioId) {
+            this(cuidadoId, fechaHoraProgramada, estado, observacion, usuarioId, null, null, null);
+        }
+    }
 
     public record Response(
             Long id,
@@ -31,6 +43,32 @@ public class ejecucionCuidadoDTOs {
             String observacion,
             Long usuarioId,
             String usuarioNombre,
-            LocalDateTime fechaRegistro
-    ) {}
+            LocalDateTime fechaRegistro,
+            Long signosVitalesId,
+            Long glucosaId,
+            Long controlHidricoId
+    ) {
+        public Response(
+                Long id,
+                Long cuidadoId,
+                LocalDateTime fechaHoraProgramada,
+                EstadoEjecucionCuidado estado,
+                String observacion,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fechaRegistro) {
+            this(
+                    id,
+                    cuidadoId,
+                    fechaHoraProgramada,
+                    estado,
+                    observacion,
+                    usuarioId,
+                    usuarioNombre,
+                    fechaRegistro,
+                    null,
+                    null,
+                    null);
+        }
+    }
 }

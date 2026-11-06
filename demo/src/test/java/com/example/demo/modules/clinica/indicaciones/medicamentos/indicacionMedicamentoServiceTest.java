@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.indicaciones.medicamentos;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
@@ -38,6 +40,11 @@ class indicacionMedicamentoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private indicacionMedicamentoService service;
@@ -222,6 +229,78 @@ class indicacionMedicamentoServiceTest {
 
         assertEquals(EstadoIndicacionMedicamento.ELIMINADO, existente.getEstado());
         verify(repository).save(existente);
+    }
+
+    @Test
+    void crear_debeCongelarSnapshotDelCatalogo() {
+        when(medicamentoLogRepository.findById(9L)).thenReturn(Optional.of(medicamento(9L, "Ibuprofeno")));
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(indicacionMedicamentoEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.crear(new indicacionMedicamentoDTOs.Request(
+                9L, null, null, 1, 8, 7, TipoDuracion.DIAS, null, 1L, 2L, FECHA_INICIO));
+
+        org.mockito.ArgumentCaptor<indicacionMedicamentoEntity> captor =
+                org.mockito.ArgumentCaptor.forClass(indicacionMedicamentoEntity.class);
+        verify(repository).save(captor.capture());
+        assertEquals("Ibuprofeno", captor.getValue().getMedicamentoLogNombre());
+    }
+
+    @Test
+    void respond_debeUsarElSnapshotAunqueElCatalogoCambie() {
+        indicacionMedicamentoEntity existente = indicacionMedicamentoEntity.builder()
+                .id(6L)
+                .medicamentoLog(medicamento(9L, "Nombre corregido en el catálogo"))
+                .medicamentoLogNombre("Nombre histórico")
+                .cantidad(1)
+                .frecuencia(8)
+                .duracion(7)
+                .tipoDuracion(TipoDuracion.DIAS)
+                .episodio(episodio(1L))
+                .usuario(usuario(2L, "Carlos Mendez"))
+                .fecha(LocalDateTime.of(2026, 3, 5, 16, 20))
+                .fechaInicio(FECHA_INICIO)
+                .estado(EstadoIndicacionMedicamento.ACTIVO)
+                .build();
+        when(repository.findById(6L)).thenReturn(Optional.of(existente));
+
+        indicacionMedicamentoDTOs.Response response = service.obtenerPorId(6L);
+
+        assertEquals("Nombre histórico", response.medicamento());
+    }
+
+    @Test
+    void actualizar_conElMismoMedicamento_noDebeSobrescribirElSnapshot() {
+        indicacionMedicamentoEntity existente = indicacionMedicamentoEntity.builder()
+                .id(6L)
+                .medicamentoLog(medicamento(9L, "Nombre corregido en el catálogo"))
+                .medicamentoLogNombre("Nombre histórico")
+                .cantidad(1)
+                .frecuencia(8)
+                .duracion(7)
+                .tipoDuracion(TipoDuracion.DIAS)
+                .episodio(episodio(1L))
+                .usuario(usuario(2L, "Carlos Mendez"))
+                .fecha(LocalDateTime.of(2026, 3, 5, 16, 20))
+                .fechaInicio(FECHA_INICIO)
+                .estado(EstadoIndicacionMedicamento.ACTIVO)
+                .build();
+        when(repository.findById(6L)).thenReturn(Optional.of(existente));
+        when(medicamentoLogRepository.findById(9L))
+                .thenReturn(Optional.of(medicamento(9L, "Nombre corregido en el catálogo")));
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(indicacionMedicamentoEntity.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        indicacionMedicamentoDTOs.Response response = service.actualizar(6L,
+                new indicacionMedicamentoDTOs.Request(
+                        9L, null, null, 2, 8, 7, TipoDuracion.DIAS, null, 1L, 2L, FECHA_INICIO));
+
+        assertEquals("Nombre histórico", response.medicamento());
+        assertEquals("Nombre histórico", existente.getMedicamentoLogNombre());
     }
 
     private indicacionMedicamentoEntity entidad(Long id, Integer cantidad, TipoDuracion tipo, Integer duracion,

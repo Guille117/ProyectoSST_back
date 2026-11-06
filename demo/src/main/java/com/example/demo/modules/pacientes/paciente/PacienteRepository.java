@@ -14,4 +14,10 @@ public interface PacienteRepository extends JpaRepository<PacienteEntity, Long> 
     List<PacienteEntity> findByEstadoOrderByIdAsc(boolean estado);
 
     List<PacienteEntity> findByIdInAndEstadoOrderByIdAsc(Collection<Long> ids, boolean estado);
+
+    List<PacienteEntity> findByMedicos_IdOrderByIdAsc(Long medicoId);
+
+    List<PacienteEntity> findByMedicos_IdAndEstadoOrderByIdAsc(Long medicoId, boolean estado);
+
+    boolean existsByIdAndMedicos_Id(Long pacienteId, Long medicoId);
 }

@@ -53,4 +53,10 @@ public class medicamentoLogDTOs {
             Long presentacionId,
             Long marcaId
     ) {}
+
+    /** Corrección justificada del nombre: exige motivo y se audita con valor anterior y nuevo. */
+    public record CorreccionRequest(
+            @NotBlank(message = "El nombre es obligatorio") String nombre,
+            @NotBlank(message = "El motivo de la corrección es obligatorio") String motivo
+    ) {}
 }

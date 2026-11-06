@@ -1,5 +1,7 @@
 package com.example.demo.modules.clinica.examenFisico;
 
+import com.example.demo.security.RegistroAccesoService;
+
 import com.example.demo.modules.clinica.parteCuerpo.parteCuerpoEntity;
 import com.example.demo.modules.clinica.parteCuerpo.parteCuerpoRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
@@ -35,6 +37,11 @@ class examenFisicoServiceTest {
 
     @Mock
     private UsuarioRepository usuarioRepository;
+
+    @Mock
+
+    private RegistroAccesoService registroAcceso;
+
 
     @InjectMocks
     private examenFisicoService service;

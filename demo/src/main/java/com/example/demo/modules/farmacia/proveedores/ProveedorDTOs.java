@@ -9,10 +9,10 @@ public class ProveedorDTOs {
     public record Request(
             @NotBlank(message = "El nombre es obligatorio") String nombre,
 
-            // NIT Guatemala: dígitos con guion antes del dígito verificador, o CF
+            // NIT: CF, 8 dígitos sin guion, o 7-8 dígitos con guion y verificador numérico/K
             @Pattern(
-                regexp = "(?i)^\\s*(|CF|[0-9]{7,8}-[0-9Kk])\\s*$",
-                message = "NIT inválido. Use 7 u 8 dígitos, guion y verificador numérico/K, o CF"
+                regexp = "(?i)^\\s*(|CF|[0-9]{8}|[0-9]{7,8}-[0-9Kk])\\s*$",
+                message = "NIT inválido. Use CF, 8 dígitos sin guion, o 7 u 8 dígitos con guion y verificador numérico/K"
             )
             String nit,
 

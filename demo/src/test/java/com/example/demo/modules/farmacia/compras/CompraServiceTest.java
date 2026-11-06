@@ -446,7 +446,7 @@ class CompraServiceTest {
     }
 
     @Test
-    void eliminar_debeEliminarCompraSinUso() {
+    void eliminar_debeMarcarCompraInactivaYVaciarDisponibleDeLotes() {
         CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
                 .comprobante("uploads/comprobantes/compra-1-abc.pdf")
                 .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
@@ -456,9 +456,14 @@ class CompraServiceTest {
 
         service.eliminar(1L);
 
-        verify(comprobanteStorage).eliminar("uploads/comprobantes/compra-1-abc.pdf");
-        verify(loteRepository).deleteAll(List.of(lote));
-        verify(repository).delete(entity);
+        assertThat(entity.isEstado()).isFalse();
+        assertThat(lote.isEstado()).isFalse();
+        assertThat(lote.getDisponible()).isZero();
+        verify(loteRepository).saveAll(List.of(lote));
+        verify(repository).save(entity);
+        verify(repository, never()).delete(any());
+        verify(loteRepository, never()).deleteAll(any());
+        verify(comprobanteStorage, never()).eliminar(any());
     }
 
     @Test
@@ -509,7 +514,6 @@ class CompraServiceTest {
                 loteInsumo(7L, "LOTE-B")));
 
         when(repository.findById(1L)).thenReturn(Optional.of(existente));
-        when(proveedorRepository.findById(1L)).thenReturn(Optional.of(proveedor));
         when(loteRepository.findByCompra_Id(1L)).thenReturn(actuales, List.of());
         when(repository.save(any())).thenReturn(existente);
         when(mapper.toDTO(existente)).thenReturn(new CompraDTOs.Response(
@@ -543,6 +547,46 @@ class CompraServiceTest {
 
         assertThat(result.comprobante()).isEqualTo("uploads/comprobantes/compra-1-nuevo.pdf");
         verify(comprobanteStorage).eliminar("uploads/comprobantes/compra-1-viejo.pdf");
+    }
+
+    @Test
+    void actualizar_debeConservarProveedorInactivoSiNoCambia() {
+        ProveedorEntity inactivo = ProveedorEntity.builder()
+                .id(2L).codigo("PROV-02").nombre("Proveedor Inactivo").estado(false).build();
+        CompraEntity existente = CompraEntity.builder()
+                .id(1L).codigo("COM-1").total(BigDecimal.ZERO).estado(true)
+                .fecha(LocalDateTime.now()).proveedor(inactivo).build();
+        CompraDTOs.Request req = new CompraDTOs.Request(2L, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(repository.save(any())).thenReturn(existente);
+        when(mapper.toDTO(existente)).thenReturn(new CompraDTOs.Response(
+                1L, "COM-1", BigDecimal.ZERO, null, true, 2L, "Proveedor Inactivo",
+                existente.getFecha(), null));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
+
+        service.actualizar(1L, null, req);
+
+        assertThat(existente.getProveedor()).isSameAs(inactivo);
+        verify(proveedorRepository, never()).findById(anyLong());
+    }
+
+    @Test
+    void actualizar_debeRechazarCambioAProveedorInactivo() {
+        ProveedorEntity activo = proveedorActivo();
+        ProveedorEntity inactivo = ProveedorEntity.builder()
+                .id(2L).codigo("PROV-02").nombre("Proveedor Inactivo").estado(false).build();
+        CompraEntity existente = CompraEntity.builder()
+                .id(1L).codigo("COM-1").total(BigDecimal.ZERO).estado(true)
+                .fecha(LocalDateTime.now()).proveedor(activo).build();
+        CompraDTOs.Request req = new CompraDTOs.Request(2L, null);
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(proveedorRepository.findById(2L)).thenReturn(Optional.of(inactivo));
+
+        assertThatThrownBy(() -> service.actualizar(1L, null, req))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inactivo");
+
+        verify(repository, never()).save(any());
     }
 
     @Test

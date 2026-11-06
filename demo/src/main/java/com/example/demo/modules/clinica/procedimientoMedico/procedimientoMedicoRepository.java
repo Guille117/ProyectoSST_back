@@ -9,4 +9,8 @@ import java.util.List;
 public interface procedimientoMedicoRepository extends JpaRepository<procedimientoMedicoEntity, Long> {
 
     List<procedimientoMedicoEntity> findByEpisodio_IdOrderByInicioDesc(Long episodioId);
+
+    /** Indica si algún procedimiento referencia el recurso (medicamento o insumo) indicado. */
+    boolean existsByRecursos_TipoAndRecursos_ReferenciaId(
+            TipoRecursoProcedimiento tipo, Long referenciaId);
 }

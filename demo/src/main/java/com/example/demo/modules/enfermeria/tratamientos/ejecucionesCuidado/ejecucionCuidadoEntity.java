@@ -1,6 +1,9 @@
 package com.example.demo.modules.enfermeria.tratamientos.ejecucionesCuidado;
 
 import com.example.demo.modules.clinica.indicaciones.cuidados.cuidadoEntity;
+import com.example.demo.modules.enfermeria.monitoreo.controlHidrico.controlHidricoEntity;
+import com.example.demo.modules.enfermeria.monitoreo.glucosa.glucosaEntity;
+import com.example.demo.modules.enfermeria.monitoreo.signosVitales.signosVitalesEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -33,6 +36,18 @@ public class ejecucionCuidadoEntity {
 
     @Column(length = 2000)
     private String observacion;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "signos_vitales_id")
+    private signosVitalesEntity signosVitales;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "glucosa_id")
+    private glucosaEntity glucosa;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "control_hidrico_id")
+    private controlHidricoEntity controlHidrico;
 
     @ManyToOne(fetch = FetchType.EAGER, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)

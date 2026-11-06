@@ -1,6 +1,7 @@
 package com.example.demo.modules.pacientes.paciente;
 
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
+import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.pacientes.alergia.alergiaEntity;
 import com.example.demo.modules.pacientes.enfermedad.enfermedadEntity;
 import jakarta.persistence.*;
@@ -39,6 +40,15 @@ public class PacienteEntity {
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;
+
+    /** Médicos con acceso al paciente; el tratante del episodio se conserva aparte. */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "paciente_medicos",
+            joinColumns = @JoinColumn(name = "paciente_id"),
+            inverseJoinColumns = @JoinColumn(name = "usuario_id"))
+    @Builder.Default
+    private Set<UsuarioEntity> medicos = new LinkedHashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

@@ -13,6 +13,8 @@ import com.example.demo.modules.farmacia.salidas.SolicitudSalidaMovimientoReposi
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaRepository;
 import com.example.demo.modules.farmacia.salidas.TipoMovimientoSalida;
 import com.example.demo.modules.pacientes.area.areaEntity;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaEntity;
+import com.example.demo.modules.pacientes.camas.EstanciaCamaRepository;
 import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.pacientes.camas.camasRepository;
 import com.example.demo.modules.pacientes.habitaciones.habitacionesEntity;
@@ -49,6 +51,8 @@ class ConsumoEpisodioServiceTest {
     private EpisodioRepository episodioRepository;
     @Mock
     private camasRepository camasRepository;
+    @Mock
+    private EstanciaCamaRepository estanciaCamaRepository;
     @Mock
     private altaRepository altaRepository;
     @Mock
@@ -130,6 +134,117 @@ class ConsumoEpisodioServiceTest {
     }
 
     @Test
+    void obtenerConsumo_cobraUnaLineaPorCadaTramoDeCama() {
+        EpisodioEntity episodio = episodio();
+        camasEntity camaA = cama(11L, "A-105", "100.00");
+        camasEntity camaB = cama(12L, "A-106", "200.00");
+        EstanciaCamaEntity tramoA = EstanciaCamaEntity.builder()
+                .id(1L)
+                .episodio(episodio)
+                .cama(camaA)
+                .precio(new BigDecimal("100.00"))
+                .fechaHoraInicio(INGRESO)
+                .fechaHoraFin(INGRESO.plusHours(2))
+                .build();
+        EstanciaCamaEntity tramoB = EstanciaCamaEntity.builder()
+                .id(2L)
+                .episodio(episodio)
+                .cama(camaB)
+                .precio(new BigDecimal("200.00"))
+                .fechaHoraInicio(INGRESO.plusHours(2))
+                .fechaHoraFin(INGRESO.plusHours(25))
+                .build();
+
+        when(episodioRepository.findById(EPISODIO_ID)).thenReturn(Optional.of(episodio));
+        when(estanciaCamaRepository.findByEpisodio_IdOrderByFechaHoraInicioAsc(EPISODIO_ID))
+                .thenReturn(List.of(tramoA, tramoB));
+        when(altaRepository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                EPISODIO_ID, EstadoAlta.VIGENTE))
+                .thenReturn(Optional.of(alta(INGRESO.plusHours(25))));
+        when(solicitudSalidaRepository.findByEpisodio_IdOrderByFechaSolicitudAsc(EPISODIO_ID))
+                .thenReturn(List.of());
+
+        ConsumoEpisodioDTOs.Response respuesta = service.obtenerConsumo(EPISODIO_ID);
+
+        assertEquals(2, respuesta.items().size());
+        ConsumoEpisodioDTOs.ItemResponse primero = respuesta.items().get(0);
+        assertEquals("Cama", primero.tipo());
+        assertEquals("Cama A-105", primero.nombre());
+        assertEquals(1, primero.cantidad());
+        assertEquals(new BigDecimal("100.00"), primero.subtotal());
+
+        ConsumoEpisodioDTOs.ItemResponse segundo = respuesta.items().get(1);
+        assertEquals("Cama", segundo.tipo());
+        assertEquals("Cama A-106", segundo.nombre());
+        assertEquals(1, segundo.cantidad());
+        assertEquals(new BigDecimal("200.00"), segundo.subtotal());
+        assertEquals(new BigDecimal("300.00"), respuesta.total());
+    }
+
+    @Test
+    void obtenerConsumo_noCobraTramoDeCamaConUnaHoraOMenos() {
+        EpisodioEntity episodio = episodio();
+        camasEntity camaA = cama(11L, "A-105", "100.00");
+        camasEntity camaB = cama(12L, "A-106", "200.00");
+        EstanciaCamaEntity tramoCorto = EstanciaCamaEntity.builder()
+                .episodio(episodio)
+                .cama(camaA)
+                .precio(new BigDecimal("100.00"))
+                .fechaHoraInicio(INGRESO)
+                .fechaHoraFin(INGRESO.plusHours(1))
+                .build();
+        EstanciaCamaEntity tramoLargo = EstanciaCamaEntity.builder()
+                .episodio(episodio)
+                .cama(camaB)
+                .precio(new BigDecimal("200.00"))
+                .fechaHoraInicio(INGRESO.plusHours(1))
+                .fechaHoraFin(INGRESO.plusHours(3))
+                .build();
+
+        when(episodioRepository.findById(EPISODIO_ID)).thenReturn(Optional.of(episodio));
+        when(estanciaCamaRepository.findByEpisodio_IdOrderByFechaHoraInicioAsc(EPISODIO_ID))
+                .thenReturn(List.of(tramoCorto, tramoLargo));
+        when(altaRepository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                EPISODIO_ID, EstadoAlta.VIGENTE))
+                .thenReturn(Optional.of(alta(INGRESO.plusHours(3))));
+        when(solicitudSalidaRepository.findByEpisodio_IdOrderByFechaSolicitudAsc(EPISODIO_ID))
+                .thenReturn(List.of());
+
+        ConsumoEpisodioDTOs.Response respuesta = service.obtenerConsumo(EPISODIO_ID);
+
+        assertEquals(1, respuesta.items().size());
+        assertEquals("Cama A-106", respuesta.items().get(0).nombre());
+        assertEquals(new BigDecimal("200.00"), respuesta.total());
+    }
+
+    @Test
+    void obtenerConsumo_usaLaFechaDeAltaParaElTramoAbierto() {
+        EpisodioEntity episodio = episodio();
+        camasEntity cama = cama(11L, "A-106", "250.00");
+        EstanciaCamaEntity tramo = EstanciaCamaEntity.builder()
+                .episodio(episodio)
+                .cama(cama)
+                .precio(new BigDecimal("250.00"))
+                .fechaHoraInicio(INGRESO)
+                .build();
+
+        when(episodioRepository.findById(EPISODIO_ID)).thenReturn(Optional.of(episodio));
+        when(estanciaCamaRepository.findByEpisodio_IdOrderByFechaHoraInicioAsc(EPISODIO_ID))
+                .thenReturn(List.of(tramo));
+        when(altaRepository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                EPISODIO_ID, EstadoAlta.VIGENTE))
+                .thenReturn(Optional.of(alta(INGRESO.plusHours(25))));
+        when(solicitudSalidaRepository.findByEpisodio_IdOrderByFechaSolicitudAsc(EPISODIO_ID))
+                .thenReturn(List.of());
+
+        ConsumoEpisodioDTOs.Response respuesta = service.obtenerConsumo(EPISODIO_ID);
+
+        assertEquals(1, respuesta.items().size());
+        assertEquals(2, respuesta.items().get(0).cantidad());
+        assertEquals(new BigDecimal("500.00"), respuesta.total());
+    }
+
+    @Test
     void obtenerConsumo_descuentaDevolucionesYSumaLaCama() {
         SolicitudSalidaDetalleEntity detalle = detalle();
         SolicitudSalidaEntity solicitud = solicitud(detalle);
@@ -202,6 +317,14 @@ class ConsumoEpisodioServiceTest {
                 .area(area)
                 .tipo(tipo)
                 .build();
+    }
+
+    private camasEntity cama(Long id, String codigo, String precio) {
+        camasEntity cama = cama();
+        cama.setId(id);
+        cama.setCodigo(codigo);
+        cama.setPrecio(new BigDecimal(precio));
+        return cama;
     }
 
     private altaEntity alta(LocalDateTime egreso) {

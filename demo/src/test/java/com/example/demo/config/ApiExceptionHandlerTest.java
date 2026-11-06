@@ -35,4 +35,25 @@ class ApiExceptionHandlerTest {
         assertNotNull(response.getBody());
         assertEquals("Compra no encontrada", response.getBody().get("message"));
     }
+
+    @Test
+    void handleHorarioAccess_devuelve403ConCodigoIdentificable() {
+        ResponseEntity<Map<String, Object>> response = handler.handleHorarioAccess(
+                new com.example.demo.security.HorarioAccessException(
+                        "Acceso denegado: fuera del horario de trabajo asignado"));
+
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("FUERA_DE_HORARIO", response.getBody().get("codigo"));
+    }
+
+    @Test
+    void handleConflict_devuelve409ConMensajeDeNegocio() {
+        ResponseEntity<Map<String, Object>> response = handler.handleConflict(
+                new ConflictException("Existen unidades pendientes en farmacia"));
+
+        assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals("Existen unidades pendientes en farmacia", response.getBody().get("message"));
+    }
 }

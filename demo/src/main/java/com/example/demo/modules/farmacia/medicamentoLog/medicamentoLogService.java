@@ -1,15 +1,23 @@
 package com.example.demo.modules.farmacia.medicamentoLog;
 
+import com.example.demo.config.ConflictException;
+import com.example.demo.modules.clinica.indicaciones.medicamentos.indicacionMedicamentoRepository;
+import com.example.demo.modules.clinica.procedimientoMedico.TipoRecursoProcedimiento;
+import com.example.demo.modules.clinica.procedimientoMedico.procedimientoMedicoRepository;
 import com.example.demo.modules.farmacia.lotes.LoteRepository;
 import com.example.demo.modules.farmacia.marca.marcaRepository;
 import com.example.demo.modules.farmacia.motivoBaja.motivoBajaRepository;
 import com.example.demo.modules.farmacia.presentacion.presentacionRepository;
 import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaRepository;
 import com.example.demo.modules.farmacia.viaAdmin.viaAdminRepository;
+import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
+import com.example.demo.security.UsuarioActualService;
 import com.example.demo.utils.StringNormalizer;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,6 +36,10 @@ public class medicamentoLogService {
     private final presentacionRepository presentacionRepository;
     private final motivoBajaRepository motivoBajaRepository;
     private final LoteRepository loteRepository;
+    private final indicacionMedicamentoRepository indicacionMedicamentoRepository;
+    private final procedimientoMedicoRepository procedimientoMedicoRepository;
+    private final medicamentoCorreccionRepository correccionRepository;
+    private final UsuarioActualService usuarioActualService;
 
     public Map<String, Long> obtenerConteoCatalogosFarmacia() {
         Map<String, Long> conteo = new LinkedHashMap<>();
@@ -56,6 +68,10 @@ public class medicamentoLogService {
                 .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
         String nombre = StringNormalizer.normalizarTexto(request.nombre());
         BigDecimal dosis = request.dosis();
+        if (tieneHistorial(id) && identidadCambiada(entity, request, nombre, dosis)) {
+            throw new ConflictException("El medicamento tiene historial y no se puede modificar su identidad. "
+                    + "Corrija el nombre mediante la corrección justificada.");
+        }
         entity.setNombre(nombre);
         entity.setDosis(dosis);
         asignarRelaciones(entity, request);
@@ -93,10 +109,57 @@ public class medicamentoLogService {
 
     @Transactional
     public void cambiarEstado(Long id) {
-        medicamentoLogEntity entity = repository.findById(id)
+        medicamentoLogEntity entity = repository.findByIdForUpdate(id)
                 .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
+        if (entity.isEstado()) {
+            long existencias = existenciasMedicamento(id);
+            if (existencias > 0) {
+                throw new ConflictException("No se puede deshabilitar el medicamento: existen "
+                        + existencias + " unidades pendientes en farmacia.");
+            }
+        }
         entity.setEstado(!entity.isEstado());
         repository.save(entity);
+    }
+
+    @Transactional
+    public medicamentoLogDTOs.Response corregir(Long id, medicamentoLogDTOs.CorreccionRequest request) {
+        if (request == null) throw new IllegalArgumentException("La solicitud de corrección es obligatoria");
+        medicamentoLogEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Medicamento no encontrado con el ID: " + id));
+        String nombreNuevo = StringNormalizer.normalizarTexto(request.nombre());
+        if (nombreNuevo.isBlank()) {
+            throw new IllegalArgumentException("El nombre es obligatorio");
+        }
+        String motivo = StringNormalizer.normalizarTexto(request.motivo());
+        if (motivo.isBlank()) {
+            throw new IllegalArgumentException("El motivo de la corrección es obligatorio");
+        }
+        if (nombreNuevo.equalsIgnoreCase(entity.getNombre())) {
+            throw new IllegalArgumentException("El nombre nuevo debe ser diferente al actual");
+        }
+        medicamentoLogEntity candidato = medicamentoLogEntity.builder()
+                .nombre(nombreNuevo)
+                .dosis(entity.getDosis())
+                .unidadMedida(entity.getUnidadMedida())
+                .marca(entity.getMarca())
+                .viaAdmin(entity.getViaAdmin())
+                .presentacion(entity.getPresentacion())
+                .build();
+        validarNoDuplicado(id, candidato);
+        UsuarioEntity usuario = usuarioActualService.actual()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "No se pudo identificar al usuario que realiza la corrección"));
+        correccionRepository.save(medicamentoCorreccionEntity.builder()
+                .medicamentoLog(entity)
+                .nombreAnterior(entity.getNombre())
+                .nombreNuevo(nombreNuevo)
+                .motivo(motivo)
+                .usuario(usuario)
+                .fechaHora(LocalDateTime.now())
+                .build());
+        entity.setNombre(nombreNuevo);
+        return toResponse(repository.save(entity));
     }
 
     private medicamentoLogEntity construir(medicamentoLogDTOs.Request request, String nombre, BigDecimal dosis) {
@@ -142,6 +205,30 @@ public class medicamentoLogService {
                 throw new IllegalArgumentException("Ya existe un medicamento con los mismos datos");
             }
         });
+    }
+
+    /** Existe historial cuando el medicamento ya fue usado en lotes, indicaciones o procedimientos. */
+    private boolean tieneHistorial(Long id) {
+        return loteRepository.existsByMedicamentoLog_Id(id)
+                || indicacionMedicamentoRepository.existsByMedicamentoLog_Id(id)
+                || procedimientoMedicoRepository.existsByRecursos_TipoAndRecursos_ReferenciaId(
+                        TipoRecursoProcedimiento.MEDICAMENTO, id);
+    }
+
+    /** Compara los campos que forman la identidad del medicamento (los que no son el nombre). */
+    private boolean identidadCambiada(
+            medicamentoLogEntity entity, medicamentoLogDTOs.Request request, String nombre, BigDecimal dosis) {
+        return !Objects.equals(entity.getNombre(), nombre)
+                || entity.getDosis().compareTo(dosis) != 0
+                || !Objects.equals(entity.getUnidadMedida().getId(), request.unidadMedidaId())
+                || !Objects.equals(entity.getMarca().getId(), request.marcaId())
+                || !Objects.equals(entity.getViaAdmin().getId(), request.viaAdminId())
+                || !Objects.equals(entity.getPresentacion().getId(), request.presentacionId());
+    }
+
+    private long existenciasMedicamento(Long id) {
+        Long total = loteRepository.sumExistenciasMedicamento(id);
+        return total == null ? 0 : total;
     }
 
     private medicamentoLogDTOs.Response toResponse(medicamentoLogEntity entity) {

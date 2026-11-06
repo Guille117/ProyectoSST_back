@@ -180,9 +180,24 @@ public class RegistroPermisosApi {
                         submodulos("CATALOGOS-CLINICA")),
                 regla("/api/v1/procedimientos/**", ESCRITURA, modulos("MEDICA"),
                         submodulos("CATALOGOS-CLINICA")),
+                regla("/api/v1/estadosClinico/**", LECTURA, modulos("MEDICA", "ENFERMERIA"),
+                        submodulos("CATALOGOS-CLINICA")),
+                regla("/api/v1/estadosClinico/**", ESCRITURA, modulos("MEDICA"),
+                        submodulos("CATALOGOS-CLINICA")),
 
                 regla("/api/v1/enfermeria/**", LECTURA, modulos("ENFERMERIA", "MEDICA"), Set.of()),
-                regla("/api/v1/enfermeria/**", ESCRITURA, modulos("ENFERMERIA"), Set.of()));
+                regla("/api/v1/enfermeria/**", ESCRITURA, modulos("ENFERMERIA"), Set.of()),
+
+                regla("/api/v1/bitacora/pacientes/**", LECTURA, Set.of(),
+                        submodulos("REPORTES-BITACORA-PACIENTES")),
+                regla("/api/v1/bitacora/general", LECTURA, Set.of(),
+                        submodulos("REPORTES-BITACORA-GENERAL")),
+
+                regla("/api/v1/reportes/farmacia/**", LECTURA, Set.of(), submodulos("REPORTES-FARMACIA")),
+                regla("/api/v1/reportes/pacientes/**", LECTURA, Set.of(), submodulos("REPORTES-PACIENTES")),
+                regla("/api/v1/reportes/medica/**", LECTURA, Set.of(), submodulos("REPORTES-MEDICA")),
+                regla("/api/v1/reportes/enfermeria/**", LECTURA, Set.of(), submodulos("REPORTES-ENFERMERIA")),
+                regla("/api/v1/reportes/usuarios/**", LECTURA, Set.of(), submodulos("REPORTES-USUARIOS")));
     }
 
     private ReglaPermiso regla(String patron, Set<HttpMethod> metodos, Set<String> modulos,

@@ -27,9 +27,24 @@ public class PacienteDTOs {
             @Size(max = 255) String direccion,
             @Size(max = 100) String ocupacion,
             @Positive Long camaId,
+            List<@Positive Long> medicoIds,
             List<@Positive Long> alergiaIds,
             List<@Positive Long> enfermedadIds
-    ) {}
+    ) {
+        /** Constructor de compatibilidad para solicitudes anteriores sin lista de médicos. */
+        public PacienteRequest(
+                Long pacienteId,
+                PersonaRequest persona,
+                EstadoCivil estadoCivil,
+                String direccion,
+                String ocupacion,
+                Long camaId,
+                List<Long> alergiaIds,
+                List<Long> enfermedadIds) {
+            this(pacienteId, persona, estadoCivil, direccion, ocupacion, camaId, null,
+                    alergiaIds, enfermedadIds);
+        }
+    }
 
     public record ResponsableRequest(
             @NotNull @Valid PersonaRequest persona,
@@ -78,7 +93,8 @@ public class PacienteDTOs {
             Sexo sexo,
             String telefono,
             TipoAtencion tipoTratamiento,
-            boolean estado
+            boolean estado,
+            String estadoClinicoNombre
     ) {}
 
     /** Datos del responsable del episodio, completos para reutilizarlos en la edición. */
@@ -106,6 +122,9 @@ public class PacienteDTOs {
     /** Elemento de un catálogo clínico asociado al paciente. */
     public record CatalogoDetalle(Long id, String nombre) {}
 
+    /** Médico asignado al paciente, con la especialidad para mostrarla en la ficha. */
+    public record MedicoDetalle(Long id, String nombreCompleto, String especialidad) {}
+
     /** Detalle del paciente con su episodio activo y los datos necesarios para editarlo. */
     public record DetalleResponse(
             Long pacienteId,
@@ -129,13 +148,52 @@ public class PacienteDTOs {
             LocalDateTime fechaHoraIngreso,
             Long medicoId,
             String medicoNombre,
+            List<MedicoDetalle> medicos,
             Long camaId,
             String camaCodigo,
             ResponsableDetalle responsable,
             ReferenciaDetalle referencia,
             List<CatalogoDetalle> alergias,
-            List<CatalogoDetalle> enfermedades
-    ) {}
+            List<CatalogoDetalle> enfermedades,
+            String estadoClinicoNombre
+    ) {
+        /** Constructor de compatibilidad para consumidores anteriores a la lista de médicos. */
+        public DetalleResponse(
+                Long pacienteId,
+                String codigoExpediente,
+                String nombreCompleto,
+                String nombres,
+                String apellidos,
+                String cui,
+                LocalDate fechaNacimiento,
+                Integer edad,
+                Sexo sexo,
+                String telefono,
+                String email,
+                EstadoCivil estadoCivil,
+                String direccion,
+                String ocupacion,
+                boolean estado,
+                Long episodioId,
+                TipoAtencion tipoAtencion,
+                String descripcion,
+                LocalDateTime fechaHoraIngreso,
+                Long medicoId,
+                String medicoNombre,
+                Long camaId,
+                String camaCodigo,
+                ResponsableDetalle responsable,
+                ReferenciaDetalle referencia,
+                List<CatalogoDetalle> alergias,
+                List<CatalogoDetalle> enfermedades,
+                String estadoClinicoNombre) {
+            this(pacienteId, codigoExpediente, nombreCompleto, nombres, apellidos, cui,
+                    fechaNacimiento, edad, sexo, telefono, email, estadoCivil, direccion,
+                    ocupacion, estado, episodioId, tipoAtencion, descripcion, fechaHoraIngreso,
+                    medicoId, medicoNombre, List.of(), camaId, camaCodigo, responsable,
+                    referencia, alergias, enfermedades, estadoClinicoNombre);
+        }
+    }
 
     /** Actualización de un paciente; el episodio es opcional para pacientes sin atención activa. */
     public record ActualizacionRequest(
