@@ -30,7 +30,21 @@ public class diagnosticoDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             boolean estado
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                TipoDiagnostico tipoDiagnostico,
+                String descripcion,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                boolean estado) {
+            this(id, tipoDiagnostico, descripcion, episodioId, usuarioId, usuarioNombre,
+                    usuarioNombre, fecha, estado);
+        }
+    }
 }

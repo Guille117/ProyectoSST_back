@@ -27,7 +27,19 @@ public class notaEnfermeriaDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             boolean eliminado
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String texto,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                boolean eliminado) {
+            this(id, texto, episodioId, usuarioId, usuarioNombre, usuarioNombre, fecha, eliminado);
+        }
+    }
 }

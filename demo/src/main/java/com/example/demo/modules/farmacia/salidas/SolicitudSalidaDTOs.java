@@ -177,10 +177,26 @@ public class SolicitudSalidaDTOs {
             String paciente,
             String solicitante,
             String solicitantePuesto,
+            String solicitanteNombreCorto,
             String tipoAtencion,
             String procedimiento,
             LocalDateTime fecha,
             EstadoSolicitudSalida estado,
             List<DetalleResponse> detalles
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String codigo,
+                String paciente,
+                String solicitante,
+                String solicitantePuesto,
+                String tipoAtencion,
+                String procedimiento,
+                LocalDateTime fecha,
+                EstadoSolicitudSalida estado,
+                List<DetalleResponse> detalles) {
+            this(id, codigo, paciente, solicitante, solicitantePuesto, solicitante,
+                    tipoAtencion, procedimiento, fecha, estado, detalles);
+        }
+    }
 }

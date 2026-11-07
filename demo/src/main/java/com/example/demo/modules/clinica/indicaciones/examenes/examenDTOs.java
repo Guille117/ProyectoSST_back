@@ -39,7 +39,22 @@ public class examenDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             EstadoExamen estado
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String nombreExamen,
+                String observacion,
+                List<ArchivoResponse> archivos,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                EstadoExamen estado) {
+            this(id, nombreExamen, observacion, archivos, episodioId, usuarioId,
+                    usuarioNombre, usuarioNombre, fecha, estado);
+        }
+    }
 }

@@ -3,6 +3,7 @@ package com.example.demo.modules.enfermeria.notas;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
+import com.example.demo.modules.usuarios.usuarios.UsuarioNombreCorto;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
@@ -137,6 +138,7 @@ public class notaEnfermeriaService {
                 entity.getEpisodio().getId(),
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
+                UsuarioNombreCorto.formatear(entity.getUsuario()),
                 entity.getFecha(),
                 entity.isEliminado());
     }

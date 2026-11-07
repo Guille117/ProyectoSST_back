@@ -32,7 +32,22 @@ public class examenFisicoDTOs {
             String parteCuerpoNombre,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             boolean estado
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String descripcion,
+                Long episodioId,
+                Long parteCuerpoId,
+                String parteCuerpoNombre,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                boolean estado) {
+            this(id, descripcion, episodioId, parteCuerpoId, parteCuerpoNombre, usuarioId,
+                    usuarioNombre, usuarioNombre, fecha, estado);
+        }
+    }
 }

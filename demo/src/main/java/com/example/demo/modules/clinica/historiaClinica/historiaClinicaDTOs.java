@@ -30,9 +30,24 @@ public class historiaClinicaDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             boolean estado,
             Long estadoClinicoId,
             String estadoClinicoNombre
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String descripcion,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                boolean estado,
+                Long estadoClinicoId,
+                String estadoClinicoNombre) {
+            this(id, descripcion, episodioId, usuarioId, usuarioNombre, usuarioNombre, fecha,
+                    estado, estadoClinicoId, estadoClinicoNombre);
+        }
+    }
 }

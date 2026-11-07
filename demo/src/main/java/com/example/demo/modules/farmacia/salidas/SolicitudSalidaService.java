@@ -16,6 +16,7 @@ import com.example.demo.modules.farmacia.motivoBaja.motivoBajaRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
+import com.example.demo.modules.usuarios.usuarios.UsuarioNombreCorto;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.utils.StringNormalizer;
 import lombok.RequiredArgsConstructor;
@@ -1070,6 +1071,7 @@ public class SolicitudSalidaService {
                 nombrePaciente(solicitud),
                 nombreUsuario(solicitud.getUsuarioSolicita()),
                 puestoUsuario(solicitud.getUsuarioSolicita()),
+                UsuarioNombreCorto.formatear(solicitud.getUsuarioSolicita()),
                 tipoAtencion(solicitud),
                 nombreProcedimiento(solicitud),
                 solicitud.getFechaSolicitud(),

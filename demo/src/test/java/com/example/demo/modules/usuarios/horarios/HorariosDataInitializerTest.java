@@ -39,7 +39,7 @@ class HorariosDataInitializerTest {
                         && horario.getSemanalDetalles().stream().allMatch(detalle ->
                                 detalle.isActivo()
                                         && detalle.getHoraEntrada().equals(LocalTime.MIN)
-                                        && detalle.getHoraSalida().equals(LocalTime.MAX))));
+                                        && detalle.getHoraSalida().equals(LocalTime.of(23, 59, 59)))));
     }
 
     @Test
