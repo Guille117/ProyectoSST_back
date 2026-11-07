@@ -6,11 +6,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.util.ContentCachingRequestWrapper;
+import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,6 +32,10 @@ public class BitacoraInterceptor implements HandlerInterceptor {
     private static final Pattern ID_EN_RUTA = Pattern.compile("/(\\d+)(?:/|$)");
     private static final Pattern PACIENTE_EN_CUERPO = Pattern.compile(
             "\"(?:pacienteId|idPaciente)\"\\s*:\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PACIENTE_EN_RESPUESTA = Pattern.compile(
+            "\"pacienteId\"\\s*:\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ID_EN_RESPUESTA = Pattern.compile(
+            "\"(?:id|expedienteId|episodioId)\"\\s*:\\s*(\\d+)", Pattern.CASE_INSENSITIVE);
 
     private static final List<Clasificacion> CLASIFICACIONES = List.of(
             new Clasificacion("/api/v1/usuarios/", "USUARIOS", "Usuario", TipoBitacora.USUARIO),
@@ -99,14 +108,22 @@ public class BitacoraInterceptor implements HandlerInterceptor {
         String uri = request.getRequestURI();
         Clasificacion clasificacion = clasificar(uri);
         String cuerpo = obtenerCuerpo(request, servicio);
+        if (cuerpo == null) {
+            cuerpo = resumenMultipart(request);
+        }
+        String cuerpoRespuesta = obtenerCuerpoRespuesta(response);
+
+        Long idRuta = extraerIdDeRuta(uri);
+        Long pacienteId = resolverPacienteId(uri, cuerpo, cuerpoRespuesta);
+        Long entidadId = idRuta != null ? idRuta : resolverIdRespuesta(cuerpoRespuesta);
 
         servicio.registrar(BitacoraEntity.builder()
                 .tipo(clasificacion.tipo())
                 .accion(accion)
                 .modulo(clasificacion.modulo())
                 .entidad(clasificacion.entidad())
-                .entidadId(extraerIdDeRuta(uri))
-                .pacienteId(resolverPacienteId(uri, cuerpo))
+                .entidadId(entidadId)
+                .pacienteId(pacienteId)
                 .usuarioId(usuario.get().getId())
                 .usuarioNombre(usuario.get().getUsername())
                 .detalle(cuerpo)
@@ -124,13 +141,14 @@ public class BitacoraInterceptor implements HandlerInterceptor {
     }
 
     private Clasificacion clasificar(String uri) {
+        String normalizada = uri.endsWith("/") ? uri : uri + "/";
         return CLASIFICACIONES.stream()
-                .filter(c -> uri.startsWith(c.prefijo()))
+                .filter(c -> normalizada.startsWith(c.prefijo()))
                 .findFirst()
                 .orElse(new Clasificacion("/", null, null, TipoBitacora.GENERAL));
     }
 
-    private Long resolverPacienteId(String uri, String cuerpo) {
+    private Long resolverPacienteId(String uri, String cuerpo, String cuerpoRespuesta) {
         if (uri.contains("/pacientes/")) {
             Matcher paciente = Pattern.compile("/pacientes/(\\d+)").matcher(uri);
             if (paciente.find()) {
@@ -142,6 +160,27 @@ public class BitacoraInterceptor implements HandlerInterceptor {
             if (cuerpoMatcher.find()) {
                 return Long.valueOf(cuerpoMatcher.group(1));
             }
+        }
+        if (cuerpoRespuesta != null) {
+            Matcher respuestaMatcher = PACIENTE_EN_RESPUESTA.matcher(cuerpoRespuesta);
+            if (respuestaMatcher.find()) {
+                return Long.valueOf(respuestaMatcher.group(1));
+            }
+        }
+        return null;
+    }
+
+    private Long resolverIdRespuesta(String cuerpoRespuesta) {
+        if (cuerpoRespuesta == null) {
+            return null;
+        }
+        Matcher paciente = PACIENTE_EN_RESPUESTA.matcher(cuerpoRespuesta);
+        if (paciente.find()) {
+            return Long.valueOf(paciente.group(1));
+        }
+        Matcher generico = ID_EN_RESPUESTA.matcher(cuerpoRespuesta);
+        if (generico.find()) {
+            return Long.valueOf(generico.group(1));
         }
         return null;
     }
@@ -162,6 +201,53 @@ public class BitacoraInterceptor implements HandlerInterceptor {
             }
         }
         return null;
+    }
+
+    private String obtenerCuerpoRespuesta(HttpServletResponse response) {
+        if (response instanceof ContentCachingResponseWrapper wrapper) {
+            byte[] contenido = wrapper.getContentAsByteArray();
+            if (contenido.length > 0) {
+                return new String(contenido, StandardCharsets.UTF_8);
+            }
+        }
+        return null;
+    }
+
+    private String resumenMultipart(HttpServletRequest request) {
+        String tipo = request.getContentType();
+        if (tipo == null || !tipo.toLowerCase(Locale.ROOT).contains("multipart")) {
+            return null;
+        }
+
+        List<String> partes = new ArrayList<>();
+        if (request instanceof MultipartHttpServletRequest multipart) {
+            multipart.getFileMap().forEach((nombre, archivo) -> {
+                String nombreArchivo = archivo.getOriginalFilename();
+                if (nombreArchivo != null && !nombreArchivo.isBlank()) {
+                    partes.add(nombre + ": " + nombreArchivo);
+                }
+            });
+        }
+
+        try {
+            Map<String, String[]> parametros = request.getParameterMap();
+            parametros.forEach((nombre, valores) -> {
+                String clave = nombre.toLowerCase(Locale.ROOT);
+                if (clave.contains("password") || clave.contains("pin") || clave.contains("token")
+                        || clave.contains("secret") || clave.contains("authorization")) {
+                    return;
+                }
+                String valor = String.join(", ", valores);
+                if (valor.length() > 120) {
+                    valor = valor.substring(0, 119) + "…";
+                }
+                partes.add(nombre + ": " + valor);
+            });
+        } catch (Exception ignorada) {
+            // El resumen es informativo; no debe interrumpir la bitácora.
+        }
+
+        return partes.isEmpty() ? "Formulario multipart" : String.join(" · ", partes);
     }
 
     private String obtenerIp(HttpServletRequest request) {

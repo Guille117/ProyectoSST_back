@@ -72,6 +72,20 @@ public class BitacoraService {
                 .build());
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void registrarIntentoFallido(String usuarioNombre) {
+        registrar(BitacoraEntity.builder()
+                .tipo(TipoBitacora.LOGIN)
+                .accion(AccionBitacora.LOGIN)
+                .modulo("SEGURIDAD")
+                .entidad("Sesión")
+                .usuarioNombre(usuarioNombre != null && !usuarioNombre.isBlank() ? usuarioNombre : "—")
+                .fechaHora(LocalDateTime.now())
+                .detalle("FALLIDO: credenciales inválidas")
+                .ip(obtenerIp())
+                .build());
+    }
+
     @Transactional(readOnly = true)
     public List<BitacoraDTOs.BitacoraResponse> listar(Collection<TipoBitacora> tipos, Long pacienteId,
             Long usuarioId, LocalDateTime desde, LocalDateTime hasta, int limite) {
