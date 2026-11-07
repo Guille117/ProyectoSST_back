@@ -27,7 +27,7 @@ public class ReporteController {
     }
 
     @GetMapping("/farmacia/mas-vendidos")
-    public List<ReporteDTOs.Conteo> masVendidos(
+    public List<ReporteDTOs.ProductoConteo> masVendidos(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         return reporteService.masVendidos(desde, hasta);
@@ -141,5 +141,125 @@ public class ReporteController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
         return reporteService.accesos(desde, hasta);
+    }
+
+    // --- Reportes adicionales ---
+
+    @GetMapping("/farmacia/consumo-area")
+    public List<ReporteDTOs.Conteo> consumoPorArea(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.consumoPorArea(desde, hasta);
+    }
+
+    @GetMapping("/farmacia/rotacion")
+    public List<ReporteDTOs.Conteo> rotacionInventario(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.rotacionInventario(desde, hasta);
+    }
+
+    @GetMapping("/pacientes/egresos-por-area")
+    public List<ReporteDTOs.Conteo> egresosPorArea(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.egresosPorArea(desde, hasta);
+    }
+
+    @GetMapping("/pacientes/grupos-edad")
+    public List<ReporteDTOs.Conteo> pacientesPorGrupoEdad() {
+        return reporteService.pacientesPorGrupoEdad();
+    }
+
+    @GetMapping("/pacientes/estancia-promedio")
+    public List<ReporteDTOs.Conteo> estanciaPromedio(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.estanciaPromedio(desde, hasta);
+    }
+
+    @GetMapping("/pacientes/ocupacion-camas")
+    public List<ReporteDTOs.Conteo> ocupacionCamas() {
+        return reporteService.ocupacionCamas();
+    }
+
+    @GetMapping("/medica/procedimientos-realizados")
+    public List<ReporteDTOs.Conteo> procedimientosRealizados(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.procedimientosRealizados(desde, hasta);
+    }
+
+    @GetMapping("/medica/indicaciones-por-tipo")
+    public List<ReporteDTOs.Conteo> indicacionesPorTipo(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.indicacionesPorTipo(desde, hasta);
+    }
+
+    @GetMapping("/medica/reingresos")
+    public List<ReporteDTOs.Conteo> reingresos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.reingresos(desde, hasta);
+    }
+
+    @GetMapping("/medica/tiempo-atencion")
+    public List<ReporteDTOs.Conteo> tiempoAtencion(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.tiempoAtencion(desde, hasta);
+    }
+
+    @GetMapping("/enfermeria/signos-fuera-rango")
+    public List<ReporteDTOs.Conteo> signosFueraRango(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.signosFueraRango(desde, hasta);
+    }
+
+    @GetMapping("/enfermeria/eventos-adversos")
+    public List<ReporteDTOs.Conteo> eventosAdversos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.eventosAdversos(desde, hasta);
+    }
+
+    @GetMapping("/enfermeria/carga-enfermero")
+    public List<ReporteDTOs.Conteo> cargaPorEnfermero(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.cargaPorEnfermero(desde, hasta);
+    }
+
+    @GetMapping("/usuarios/sesiones-activas")
+    public List<ReporteDTOs.SesionActiva> sesionesActivas() {
+        return reporteService.sesionesActivas();
+    }
+
+    @GetMapping("/usuarios/permisos-por-modulo")
+    public List<ReporteDTOs.PermisoModulo> permisosPorModulo() {
+        return reporteService.permisosPorModulo();
+    }
+
+    @GetMapping("/usuarios/intentos-fallidos")
+    public List<ReporteDTOs.Conteo> intentosFallidos(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.intentosFallidos(desde, hasta);
+    }
+
+    @GetMapping("/usuarios/actividad")
+    public List<ReporteDTOs.Conteo> actividadPorUsuario(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.actividadPorUsuario(desde, hasta);
+    }
+
+    @GetMapping("/usuarios/creados-por-periodo")
+    public List<ReporteDTOs.Conteo> usuariosCreados(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        return reporteService.usuariosCreados(desde, hasta);
     }
 }

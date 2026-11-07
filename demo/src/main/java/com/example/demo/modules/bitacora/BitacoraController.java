@@ -20,7 +20,7 @@ import java.util.Set;
 public class BitacoraController {
 
     private static final Set<TipoBitacora> TIPOS_GENERAL = Set.of(
-            TipoBitacora.LOGIN, TipoBitacora.USUARIO, TipoBitacora.GENERAL);
+            TipoBitacora.LOGIN, TipoBitacora.USUARIO, TipoBitacora.GENERAL, TipoBitacora.PACIENTE);
 
     private final BitacoraService bitacoraService;
 
@@ -29,8 +29,10 @@ public class BitacoraController {
             @PathVariable Long pacienteId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
-            @RequestParam(defaultValue = "200") int limite) {
-        return bitacoraService.listar(null, pacienteId, null, inicio(desde), fin(hasta), limite);
+            @RequestParam(defaultValue = "500") int limite) {
+        LocalDateTime inicio = desde != null ? desde.atStartOfDay() : null;
+        LocalDateTime fin = hasta != null ? hasta.atTime(LocalTime.MAX) : null;
+        return bitacoraService.listar(null, pacienteId, null, inicio, fin, limite);
     }
 
     @GetMapping("/general")

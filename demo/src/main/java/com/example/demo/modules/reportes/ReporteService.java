@@ -27,9 +27,10 @@ public class ReporteService {
     }
 
     @Transactional(readOnly = true)
-    public List<ReporteDTOs.Conteo> masVendidos(LocalDate desde, LocalDate hasta) {
+    public List<ReporteDTOs.ProductoConteo> masVendidos(LocalDate desde, LocalDate hasta) {
         return reporteRepository.masVendidos(inicio(desde), fin(hasta)).stream()
-                .map(fila -> new ReporteDTOs.Conteo(texto(fila[0]), entero(fila[1])))
+                .map(fila -> new ReporteDTOs.ProductoConteo(
+                        texto(fila[0]), texto(fila[1]), entero(fila[2])))
                 .toList();
     }
 
@@ -155,6 +156,112 @@ public class ReporteService {
     @Transactional(readOnly = true)
     public List<ReporteDTOs.Conteo> accesos(LocalDate desde, LocalDate hasta) {
         return reporteRepository.accesosPorUsuario(inicio(desde), fin(hasta)).stream()
+                .map(fila -> new ReporteDTOs.Conteo(texto(fila[0]), entero(fila[1])))
+                .toList();
+    }
+
+    // --- Reportes adicionales ---
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> consumoPorArea(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.consumoPorArea(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> rotacionInventario(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.rotacionInventario(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> egresosPorArea(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.egresosPorArea(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> pacientesPorGrupoEdad() {
+        return conteo(reporteRepository.pacientesPorGrupoEdad());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> estanciaPromedio(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.estanciaPromedio(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> ocupacionCamas() {
+        return conteo(reporteRepository.ocupacionCamas());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> procedimientosRealizados(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.procedimientosRealizados(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> indicacionesPorTipo(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.indicacionesPorTipo(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> reingresos(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.reingresos(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> tiempoAtencion(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.tiempoAtencion(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> signosFueraRango(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.signosFueraRango(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> eventosAdversos(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.eventosAdversos(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> cargaPorEnfermero(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.cargaPorEnfermero(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> actividadPorUsuario(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.actividadPorUsuario(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> usuariosCreados(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.usuariosCreados(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.Conteo> intentosFallidos(LocalDate desde, LocalDate hasta) {
+        return conteo(reporteRepository.intentosFallidos(inicio(desde), fin(hasta)));
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.SesionActiva> sesionesActivas() {
+        return reporteRepository.sesionesActivas().stream()
+                .map(fila -> new ReporteDTOs.SesionActiva(
+                        texto(fila[0]), texto(fila[1]), texto(fila[2]), texto(fila[3])))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReporteDTOs.PermisoModulo> permisosPorModulo() {
+        return reporteRepository.permisosPorModulo().stream()
+                .map(fila -> new ReporteDTOs.PermisoModulo(
+                        texto(fila[0]), texto(fila[1]), texto(fila[2]),
+                        entero(fila[3]) != 0, entero(fila[4]) != 0,
+                        entero(fila[5]) != 0, entero(fila[6]) != 0))
+                .toList();
+    }
+
+    private List<ReporteDTOs.Conteo> conteo(List<Object[]> filas) {
+        return filas.stream()
                 .map(fila -> new ReporteDTOs.Conteo(texto(fila[0]), entero(fila[1])))
                 .toList();
     }

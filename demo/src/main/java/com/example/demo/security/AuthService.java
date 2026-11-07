@@ -36,11 +36,21 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthDTOs.AuthResponse login(AuthDTOs.LoginRequest request) {
         LocalDateTime ahora = horarioLaboralService.momentoActual();
-        AuthDTOs.AuthResponse response = login(request, ahora.toLocalDate(), ahora.toLocalTime());
+        AuthDTOs.AuthResponse response;
+        try {
+            response = login(request, ahora.toLocalDate(), ahora.toLocalTime());
+        } catch (BadCredentialsException error) {
+            try {
+                bitacoraService.registrarIntentoFallido(request.username());
+            } catch (Exception ignorada) {
+                // La bitácora no debe alterar la respuesta de autenticación.
+            }
+            throw error;
+        }
         try {
             bitacoraService.registrarLogin(response.id(), response.username());
         } catch (Exception ignorada) {
-            // La bitÃ¡cora no debe impedir el inicio de sesiÃ³n.
+            // La bitácora no debe impedir el inicio de sesión.
         }
         return response;
     }
