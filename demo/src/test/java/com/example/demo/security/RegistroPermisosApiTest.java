@@ -50,6 +50,23 @@ class RegistroPermisosApiTest {
     }
 
     @Test
+    void enfermeraYMedicoPuedenEliminarArchivosDeExamen() {
+        ReglaPermiso regla = registro.resolver("/api/v1/examenes/5/archivos/9", "DELETE").orElseThrow();
+
+        assertTrue(regla.modulos().contains("ENFERMERIA"));
+        assertTrue(regla.modulos().contains("MEDICA"));
+    }
+
+    @Test
+    void enfermeraYMedicoPuedenMarcarAutorizacionGenerada() {
+        ReglaPermiso regla = registro.resolver(
+                "/api/v1/procedimientosMedicos/5/autorizacion-generada", "PATCH").orElseThrow();
+
+        assertTrue(regla.modulos().contains("ENFERMERIA"));
+        assertTrue(regla.modulos().contains("MEDICA"));
+    }
+
+    @Test
     void enfermeraNoPuedeCrearNiEditarExamenes() {
         ReglaPermiso creacion = registro.resolver("/api/v1/examenes", "POST").orElseThrow();
         ReglaPermiso edicion = registro.resolver("/api/v1/examenes/5", "PUT").orElseThrow();

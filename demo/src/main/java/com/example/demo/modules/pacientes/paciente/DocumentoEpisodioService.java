@@ -92,7 +92,7 @@ public class DocumentoEpisodioService {
     @Transactional
     public DocumentoEpisodioDTOs.Response cambiarEstado(Long id) {
         DocumentoEpisodioEntity documento = buscarDocumento(id);
-        registroAcceso.validarEdicion(documento.getUsuario());
+        registroAcceso.validarEdicionArchivo(documento.getUsuario());
         documento.setEstado(!documento.isEstado());
         return toResponse(repository.save(documento));
     }
@@ -101,7 +101,7 @@ public class DocumentoEpisodioService {
     @Transactional
     public void eliminar(Long id) {
         DocumentoEpisodioEntity documento = buscarDocumento(id);
-        registroAcceso.validarEdicion(documento.getUsuario());
+        registroAcceso.validarEdicionArchivo(documento.getUsuario());
         if (documento.isEstado()) {
             documento.setEstado(false);
             repository.save(documento);

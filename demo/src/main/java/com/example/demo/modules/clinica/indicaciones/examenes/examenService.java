@@ -81,7 +81,7 @@ public class examenService {
     @Transactional
     public examenDTOs.Response agregarArchivos(Long id, List<MultipartFile> archivos) {
         examenEntity entity = buscarEntidad(id);
-        registroAcceso.validarEdicion(entity.getUsuario());
+        registroAcceso.validarEdicionArchivo(entity.getUsuario());
 
         List<String> rutasGuardadas = new ArrayList<>();
         try {
@@ -96,7 +96,7 @@ public class examenService {
     @Transactional
     public void eliminarArchivo(Long examenId, Long archivoId) {
         examenEntity entity = buscarEntidad(examenId);
-        registroAcceso.validarEdicion(entity.getUsuario());
+        registroAcceso.validarEdicionArchivo(entity.getUsuario());
 
         examenArchivoEntity objetivo = entity.getArchivos().stream()
                 .filter(archivo -> archivoId.equals(archivo.getId()))
