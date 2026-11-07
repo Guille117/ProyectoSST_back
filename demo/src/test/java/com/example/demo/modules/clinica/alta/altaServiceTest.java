@@ -96,6 +96,7 @@ class altaServiceTest {
         assertEquals(2L, response.condicionEgresoId());
         assertEquals("Estable", response.condicionEgresoNombre());
         assertEquals(EstadoAlta.VIGENTE, response.estado());
+        assertTrue(response.puedeAnular());
         assertNotNull(response.fechaHoraEgreso());
         assertEquals(1, response.tratamientos().size());
         assertFalse(episodio.isEstado());
@@ -324,6 +325,21 @@ class altaServiceTest {
 
         assertEquals(1, resultado.size());
         assertEquals(5L, resultado.get(0).id());
+        assertTrue(resultado.get(0).puedeAnular());
+    }
+
+    @Test
+    void buscarPorEpisodio_debeMarcarNoAnulableCuandoPasoElPlazo() {
+        altaEntity antigua = entidad(5L, EstadoAlta.VIGENTE);
+        antigua.setFechaHoraEgreso(LocalDateTime.now().minusHours(6));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE))
+                .thenReturn(Optional.of(antigua));
+
+        List<altaDTOs.Response> resultado = service.buscarPorEpisodio(1L);
+
+        assertEquals(1, resultado.size());
+        assertFalse(resultado.get(0).puedeAnular());
     }
 
     @Test
@@ -366,6 +382,20 @@ class altaServiceTest {
                 IllegalArgumentException.class, () -> service.anular(5L));
 
         assertTrue(exception.getMessage().contains("otro episodio activo"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void anular_debeRechazarCuandoPasoElPlazoDeCincoHoras() {
+        altaEntity existente = entidad(5L, EstadoAlta.VIGENTE);
+        existente.setFechaHoraEgreso(LocalDateTime.now().minusHours(6));
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class, () -> service.anular(5L));
+
+        assertEquals("El plazo de 5 horas para anular el alta venció.", exception.getMessage());
+        assertEquals(EstadoAlta.VIGENTE, existente.getEstado());
         verify(repository, never()).save(any());
     }
 
@@ -580,7 +610,7 @@ class altaServiceTest {
                 .id(id)
                 .tipoAlta(TipoAlta.INDICACION_MEDICA)
                 .diagnosticoEgreso("Diagnóstico")
-                .fechaHoraEgreso(LocalDateTime.of(2026, 1, 15, 8, 30))
+                .fechaHoraEgreso(LocalDateTime.now().minusHours(1))
                 .episodio(episodio(1L, false))
                 .usuario(usuario(2L, "Carlos Mendez"))
                 .estado(estado)

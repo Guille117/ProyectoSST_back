@@ -186,6 +186,7 @@ class altaControllerTest {
                 2L,
                 "Carlos Mendez",
                 EstadoAlta.VIGENTE,
+                true,
                 null,
                 null,
                 List.of(),

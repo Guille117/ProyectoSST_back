@@ -114,6 +114,7 @@ public class altaDTOs {
             Long usuarioId,
             String usuarioNombre,
             EstadoAlta estado,
+            boolean puedeAnular,
             ResponsableRetiro responsableRetiro,
             String motivoRetiro,
             List<String> riesgosRetiro,
