@@ -14,11 +14,9 @@ public class cuidadoDTOs {
             @NotBlank(message = "El nombre del cuidado es obligatorio")
             @Size(max = 200, message = "El nombre del cuidado no debe superar los 200 caracteres")
             String nombreCuidado,
-            @NotNull(message = "La frecuencia es obligatoria")
             @Positive(message = "La frecuencia debe ser mayor a 0")
             Integer frecuencia,
             Integer duracion,
-            @NotNull(message = "El tipo de duración es obligatorio")
             TipoDuracion tipoDuracion,
             @Size(max = 2000, message = "La observación no debe superar los 2000 caracteres")
             String observacion,

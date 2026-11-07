@@ -306,11 +306,15 @@ public class altaService {
 
             String nombre = validarTexto(tratamiento.nombre(),
                     "El nombre del tratamiento es obligatorio");
-            if (tratamiento.frecuencia() == null || tratamiento.frecuencia() <= 0) {
+            if (tratamiento.tipo() == TipoTratamiento.MEDICAMENTO) {
+                if (tratamiento.frecuencia() == null || tratamiento.frecuencia() <= 0) {
+                    throw new IllegalArgumentException("La frecuencia debe ser mayor a 0");
+                }
+                if (tratamiento.duracionTipo() == null) {
+                    throw new IllegalArgumentException("El tipo de duración es obligatorio");
+                }
+            } else if (tratamiento.frecuencia() != null && tratamiento.frecuencia() <= 0) {
                 throw new IllegalArgumentException("La frecuencia debe ser mayor a 0");
-            }
-            if (tratamiento.duracionTipo() == null) {
-                throw new IllegalArgumentException("El tipo de duración es obligatorio");
             }
 
             Integer cantidad = null;

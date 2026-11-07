@@ -44,6 +44,9 @@ public class indicacionMedicamentoEntity {
     @Column(name = "medicamento_log_presentacion", length = 100)
     private String medicamentoLogPresentacion;
 
+    @Column(name = "medicamento_log_marca", length = 150)
+    private String medicamentoLogMarca;
+
     @Column(name = "medicamento_log_via_admin", length = 100)
     private String medicamentoLogViaAdmin;
 

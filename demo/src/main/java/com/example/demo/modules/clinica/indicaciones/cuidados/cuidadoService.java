@@ -1,6 +1,7 @@
 package com.example.demo.modules.clinica.indicaciones.cuidados;
 
 import com.example.demo.modules.clinica.indicaciones.DuracionValidator;
+import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
@@ -33,7 +34,7 @@ public class cuidadoService {
         cuidadoEntity entity = cuidadoEntity.builder()
                 .nombreCuidado(validarNombre(request.nombreCuidado()))
                 .frecuencia(validarFrecuencia(request.frecuencia()))
-                .duracion(DuracionValidator.validar(request.tipoDuracion(), request.duracion()))
+                .duracion(validarDuracion(request.tipoDuracion(), request.duracion()))
                 .tipoDuracion(request.tipoDuracion())
                 .observacion(StringNormalizer.normalizarNullable(request.observacion()))
                 .episodio(buscarEpisodio(request.episodioId()))
@@ -58,7 +59,7 @@ public class cuidadoService {
 
         entity.setNombreCuidado(validarNombre(request.nombreCuidado()));
         entity.setFrecuencia(validarFrecuencia(request.frecuencia()));
-        entity.setDuracion(DuracionValidator.validar(request.tipoDuracion(), request.duracion()));
+        entity.setDuracion(validarDuracion(request.tipoDuracion(), request.duracion()));
         entity.setTipoDuracion(request.tipoDuracion());
         entity.setObservacion(StringNormalizer.normalizarNullable(request.observacion()));
         entity.setEpisodio(buscarEpisodio(request.episodioId()));
@@ -124,12 +125,17 @@ public class cuidadoService {
 
     private Integer validarFrecuencia(Integer frecuencia) {
         if (frecuencia == null) {
-            throw new IllegalArgumentException("La frecuencia es obligatoria");
+            return null;
         }
         if (frecuencia <= 0) {
             throw new IllegalArgumentException("La frecuencia debe ser mayor a 0");
         }
         return frecuencia;
+    }
+
+    /** El tipo de duración es opcional: solo se valida la duración cuando se indica un tipo. */
+    private Integer validarDuracion(TipoDuracion tipoDuracion, Integer duracion) {
+        return tipoDuracion == null ? null : DuracionValidator.validar(tipoDuracion, duracion);
     }
 
     private LocalDateTime validarFechaInicio(LocalDateTime fechaInicio) {

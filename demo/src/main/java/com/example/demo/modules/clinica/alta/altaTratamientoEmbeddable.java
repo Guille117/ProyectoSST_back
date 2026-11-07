@@ -31,11 +31,10 @@ public class altaTratamientoEmbeddable {
     @Column(name = "unidad_medida", length = 100)
     private String unidadMedida;
 
-    @Column(nullable = false)
     private Integer frecuencia;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "duracion_tipo", nullable = false, length = 20)
+    @Column(name = "duracion_tipo", length = 20)
     private TipoDuracion duracionTipo;
 
     private Integer duracion;
