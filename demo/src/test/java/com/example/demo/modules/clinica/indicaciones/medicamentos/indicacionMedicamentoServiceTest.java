@@ -3,13 +3,17 @@ package com.example.demo.modules.clinica.indicaciones.medicamentos;
 import com.example.demo.security.RegistroAccesoService;
 
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
+import com.example.demo.modules.farmacia.marca.marcaEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogEntity;
 import com.example.demo.modules.farmacia.medicamentoLog.medicamentoLogRepository;
+import com.example.demo.modules.farmacia.presentacion.presentacionEntity;
+import com.example.demo.modules.farmacia.unidadMedida.unidadMedidaEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
+import java.math.BigDecimal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -76,6 +80,26 @@ class indicacionMedicamentoServiceTest {
         assertNotNull(response.fecha());
         assertEquals(FECHA_INICIO, response.fechaInicio());
         assertEquals(EstadoIndicacionMedicamento.ACTIVO, response.estado());
+    }
+
+    @Test
+    void crear_debeComponerPresentacionConDosisEnLaRespuesta() {
+        when(medicamentoLogRepository.findById(9L))
+                .thenReturn(Optional.of(medicamentoConConcentracion(9L, "Acetaminofen")));
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(indicacionMedicamentoEntity.class))).thenAnswer(invocation -> {
+            indicacionMedicamentoEntity entity = invocation.getArgument(0);
+            entity.setId(30L);
+            return entity;
+        });
+
+        indicacionMedicamentoDTOs.Response response = service.crear(
+                new indicacionMedicamentoDTOs.Request(
+                        9L, null, "tableta", 2, 8, 7, TipoDuracion.DIAS, null, 1L, 2L, FECHA_INICIO));
+
+        assertEquals("MK", response.medicamentoMarca());
+        assertEquals("Tabletas de 500 mg", response.medicamentoPresentacion());
     }
 
     @Test
@@ -322,6 +346,28 @@ class indicacionMedicamentoServiceTest {
 
     private medicamentoLogEntity medicamento(Long id, String nombre) {
         return medicamentoLogEntity.builder().id(id).nombre(nombre).build();
+    }
+
+    private medicamentoLogEntity medicamentoConConcentracion(Long id, String nombre) {
+        unidadMedidaEntity unidad = new unidadMedidaEntity();
+        unidad.setId(1L);
+        unidad.setNombre("Miligramo");
+        unidad.setAbreviatura("mg");
+        presentacionEntity presentacion = new presentacionEntity();
+        presentacion.setId(2L);
+        presentacion.setNombre("Tabletas");
+        marcaEntity marca = new marcaEntity();
+        marca.setId(3L);
+        marca.setNombre("MK");
+
+        return medicamentoLogEntity.builder()
+                .id(id)
+                .nombre(nombre)
+                .dosis(BigDecimal.valueOf(500))
+                .unidadMedida(unidad)
+                .presentacion(presentacion)
+                .marca(marca)
+                .build();
     }
 
     private EpisodioEntity episodio(Long id) {

@@ -36,6 +36,9 @@ import java.util.Set;
 @RequiredArgsConstructor
 public class altaService {
 
+    /** Horas durante las que se permite anular un alta después de su registro. */
+    private static final int HORAS_PARA_ANULAR = 5;
+
     private final altaRepository repository;
     private final EpisodioRepository episodioRepository;
     private final UsuarioRepository usuarioRepository;
@@ -211,6 +214,9 @@ public class altaService {
         if (entity.getEstado() == EstadoAlta.ANULADA) {
             return;
         }
+        if (!puedeAnular(entity)) {
+            throw new IllegalArgumentException("El plazo de 5 horas para anular el alta venció.");
+        }
 
         EpisodioEntity episodio = entity.getEpisodio();
         Long pacienteId = episodio.getPaciente().getId();
@@ -306,11 +312,15 @@ public class altaService {
 
             String nombre = validarTexto(tratamiento.nombre(),
                     "El nombre del tratamiento es obligatorio");
-            if (tratamiento.frecuencia() == null || tratamiento.frecuencia() <= 0) {
+            if (tratamiento.tipo() == TipoTratamiento.MEDICAMENTO) {
+                if (tratamiento.frecuencia() == null || tratamiento.frecuencia() <= 0) {
+                    throw new IllegalArgumentException("La frecuencia debe ser mayor a 0");
+                }
+                if (tratamiento.duracionTipo() == null) {
+                    throw new IllegalArgumentException("El tipo de duración es obligatorio");
+                }
+            } else if (tratamiento.frecuencia() != null && tratamiento.frecuencia() <= 0) {
                 throw new IllegalArgumentException("La frecuencia debe ser mayor a 0");
-            }
-            if (tratamiento.duracionTipo() == null) {
-                throw new IllegalArgumentException("El tipo de duración es obligatorio");
             }
 
             Integer cantidad = null;
@@ -548,6 +558,17 @@ public class altaService {
         return Period.between(persona.getFechaNacimiento(), LocalDate.now()).getYears();
     }
 
+    /** El alta está vigente y todavía dentro del plazo de 5 horas para anularla. */
+    private boolean puedeAnular(altaEntity entity) {
+        if (entity.getEstado() != EstadoAlta.VIGENTE || entity.getFechaHoraEgreso() == null) {
+            return false;
+        }
+
+        LocalDateTime ahora = LocalDateTime.now();
+        return !ahora.isBefore(entity.getFechaHoraEgreso())
+                && !ahora.isAfter(entity.getFechaHoraEgreso().plusHours(HORAS_PARA_ANULAR));
+    }
+
     private altaDTOs.Response toResponse(altaEntity entity) {
         condicionEgresoEntity condicion = entity.getCondicionEgreso();
         institucionEntity institucion = entity.getInstitucion();
@@ -564,6 +585,7 @@ public class altaService {
                 entity.getUsuario().getId(),
                 nombreUsuario(entity.getUsuario()),
                 entity.getEstado(),
+                puedeAnular(entity),
                 entity.getResponsableRetiro(),
                 entity.getMotivoRetiro(),
                 List.copyOf(entity.getRiesgosRetiro()),

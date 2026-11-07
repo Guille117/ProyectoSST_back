@@ -48,6 +48,9 @@ public class indicacionMedicamentoDTOs {
             Long id,
             Long medicamentoLogId,
             String medicamento,
+            String medicamentoMarca,
+            String medicamentoPresentacion,
+            String medicamentoViaAdministracion,
             String medicamentoLibre,
             String presentacion,
             Integer cantidad,
@@ -80,9 +83,9 @@ public class indicacionMedicamentoDTOs {
                 LocalDateTime fecha,
                 EstadoIndicacionMedicamento estado,
                 LocalDateTime fechaInicio) {
-            this(id, medicamentoLogId, medicamento, medicamentoLibre, presentacion, cantidad,
-                    frecuencia, duracion, tipoDuracion, observaciones, episodioId, usuarioId,
-                    usuarioNombre, usuarioNombre, fecha, estado, fechaInicio);
+            this(id, medicamentoLogId, medicamento, null, null, null, medicamentoLibre,
+                    presentacion, cantidad, frecuencia, duracion, tipoDuracion, observaciones,
+                    episodioId, usuarioId, usuarioNombre, usuarioNombre, fecha, estado, fechaInicio);
         }
     }
 }

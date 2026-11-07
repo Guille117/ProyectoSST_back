@@ -24,13 +24,12 @@ public class cuidadoEntity {
     @Column(name = "nombre_cuidado", nullable = false, length = 200)
     private String nombreCuidado;
 
-    @Column(nullable = false)
     private Integer frecuencia;
 
     private Integer duracion;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "tipo_duracion", nullable = false, length = 20)
+    @Column(name = "tipo_duracion", length = 20)
     private TipoDuracion tipoDuracion;
 
     @Column(length = 2000)

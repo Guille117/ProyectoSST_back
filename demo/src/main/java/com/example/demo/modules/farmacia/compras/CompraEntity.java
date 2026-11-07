@@ -30,6 +30,10 @@ public class CompraEntity {
     @Column(length = 255)
     private String comprobante;
 
+    @Column(name = "comprobante_estado", nullable = false)
+    @Builder.Default
+    private boolean comprobanteEstado = true;
+
     @Column(nullable = false)
     @Builder.Default
     private boolean estado = true;

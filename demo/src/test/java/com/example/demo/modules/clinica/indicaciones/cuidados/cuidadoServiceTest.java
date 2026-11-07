@@ -70,6 +70,25 @@ class cuidadoServiceTest {
     }
 
     @Test
+    void crear_debePermitirCuidadoSoloConNombre() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L)));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(cuidadoEntity.class))).thenAnswer(invocation -> {
+            cuidadoEntity entity = invocation.getArgument(0);
+            entity.setId(31L);
+            return entity;
+        });
+
+        cuidadoDTOs.Response response = service.crear(new cuidadoDTOs.Request(
+                "Dieta blanda", null, null, null, null, 1L, 2L, FECHA_INICIO));
+
+        assertEquals("Dieta blanda", response.nombreCuidado());
+        assertNull(response.frecuencia());
+        assertNull(response.duracion());
+        assertNull(response.tipoDuracion());
+    }
+
+    @Test
     void crear_debeRechazarDuracionNulaCuandoElTipoEsDias() {
         IllegalArgumentException exception = assertThrows(
                 IllegalArgumentException.class,

@@ -23,7 +23,8 @@ RUN sed -i 's/\r$//' /usr/local/bin/docker-entrypoint.sh \
 ENV SPRING_PROFILES_ACTIVE=prod
 ENV SERVER_PORT=8080
 ENV APP_UPLOADS_DIR=/app/uploads
-ENV JAVA_OPTS="-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError"
+ENV TZ=America/Guatemala
+ENV JAVA_OPTS="-Xms256m -Xmx768m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC -XX:+ExitOnOutOfMemoryError -Duser.timezone=America/Guatemala"
 VOLUME ["/app/uploads"]
 EXPOSE 8080
 ENTRYPOINT ["docker-entrypoint.sh"]

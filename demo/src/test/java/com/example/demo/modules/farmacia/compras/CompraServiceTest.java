@@ -501,6 +501,87 @@ class CompraServiceTest {
     }
 
     @Test
+    void eliminarComprobante_debeMarcarComprobanteInactivoSinBorrarArchivo() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .comprobante("uploads/comprobantes/compra-1-abc.pdf")
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+
+        service.eliminarComprobante(1L);
+
+        assertThat(entity.isComprobanteEstado()).isFalse();
+        assertThat(entity.getComprobante()).isEqualTo("uploads/comprobantes/compra-1-abc.pdf");
+        verify(repository).save(entity);
+        verify(comprobanteStorage, never()).eliminar(any());
+    }
+
+    @Test
+    void eliminarComprobante_debeRechazarCompraSinComprobante() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> service.eliminarComprobante(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no tiene comprobante");
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void obtenerComprobante_debeRechazarComprobanteEliminado() {
+        CompraEntity entity = CompraEntity.builder().id(1L).codigo("COM-1").estado(true)
+                .comprobante("uploads/comprobantes/compra-1-abc.pdf")
+                .comprobanteEstado(false)
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+
+        assertThatThrownBy(() -> service.obtenerComprobante(1L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no tiene comprobante");
+
+        verify(comprobanteStorage, never()).cargar(any());
+    }
+
+    @Test
+    void obtenerPorId_ocultaComprobanteEliminado() {
+        CompraEntity entity = CompraEntity.builder()
+                .id(1L).codigo("COM-1").total(BigDecimal.TEN).estado(true)
+                .comprobante("uploads/comprobantes/compra-1-abc.pdf")
+                .comprobanteEstado(false)
+                .fecha(LocalDateTime.now()).proveedor(proveedorActivo()).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(mapper.toDTO(entity)).thenReturn(new CompraDTOs.Response(
+                1L, "COM-1", BigDecimal.TEN, "uploads/comprobantes/compra-1-abc.pdf", true,
+                1L, "Proveedor SA", entity.getFecha(), null));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
+
+        assertThat(service.obtenerPorId(1L).comprobante()).isNull();
+    }
+
+    @Test
+    void actualizar_debeReactivarComprobanteAlSubirNuevo() {
+        ProveedorEntity proveedor = proveedorActivo();
+        CompraEntity existente = CompraEntity.builder()
+                .id(1L).codigo("COM-1").total(BigDecimal.ZERO)
+                .comprobante("uploads/comprobantes/compra-1-viejo.pdf")
+                .comprobanteEstado(false).estado(true)
+                .fecha(LocalDateTime.now()).proveedor(proveedor).build();
+        when(repository.findById(1L)).thenReturn(Optional.of(existente));
+        when(comprobanteStorage.guardar(any(), eq(1L))).thenReturn("uploads/comprobantes/compra-1-nuevo.pdf");
+        when(repository.save(any())).thenReturn(existente);
+        when(mapper.toDTO(existente)).thenReturn(new CompraDTOs.Response(
+                1L, "COM-1", BigDecimal.ZERO, "uploads/comprobantes/compra-1-nuevo.pdf", true,
+                1L, "Proveedor SA", existente.getFecha(), null));
+        when(loteRepository.findByCompra_Id(1L)).thenReturn(List.of());
+
+        CompraDTOs.Response result = service.actualizar(1L, comprobante, null);
+
+        assertThat(existente.isComprobanteEstado()).isTrue();
+        assertThat(result.comprobante()).isEqualTo("uploads/comprobantes/compra-1-nuevo.pdf");
+    }
+
+    @Test
     void actualizar_debeActualizarCrearYEliminarLotesSegunSolicitud() {
         ProveedorEntity proveedor = proveedorActivo();
         CompraEntity existente = CompraEntity.builder()

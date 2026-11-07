@@ -126,6 +126,7 @@ public class SolicitudSalidaDTOs {
             CondicionDevolucion condicion,
             String motivoBaja,
             String usuario,
+            String usuarioNombreCorto,
             String observacion
     ) {}
 

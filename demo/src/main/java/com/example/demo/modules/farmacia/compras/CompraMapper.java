@@ -10,6 +10,7 @@ public interface CompraMapper {
     @Mapping(target = "codigo", ignore = true)
     @Mapping(target = "total", ignore = true)
     @Mapping(target = "comprobante", ignore = true)
+    @Mapping(target = "comprobanteEstado", ignore = true)
     @Mapping(target = "estado", ignore = true)
     @Mapping(target = "fecha", ignore = true)
     @Mapping(target = "proveedor", ignore = true)

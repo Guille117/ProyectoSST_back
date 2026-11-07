@@ -25,10 +25,8 @@ public class altaDTOs {
             Integer cantidad,
             @Size(max = 100, message = "La unidad de medida no debe superar los 100 caracteres")
             String unidadMedida,
-            @NotNull(message = "La frecuencia es obligatoria")
             @Positive(message = "La frecuencia debe ser mayor a 0")
             Integer frecuencia,
-            @NotNull(message = "El tipo de duración es obligatorio")
             TipoDuracion duracionTipo,
             Integer duracion,
             @Size(max = 2000, message = "Las observaciones no deben superar los 2000 caracteres")
@@ -116,6 +114,7 @@ public class altaDTOs {
             Long usuarioId,
             String usuarioNombre,
             EstadoAlta estado,
+            boolean puedeAnular,
             ResponsableRetiro responsableRetiro,
             String motivoRetiro,
             List<String> riesgosRetiro,

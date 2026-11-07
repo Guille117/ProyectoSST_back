@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -176,6 +177,7 @@ public class indicacionMedicamentoService {
             entity.setMedicamentoLogDosis(null);
             entity.setMedicamentoLogUnidad(null);
             entity.setMedicamentoLogPresentacion(null);
+            entity.setMedicamentoLogMarca(null);
             entity.setMedicamentoLogViaAdmin(null);
             return;
         }
@@ -185,6 +187,8 @@ public class indicacionMedicamentoService {
                 medicamento.getUnidadMedida() == null ? null : medicamento.getUnidadMedida().getAbreviatura());
         entity.setMedicamentoLogPresentacion(
                 medicamento.getPresentacion() == null ? null : medicamento.getPresentacion().getNombre());
+        entity.setMedicamentoLogMarca(
+                medicamento.getMarca() == null ? null : medicamento.getMarca().getNombre());
         entity.setMedicamentoLogViaAdmin(
                 medicamento.getViaAdmin() == null ? null : medicamento.getViaAdmin().getNombre());
     }
@@ -247,6 +251,27 @@ public class indicacionMedicamentoService {
         return nombreCompleto.isBlank() ? usuario.getUsername() : nombreCompleto;
     }
 
+    /** Presentación del snapshot con su dosis: «Tabletas de 500 mg». */
+    private String presentacionConConcentracion(indicacionMedicamentoEntity entity) {
+        String presentacion = entity.getMedicamentoLogPresentacion();
+        String unidad = entity.getMedicamentoLogUnidad();
+        var dosis = entity.getMedicamentoLogDosis();
+        String concentracion = (dosis == null ? "" : dosis.stripTrailingZeros().toPlainString())
+                + (unidad == null || unidad.isBlank() ? "" : " " + unidad.trim());
+        concentracion = concentracion.trim();
+
+        if (concentracion.isBlank()) {
+            return presentacion;
+        }
+        if (presentacion == null || presentacion.isBlank()) {
+            return concentracion;
+        }
+        if (presentacion.toLowerCase(Locale.ROOT).contains(concentracion.toLowerCase(Locale.ROOT))) {
+            return presentacion;
+        }
+        return presentacion + " de " + concentracion;
+    }
+
     private indicacionMedicamentoDTOs.Response toResponse(indicacionMedicamentoEntity entity) {
         Long medicamentoLogId = entity.getMedicamentoLog() == null
                 ? null : entity.getMedicamentoLog().getId();
@@ -255,11 +280,19 @@ public class indicacionMedicamentoService {
                 : (entity.getMedicamentoLogNombre() != null
                         ? entity.getMedicamentoLogNombre()
                         : entity.getMedicamentoLog().getNombre());
+        String marca = entity.getMedicamentoLogMarca() != null
+                ? entity.getMedicamentoLogMarca()
+                : (entity.getMedicamentoLog() != null && entity.getMedicamentoLog().getMarca() != null
+                        ? entity.getMedicamentoLog().getMarca().getNombre()
+                        : null);
 
         return new indicacionMedicamentoDTOs.Response(
                 entity.getId(),
                 medicamentoLogId,
                 medicamento,
+                marca,
+                presentacionConConcentracion(entity),
+                entity.getMedicamentoLogViaAdmin(),
                 entity.getMedicamentoLibre(),
                 entity.getPresentacion(),
                 entity.getCantidad(),
