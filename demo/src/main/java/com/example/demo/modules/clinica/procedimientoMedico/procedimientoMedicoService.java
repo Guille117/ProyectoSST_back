@@ -142,7 +142,7 @@ public class procedimientoMedicoService {
     @Transactional
     public void marcarAutorizacionGenerada(Long id) {
         procedimientoMedicoEntity entity = buscarEntidad(id);
-        registroAcceso.validarEdicion(entity.getUsuario());
+        registroAcceso.validarEdicionArchivo(entity.getUsuario());
 
         entity.setAutorizacionGenerada(true);
         repository.save(entity);

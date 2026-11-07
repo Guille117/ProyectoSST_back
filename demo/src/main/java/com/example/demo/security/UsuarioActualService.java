@@ -66,4 +66,11 @@ public class UsuarioActualService {
                 .map(RolEntity::getNombre)
                 .anyMatch(nombre -> PermisosSistema.ROL_ADMINISTRADOR.equalsIgnoreCase(nombre));
     }
+
+    /** Enfermería puede gestionar archivos y documentos de cualquier usuario. */
+    public boolean esEnfermera(UsuarioEntity usuario) {
+        return usuario.getRoles().stream()
+                .map(RolEntity::getNombre)
+                .anyMatch(nombre -> PermisosSistema.ROL_ENFERMERA.equalsIgnoreCase(nombre));
+    }
 }

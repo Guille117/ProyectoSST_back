@@ -90,4 +90,22 @@ public class RegistroAccesoService {
             throw new AccessDeniedException("Solo puede modificar registros creados por usted");
         }
     }
+
+    /**
+     * Valida la edición de archivos y documentos: además del autor y el Administrador,
+     * Enfermería puede gestionar los archivos creados por cualquier usuario.
+     */
+    public void validarEdicionArchivo(UsuarioEntity autor) {
+        Optional<UsuarioEntity> autenticado = usuarioActual.actual();
+        if (autenticado.isEmpty()) {
+            return;
+        }
+        UsuarioEntity usuario = autenticado.get();
+        if (usuarioActual.esAdministrador(usuario) || usuarioActual.esEnfermera(usuario)) {
+            return;
+        }
+        if (autor == null || autor.getId() == null || !autor.getId().equals(usuario.getId())) {
+            throw new AccessDeniedException("Solo puede modificar registros creados por usted");
+        }
+    }
 }

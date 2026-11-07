@@ -87,6 +87,24 @@ class RegistroAccesoServiceTest {
         assertThrows(AccessDeniedException.class, () -> service.validarEdicion(usuario(2L)));
     }
 
+    @Test
+    void enfermeraPuedeEditarArchivosAjenos() {
+        autenticar("enfermera");
+        when(usuarioRepository.findByUsernameIgnoreCase("enfermera"))
+                .thenReturn(Optional.of(usuario(1L, PermisosSistema.ROL_ENFERMERA)));
+
+        assertDoesNotThrow(() -> service.validarEdicionArchivo(usuario(2L)));
+    }
+
+    @Test
+    void enfermeraNoPuedeEditarRegistrosClinicosAjenos() {
+        autenticar("enfermera");
+        when(usuarioRepository.findByUsernameIgnoreCase("enfermera"))
+                .thenReturn(Optional.of(usuario(1L, PermisosSistema.ROL_ENFERMERA)));
+
+        assertThrows(AccessDeniedException.class, () -> service.validarEdicion(usuario(2L)));
+    }
+
     private void autenticar(String username) {
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(username, null, java.util.List.of()));
