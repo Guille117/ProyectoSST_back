@@ -59,11 +59,11 @@ public class AuthService {
     @Transactional(readOnly = true)
     public AuthDTOs.AuthResponse login(AuthDTOs.LoginRequest request, LocalDate fechaActual, LocalTime horaActual) {
         UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(request.username().trim())
-                .orElseThrow(() -> new BadCredentialsException("Credenciales invÃ¡lidas"));
+                .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
 
-        // password null: el usuario aÃºn no completÃ³ el primer ingreso (establecer-credenciales).
+        // password null: el usuario aún no completó el primer ingreso (establecer-credenciales).
         if (usuario.getPassword() == null || !passwordEncoder.matches(request.password(), usuario.getPassword())) {
-            throw new BadCredentialsException("Credenciales invÃ¡lidas");
+            throw new BadCredentialsException("Credenciales inválidas");
         }
 
         if (!usuario.isEstado()) {
@@ -76,15 +76,15 @@ public class AuthService {
     }
 
     /**
-     * Registra el cierre de sesiÃ³n en la bitÃ¡cora. Nunca lanza errores hacia el
-     * cliente: un fallo en la bitÃ¡cora no debe impedir salir de la sesiÃ³n.
+     * Registra el cierre de sesión en la bitácora. Nunca lanza errores hacia el
+     * cliente: un fallo en la bitácora no debe impedir salir de la sesión.
      */
     public void logout(String username) {
         usuarioRepository.findByUsernameIgnoreCase(username).ifPresent(usuario -> {
             try {
                 bitacoraService.registrarLogout(usuario.getId(), usuario.getUsername());
             } catch (Exception ignorada) {
-                // La bitÃ¡cora no debe impedir el cierre de sesiÃ³n.
+                // La bitácora no debe impedir el cierre de sesión.
             }
         });
     }
@@ -102,11 +102,11 @@ public class AuthService {
         public AuthDTOs.CambioCredencialesPinResponse solicitarCambioCredenciales(
             AuthDTOs.SolicitudCambioCredencialesRequest request) {
         UsuarioEntity actor = usuarioRepository.findById(request.usuarioActualId())
-            .orElseThrow(() -> new BadCredentialsException("Credenciales invÃ¡lidas"));
+            .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
 
         if (!actor.isEstado() || actor.getPassword() == null
             || !passwordEncoder.matches(request.passwordActual(), actor.getPassword())) {
-            throw new BadCredentialsException("Credenciales invÃ¡lidas");
+            throw new BadCredentialsException("Credenciales inválidas");
         }
 
         UsuarioEntity objetivo = usuarioRepository.findById(request.usuarioId())
@@ -138,7 +138,7 @@ public class AuthService {
     @Transactional
     public AuthDTOs.AuthResponse establecerCredenciales(AuthDTOs.EstablecerCredencialesRequest request) {
         UsuarioEntity usuario = usuarioRepository.findByUsernameIgnoreCase(request.username().trim())
-                .orElseThrow(() -> new BadCredentialsException("Credenciales invÃ¡lidas"));
+                .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
 
         UsuarioPinEntity pin = pinRepository.findFirstByUsuarioIdAndUsadoFalseOrderByIdDesc(usuario.getId())
                 .orElseThrow(() -> new IllegalArgumentException("No hay un PIN activo para este usuario. Solicite uno nuevo."));
@@ -150,7 +150,7 @@ public class AuthService {
         }
 
         if (pin.getIntentos() >= MAX_INTENTOS_PIN) {
-            throw new IllegalArgumentException("Se alcanzÃ³ el lÃ­mite de intentos para este PIN. Solicite uno nuevo.");
+            throw new IllegalArgumentException("Se alcanzó el límite de intentos para este PIN. Solicite uno nuevo.");
         }
 
         if (!pin.getCodigo().equals(request.pin().trim())) {

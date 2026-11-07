@@ -467,6 +467,7 @@ public class PacienteService {
                         paciente.getPersona().getNombreCompleto(),
                         paciente.getPersona().getCui(),
                         paciente.getPersona().getSexo(),
+                        calcularEdad(paciente.getPersona().getFechaNacimiento()),
                         paciente.getPersona().getTelefono(),
                         tratamientoPorPaciente.get(paciente.getId()),
                         paciente.isEstado(),

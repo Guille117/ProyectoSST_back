@@ -12,5 +12,7 @@ public interface diagnosticoRepository extends JpaRepository<diagnosticoEntity, 
 
     List<diagnosticoEntity> findByEpisodio_IdAndEstadoOrderByFechaDesc(Long episodioId, boolean estado);
 
+    boolean existsByEpisodio_IdAndEstado(Long episodioId, boolean estado);
+
     List<diagnosticoEntity> findByTipoDiagnosticoAndEstadoOrderByFechaDesc(TipoDiagnostico tipoDiagnostico, boolean estado);
 }

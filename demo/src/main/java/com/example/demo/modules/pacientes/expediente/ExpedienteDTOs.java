@@ -14,7 +14,11 @@ public final class ExpedienteDTOs {
             LocalDateTime fechaHoraIngreso,
             LocalDateTime fechaHoraEgreso,
             String medicoNombre,
-            boolean activo
+            boolean activo,
+            String descripcion,
+            String camaCodigo,
+            String responsableNombre,
+            String responsableTelefono
     ) {
     }
 }

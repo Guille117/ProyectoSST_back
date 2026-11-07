@@ -148,7 +148,7 @@ class PacienteControllerTest {
         @Test
         void listar_delegaEstadoOpcionalAlServicio() throws Exception {
                 when(service.listar(null)).thenReturn(java.util.List.of(
-                                new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(), "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
+                                new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(), "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, 36, "12345678",
                                                 TipoAtencion.HOSPITALIZACION, true, "Estable")));
 
                 mockMvc.perform(get("/api/v1/pacientes"))
@@ -160,6 +160,7 @@ class PacienteControllerTest {
                                 .andExpect(jsonPath("$[0].nombreCompleto").value("Ana Maria Lopez Ruiz"))
                                 .andExpect(jsonPath("$[0].cui").value("1234567890123"))
                                 .andExpect(jsonPath("$[0].sexo").value("FEMENINO"))
+                                .andExpect(jsonPath("$[0].edad").value(36))
                                 .andExpect(jsonPath("$[0].telefono").value("12345678"))
                                 .andExpect(jsonPath("$[0].tipoTratamiento").value("HOSPITALIZACION"))
                                 .andExpect(jsonPath("$[0].estado").value(true));
@@ -169,7 +170,7 @@ class PacienteControllerTest {
         void buscar_devuelvePacientesPorTexto() throws Exception {
                 when(service.buscar("ana")).thenReturn(java.util.List.of(
                                 new PacienteDTOs.ListadoResponse(20L, "EXP-30", 42L, 42L, java.time.LocalDateTime.now(),
-                                                "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, "12345678",
+                                                "Ana Maria Lopez Ruiz", "1234567890123", Sexo.FEMENINO, 36, "12345678",
                                                 TipoAtencion.EMERGENCIA, true, "Estable")));
 
                 mockMvc.perform(get("/api/v1/pacientes/buscar").param("texto", "ana"))

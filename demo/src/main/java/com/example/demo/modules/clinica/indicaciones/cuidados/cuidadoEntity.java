@@ -46,7 +46,7 @@ public class cuidadoEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime fecha;
 
-    @Column(name = "fecha_inicio", nullable = false)
+    @Column(name = "fecha_inicio")
     private LocalDateTime fechaInicio;
 
     @Enumerated(EnumType.STRING)
