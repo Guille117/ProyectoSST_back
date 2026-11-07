@@ -11,4 +11,6 @@ public interface historiaClinicaRepository extends JpaRepository<historiaClinica
     List<historiaClinicaEntity> findByEstadoOrderByFechaDesc(boolean estado);
 
     List<historiaClinicaEntity> findByEpisodio_IdAndEstadoOrderByFechaDesc(Long episodioId, boolean estado);
+
+    boolean existsByEpisodio_IdAndEstado(Long episodioId, boolean estado);
 }

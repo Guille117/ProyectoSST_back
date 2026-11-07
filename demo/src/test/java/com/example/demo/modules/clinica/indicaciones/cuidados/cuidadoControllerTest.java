@@ -76,6 +76,22 @@ class cuidadoControllerTest {
     }
 
     @Test
+    void crear_debePermitirRequestSinFechaInicio() throws Exception {
+        when(service.crear(any())).thenReturn(new cuidadoDTOs.Response(
+                32L, "Dieta blanda", null, null, null, null,
+                1L, 2L, "Carlos Mendez", LocalDateTime.of(2026, 10, 16, 11, 0),
+                EstadoCuidado.EN_PROCESO, null));
+
+        String json = "{\"nombreCuidado\":\"Dieta blanda\",\"episodioId\":1,\"usuarioId\":2}";
+
+        mockMvc.perform(post("/api/v1/cuidados")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.nombreCuidado").value("Dieta blanda"));
+    }
+
+    @Test
     void obtenerTodos_debeAplicarEstadoEnProcesoPorDefecto() throws Exception {
         when(service.obtenerTodos(EstadoCuidado.EN_PROCESO)).thenReturn(List.of(new cuidadoDTOs.Response(
                 30L, "Cambio de vendaje", 12, 5, TipoDuracion.DIAS, "Cada turno",

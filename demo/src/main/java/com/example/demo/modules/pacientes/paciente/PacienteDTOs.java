@@ -91,6 +91,7 @@ public class PacienteDTOs {
             String nombreCompleto,
             String cui,
             Sexo sexo,
+            Integer edad,
             String telefono,
             TipoAtencion tipoTratamiento,
             boolean estado,

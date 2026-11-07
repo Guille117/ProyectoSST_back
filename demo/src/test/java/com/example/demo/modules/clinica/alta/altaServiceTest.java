@@ -4,6 +4,8 @@ import com.example.demo.security.RegistroAccesoService;
 
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
+import com.example.demo.modules.clinica.diagnostico.diagnosticoRepository;
+import com.example.demo.modules.clinica.historiaClinica.historiaClinicaRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaDTOs;
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
@@ -21,6 +23,7 @@ import com.example.demo.modules.usuarios.usuarios.Sexo;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.security.UsuarioActualService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -36,6 +39,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
@@ -61,6 +65,12 @@ class altaServiceTest {
     private camasRepository camasRepository;
 
     @Mock
+    private historiaClinicaRepository historiaClinicaRepository;
+
+    @Mock
+    private diagnosticoRepository diagnosticoRepository;
+
+    @Mock
     private UsuarioActualService usuarioActualService;
 
     @Mock
@@ -73,6 +83,16 @@ class altaServiceTest {
 
     @InjectMocks
     private altaService service;
+
+    @BeforeEach
+    void configurarHistoriaYDiagnostico() {
+        lenient().when(historiaClinicaRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(true);
+        lenient().when(diagnosticoRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(true);
+    }
 
     @Test
     void crear_debeGuardarConEstadoVigenteYCerrarElEpisodio() {
@@ -227,6 +247,108 @@ class altaServiceTest {
                 () -> service.crear(requestIndicacionMedica()));
 
         assertEquals("El episodio ya tiene un alta registrada", exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_indicacion_sinHistoriaNiDiagnostico_debeRechazar() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L, true)));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(historiaClinicaRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(false);
+        when(diagnosticoRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(false);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(requestIndicacionMedica()));
+
+        assertTrue(exception.getMessage().contains("historia clínica ni diagnóstico"));
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_indicacion_sinHistoria_debeRechazar() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L, true)));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(historiaClinicaRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(false);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(requestIndicacionMedica()));
+
+        assertEquals(
+                "No se puede guardar el alta: el episodio no tiene historia clínica registrada",
+                exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_indicacion_sinDiagnostico_debeRechazar() {
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio(1L, true)));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(diagnosticoRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(false);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.crear(requestIndicacionMedica()));
+
+        assertEquals(
+                "No se puede guardar el alta: el episodio no tiene diagnóstico registrado",
+                exception.getMessage());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void crear_retiro_sinHistoriaNiDiagnostico_debeGuardar() {
+        EpisodioEntity episodio = episodio(1L, true);
+        when(episodioRepository.findById(1L)).thenReturn(Optional.of(episodio));
+        when(repository.findFirstByEpisodio_IdAndEstadoOrderByFechaHoraEgresoDesc(
+                1L, EstadoAlta.VIGENTE)).thenReturn(Optional.empty());
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(repository.save(any(altaEntity.class))).thenAnswer(invocation -> {
+            altaEntity entity = invocation.getArgument(0);
+            entity.setId(10L);
+            return entity;
+        });
+
+        altaDTOs.Response response = service.crear(
+                requestRetiro(ResponsableRetiro.PACIENTE, "Motivo del retiro"));
+
+        assertEquals(10L, response.id());
+        assertEquals(TipoAlta.RETIRO_VOLUNTARIO, response.tipoAlta());
+        assertFalse(episodio.isEstado());
+    }
+
+    @Test
+    void actualizar_indicacion_sinHistoriaNiDiagnostico_debeRechazar() {
+        altaEntity existente = entidad(5L, EstadoAlta.VIGENTE);
+        when(repository.findById(5L)).thenReturn(Optional.of(existente));
+        when(usuarioRepository.findById(2L)).thenReturn(Optional.of(usuario(2L, "Carlos Mendez")));
+        when(historiaClinicaRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(false);
+        when(diagnosticoRepository
+                .existsByEpisodio_IdAndEstado(anyLong(), eq(true)))
+                .thenReturn(false);
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.actualizar(5L, requestIndicacionMedica()));
+
+        assertTrue(exception.getMessage().contains("historia clínica ni diagnóstico"));
         verify(repository, never()).save(any());
     }
 

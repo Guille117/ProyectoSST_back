@@ -2,6 +2,8 @@ package com.example.demo.modules.clinica.alta;
 
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoEntity;
 import com.example.demo.modules.clinica.condicionEgreso.condicionEgresoRepository;
+import com.example.demo.modules.clinica.diagnostico.diagnosticoRepository;
+import com.example.demo.modules.clinica.historiaClinica.historiaClinicaRepository;
 import com.example.demo.modules.clinica.indicaciones.TipoDuracion;
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaDTOs;
 import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
@@ -45,6 +47,8 @@ public class altaService {
     private final condicionEgresoRepository condicionEgresoRepository;
     private final institucionRepository institucionRepository;
     private final camasRepository camasRepository;
+    private final historiaClinicaRepository historiaClinicaRepository;
+    private final diagnosticoRepository diagnosticoRepository;
     private final UsuarioActualService usuarioActual;
     private final SolicitudSalidaService solicitudSalidaService;
     private final RegistroAccesoService registroAcceso;
@@ -69,6 +73,7 @@ public class altaService {
 
         UsuarioEntity usuario = autor(request.usuarioId());
         validarSeccion(request.tipoAlta(), request);
+        validarHistoriaYDiagnostico(request.tipoAlta(), episodio);
 
         altaEntity entity = altaEntity.builder()
                 .tipoAlta(request.tipoAlta())
@@ -131,6 +136,7 @@ public class altaService {
 
         UsuarioEntity usuario = entity.getUsuario();
         validarSeccion(request.tipoAlta(), request);
+        validarHistoriaYDiagnostico(request.tipoAlta(), entity.getEpisodio());
 
         entity.setTipoAlta(request.tipoAlta());
         entity.setDiagnosticoEgreso(validarTexto(request.diagnosticoEgreso(),
@@ -292,6 +298,34 @@ public class altaService {
             if (StringNormalizer.normalizarTexto(request.motivoReferencia()).isBlank()) {
                 throw new IllegalArgumentException("El motivo de referencia es obligatorio");
             }
+        }
+    }
+
+    /**
+     * El alta por indicación médica o referencia exige que el episodio tenga historia clínica y
+     * diagnóstico activos. El retiro voluntario no aplica esta regla.
+     */
+    private void validarHistoriaYDiagnostico(TipoAlta tipo, EpisodioEntity episodio) {
+        if (tipo == TipoAlta.RETIRO_VOLUNTARIO) {
+            return;
+        }
+
+        boolean tieneHistoria = historiaClinicaRepository
+                .existsByEpisodio_IdAndEstado(episodio.getId(), true);
+        boolean tieneDiagnostico = diagnosticoRepository
+                .existsByEpisodio_IdAndEstado(episodio.getId(), true);
+
+        if (!tieneHistoria && !tieneDiagnostico) {
+            throw new IllegalArgumentException(
+                    "No se puede guardar el alta: el episodio no tiene historia clínica ni diagnóstico registrados");
+        }
+        if (!tieneHistoria) {
+            throw new IllegalArgumentException(
+                    "No se puede guardar el alta: el episodio no tiene historia clínica registrada");
+        }
+        if (!tieneDiagnostico) {
+            throw new IllegalArgumentException(
+                    "No se puede guardar el alta: el episodio no tiene diagnóstico registrado");
         }
     }
 

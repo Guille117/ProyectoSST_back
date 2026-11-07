@@ -138,10 +138,8 @@ public class cuidadoService {
         return tipoDuracion == null ? null : DuracionValidator.validar(tipoDuracion, duracion);
     }
 
+    /** La fecha de inicio es opcional: la atención puede registrarse solo con su nombre. */
     private LocalDateTime validarFechaInicio(LocalDateTime fechaInicio) {
-        if (fechaInicio == null) {
-            throw new IllegalArgumentException("La fecha y hora de inicio son obligatorias");
-        }
         return fechaInicio;
     }
 

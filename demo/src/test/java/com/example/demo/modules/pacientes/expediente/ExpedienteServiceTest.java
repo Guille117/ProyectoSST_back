@@ -6,7 +6,9 @@ import com.example.demo.modules.clinica.alta.altaRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.pacientes.paciente.PacienteRepository;
+import com.example.demo.modules.pacientes.paciente.PersonaResponsableEntity;
 import com.example.demo.modules.pacientes.paciente.TipoAtencion;
+import com.example.demo.modules.pacientes.camas.camasEntity;
 import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
 import com.example.demo.security.UsuarioActualService;
@@ -52,11 +54,22 @@ class ExpedienteServiceTest {
 
         LocalDateTime ingreso = LocalDateTime.of(2026, 10, 20, 8, 0);
         LocalDateTime egreso = LocalDateTime.of(2026, 10, 22, 9, 0);
+
+        PersonaEntity personaResponsable = new PersonaEntity();
+        personaResponsable.setPrimerNombre("Rosa");
+        personaResponsable.setPrimerApellido("López");
+        personaResponsable.setTelefono("5555-0101");
+
         EpisodioEntity episodio = EpisodioEntity.builder()
                 .id(7L)
                 .tipoAtencion(TipoAtencion.HOSPITALIZACION)
+                .descripcion("Ingreso por observación")
                 .fechaHoraIngreso(ingreso)
                 .medico(medico)
+                .cama(camasEntity.builder().id(11L).codigo("A-106").build())
+                .personaResponsable(PersonaResponsableEntity.builder()
+                        .persona(personaResponsable)
+                        .build())
                 .estado(false)
                 .build();
 
@@ -76,6 +89,10 @@ class ExpedienteServiceTest {
         assertEquals(ingreso, item.fechaHoraIngreso());
         assertEquals(egreso, item.fechaHoraEgreso());
         assertEquals("Ana Pérez", item.medicoNombre());
+        assertEquals("Ingreso por observación", item.descripcion());
+        assertEquals("A-106", item.camaCodigo());
+        assertEquals("Rosa López", item.responsableNombre());
+        assertEquals("5555-0101", item.responsableTelefono());
         assertFalse(item.activo());
     }
 

@@ -26,7 +26,6 @@ public class cuidadoDTOs {
             @NotNull(message = "El usuario es obligatorio")
             @Positive(message = "El usuario debe ser un ID válido")
             Long usuarioId,
-            @NotNull(message = "La fecha y hora de inicio son obligatorias")
             LocalDateTime fechaInicio
     ) {}
 

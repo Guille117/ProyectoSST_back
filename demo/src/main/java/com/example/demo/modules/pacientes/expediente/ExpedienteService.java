@@ -6,6 +6,7 @@ import com.example.demo.modules.clinica.alta.altaRepository;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.pacientes.paciente.PacienteRepository;
+import com.example.demo.modules.usuarios.usuarios.PersonaEntity;
 import com.example.demo.security.UsuarioActualService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
@@ -58,12 +59,21 @@ public class ExpedienteService {
                 ? episodio.getMedico().getPersona().getNombreCompleto()
                 : null;
 
+        String camaCodigo = episodio.getCama() != null ? episodio.getCama().getCodigo() : null;
+        PersonaEntity responsable = episodio.getPersonaResponsable() != null
+                ? episodio.getPersonaResponsable().getPersona()
+                : null;
+
         return new ExpedienteDTOs.EpisodioResumenResponse(
                 episodio.getId(),
                 episodio.getTipoAtencion(),
                 episodio.getFechaHoraIngreso(),
                 fechaHoraEgreso,
                 medicoNombre,
-                episodio.isEstado());
+                episodio.isEstado(),
+                episodio.getDescripcion(),
+                camaCodigo,
+                responsable != null ? responsable.getNombreCompleto() : null,
+                responsable != null ? responsable.getTelefono() : null);
     }
 }

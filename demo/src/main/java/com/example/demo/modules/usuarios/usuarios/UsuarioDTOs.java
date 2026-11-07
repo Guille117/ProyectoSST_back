@@ -52,7 +52,7 @@ public class UsuarioDTOs {
                 @NotBlank(message = "El username es obligatorio")
                 @Size(min = 3, max = 50, message = "El username debe tener entre 3 y 50 caracteres")
                 String username,
-                // password opcional en actualizaci��n
+                // password opcional en actualización
                 String password,
                 String confirmPassword,
                 @JsonAlias({"especialidad", "especialidad_id"}) Long especialidadId,
@@ -92,7 +92,7 @@ public class UsuarioDTOs {
                         EspecialidadResponse especialidad,
                         java.time.LocalDateTime inicioGuardia
     ) {
-                // Compatibilidad interna con los constructores usados por c��digo existente.
+                // Compatibilidad interna con los constructores usados por código existente.
         public Response(
                 Long id,
                 String codigo,
