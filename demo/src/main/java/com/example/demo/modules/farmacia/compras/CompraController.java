@@ -96,6 +96,13 @@ public class CompraController {
         return ResponseEntity.noContent().build();
     }
 
+    /** Baja lógica solo del comprobante: la compra y sus lotes se conservan. */
+    @DeleteMapping("/{id}/comprobante")
+    public ResponseEntity<Void> eliminarComprobante(@PathVariable("id") Long id) {
+        service.eliminarComprobante(id);
+        return ResponseEntity.noContent().build();
+    }
+
     /** Expone la ruta absoluta del comprobante para que el front pueda abrirlo directamente. */
     private CompraDTOs.Response conComprobanteUrl(CompraDTOs.Response response) {
         if (response == null || response.comprobante() == null) {

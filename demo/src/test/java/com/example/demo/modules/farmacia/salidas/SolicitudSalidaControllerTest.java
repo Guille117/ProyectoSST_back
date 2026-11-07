@@ -83,6 +83,7 @@ class SolicitudSalidaControllerTest {
                         null,
                         null,
                         "Carlos Méndez",
+                        "Carlos Méndez",
                         null)));
 
         mockMvc.perform(get("/api/v1/solicitudesSalida/1/historial"))

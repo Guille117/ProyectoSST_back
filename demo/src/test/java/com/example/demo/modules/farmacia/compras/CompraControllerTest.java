@@ -126,6 +126,12 @@ class CompraControllerTest {
     }
 
     @Test
+    void eliminarComprobante_debeRetornarNoContent() throws Exception {
+        mockMvc.perform(delete("/api/v1/compras/1/comprobante"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
     void obtenerResumen_debeRetornarOkConCantidadDeProductos() throws Exception {
         when(service.obtenerResumen(any())).thenReturn(List.of(new CompraDTOs.ResumenResponse(
                 1L, "COM-1", "Proveedor SA", LocalDateTime.now(), 15, BigDecimal.valueOf(150))));

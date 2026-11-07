@@ -565,6 +565,7 @@ public class SolicitudSalidaService {
                 movimiento.getCondicion(),
                 movimiento.getMotivoBaja() == null ? null : movimiento.getMotivoBaja().getNombre(),
                 nombreUsuario(movimiento.getUsuario()),
+                UsuarioNombreCorto.formatear(movimiento.getUsuario()),
                 movimiento.getObservacion());
     }
 

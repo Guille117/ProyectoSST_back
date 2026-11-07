@@ -648,6 +648,7 @@ class SolicitudSalidaServiceTest {
         assertEquals("LOTE-50", historial.getFirst().lote());
         assertEquals(5, historial.getFirst().cantidad());
         assertEquals(TipoMovimientoSalida.ENTREGA, historial.getFirst().tipoMovimiento());
+        assertEquals("Carlos Méndez", historial.getFirst().usuarioNombreCorto());
     }
 
     private SolicitudSalidaDTOs.EntregaRequest entrega(

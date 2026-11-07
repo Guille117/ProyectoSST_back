@@ -110,6 +110,7 @@ public class CompraService {
                 rutaNueva.set(ruta);
                 String rutaAnterior = existente.getComprobante();
                 existente.setComprobante(ruta);
+                existente.setComprobanteEstado(true);
                 CompraEntity actualizado = repository.save(existente);
                 comprobanteStorage.eliminar(rutaAnterior);
                 return toResponse(actualizado, loteRepository.findByCompra_Id(actualizado.getId()));
@@ -137,6 +138,9 @@ public class CompraService {
     public ComprobanteArchivoStorage.Archivo obtenerComprobante(Long id) {
         CompraEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
+        if (!entity.isComprobanteEstado()) {
+            throw new IllegalArgumentException("La compra no tiene comprobante");
+        }
         return comprobanteStorage.cargar(entity.getComprobante());
     }
 
@@ -184,6 +188,21 @@ public class CompraService {
         loteRepository.saveAll(lotes);
 
         entity.setEstado(false);
+        repository.save(entity);
+    }
+
+    /** Baja lógica del comprobante: deja de mostrarse y conserva el archivo físico. */
+    @Transactional
+    public void eliminarComprobante(Long id) {
+        CompraEntity entity = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Compra no encontrada con el ID: " + id));
+        if (entity.getComprobante() == null || entity.getComprobante().isBlank()) {
+            throw new IllegalArgumentException("La compra no tiene comprobante");
+        }
+        if (!entity.isComprobanteEstado()) {
+            return;
+        }
+        entity.setComprobanteEstado(false);
         repository.save(entity);
     }
 
@@ -310,8 +329,9 @@ public class CompraService {
         List<CompraDTOs.LoteResponse> lotesResponse = lotes == null
                 ? List.of()
                 : lotes.stream().map(this::toLoteResponse).toList();
+        String comprobante = compra.isComprobanteEstado() ? base.comprobante() : null;
         return new CompraDTOs.Response(
-                base.id(), base.codigo(), base.total(), base.comprobante(), base.estado(),
+                base.id(), base.codigo(), base.total(), comprobante, base.estado(),
                 base.proveedorId(), base.proveedorNombre(), base.fecha(), lotesResponse);
     }
 
