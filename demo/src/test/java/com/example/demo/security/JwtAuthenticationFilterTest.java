@@ -18,6 +18,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.Optional;
 import java.util.Set;
 
@@ -44,7 +46,8 @@ class JwtAuthenticationFilterTest {
     @BeforeEach
     void setUp() {
         HorarioLaboralService horarioLaboralService =
-                new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository);
+                new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository,
+                        Clock.system(ZoneId.of("America/Guatemala")));
         filter = new JwtAuthenticationFilter(jwtUtil, userDetailsService, horarioLaboralService);
     }
 

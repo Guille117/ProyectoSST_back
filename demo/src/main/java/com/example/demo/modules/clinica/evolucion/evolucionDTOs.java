@@ -34,9 +34,25 @@ public class evolucionDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             EstadoEvolucion estado,
             Long estadoClinicoId,
             String estadoClinicoNombre
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String evolucionClinica,
+                String planMedico,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                EstadoEvolucion estado,
+                Long estadoClinicoId,
+                String estadoClinicoNombre) {
+            this(id, evolucionClinica, planMedico, episodioId, usuarioId, usuarioNombre,
+                    usuarioNombre, fecha, estado, estadoClinicoId, estadoClinicoNombre);
+        }
+    }
 }

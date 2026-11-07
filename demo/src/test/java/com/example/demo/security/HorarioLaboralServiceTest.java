@@ -14,8 +14,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Set;
 
@@ -29,8 +32,14 @@ class HorarioLaboralServiceTest {
     @Mock
     private UsuarioRepository usuarioRepository;
 
+    private static final Clock RELOJ = Clock.system(ZoneId.of("America/Guatemala"));
+
     private HorarioLaboralService service() {
-        return new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository);
+        return service(RELOJ);
+    }
+
+    private HorarioLaboralService service(Clock reloj) {
+        return new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository, reloj);
     }
 
     @Test
@@ -150,6 +159,31 @@ class HorarioLaboralServiceTest {
                 LocalDateTime.of(2026, 8, 24, 10, 0)));
     }
 
+    @Test
+    void horarioSinLimiteConHorasIgualesPermiteAcceso() {
+        UsuarioEntity usuario = usuarioNoMedico(horarioSinLimite());
+
+        assertDoesNotThrow(() -> service().validarAcceso(usuario,
+                LocalDateTime.of(2026, 8, 24, 19, 0)));
+    }
+
+    @Test
+    void juevesNocturnoUsaHoraDeGuatemala() {
+        Clock reloj = Clock.fixed(Instant.parse("2026-11-06T01:30:00Z"), ZoneId.of("America/Guatemala"));
+        when(usuarioRepository.findByUsernameIgnoreCase("enfermera"))
+                .thenReturn(java.util.Optional.of(usuarioNoMedico(horarioJuevesNocturno())));
+
+        assertDoesNotThrow(() -> service(reloj).validarAccesoPorUsername("enfermera"));
+    }
+
+    @Test
+    void horarioQueCruzaMedianochePermiteAcceso() {
+        UsuarioEntity usuario = usuarioNoMedico(horarioNocturno());
+
+        assertDoesNotThrow(() -> service().validarAcceso(usuario,
+                LocalDateTime.of(2026, 8, 25, 2, 0)));
+    }
+
     private UsuarioEntity usuarioNoMedico(HorarioEntity horario) {
         return UsuarioEntity.builder()
                 .id(1L)
@@ -168,6 +202,64 @@ class HorarioLaboralServiceTest {
 
     private RolEntity rol(String nombre) {
         return RolEntity.builder().nombre(nombre).build();
+    }
+
+    private HorarioEntity horarioSinLimite() {
+        HorarioEntity horario = HorarioEntity.builder()
+                .id(9L)
+                .codigo("HOR-09")
+                .nombre("Sin limite")
+                .esRotativo(false)
+                .estado(true)
+                .build();
+        for (DiaSemana dia : DiaSemana.values()) {
+            horario.getSemanalDetalles().add(HorarioSemanalDetalleEntity.builder()
+                    .horario(horario)
+                    .diaSemana(dia)
+                    .horaEntrada(LocalTime.MIDNIGHT)
+                    .horaSalida(LocalTime.MIDNIGHT)
+                    .activo(true)
+                    .build());
+        }
+        return horario;
+    }
+
+    private HorarioEntity horarioJuevesNocturno() {
+        HorarioEntity horario = HorarioEntity.builder()
+                .id(10L)
+                .codigo("HOR-10")
+                .nombre("Nocturno jueves")
+                .esRotativo(false)
+                .estado(true)
+                .build();
+        horario.setSemanalDetalles(List.of(HorarioSemanalDetalleEntity.builder()
+                .id(11L)
+                .horario(horario)
+                .diaSemana(DiaSemana.JUEVES)
+                .horaEntrada(LocalTime.of(19, 0))
+                .horaSalida(LocalTime.of(23, 0))
+                .activo(true)
+                .build()));
+        return horario;
+    }
+
+    private HorarioEntity horarioNocturno() {
+        HorarioEntity horario = HorarioEntity.builder()
+                .id(11L)
+                .codigo("HOR-11")
+                .nombre("Nocturno")
+                .esRotativo(false)
+                .estado(true)
+                .build();
+        horario.setSemanalDetalles(List.of(HorarioSemanalDetalleEntity.builder()
+                .id(12L)
+                .horario(horario)
+                .diaSemana(DiaSemana.MARTES)
+                .horaEntrada(LocalTime.of(22, 0))
+                .horaSalida(LocalTime.of(6, 0))
+                .activo(true)
+                .build()));
+        return horario;
     }
 
     private HorarioEntity horarioSemanal() {

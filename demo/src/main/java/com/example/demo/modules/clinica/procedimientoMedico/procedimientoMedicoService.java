@@ -11,6 +11,7 @@ import com.example.demo.modules.farmacia.salidas.SolicitudSalidaService;
 import com.example.demo.modules.pacientes.paciente.EpisodioEntity;
 import com.example.demo.modules.pacientes.paciente.EpisodioRepository;
 import com.example.demo.modules.usuarios.usuarios.UsuarioEntity;
+import com.example.demo.modules.usuarios.usuarios.UsuarioNombreCorto;
 import com.example.demo.modules.usuarios.usuarios.UsuarioRepository;
 import com.example.demo.security.RegistroAccesoService;
 import com.example.demo.utils.StringNormalizer;
@@ -60,6 +61,7 @@ public class procedimientoMedicoService {
                 .inicio(request.inicio())
                 .fin(request.fin())
                 .requiereAutorizacion(Boolean.TRUE.equals(request.requiereAutorizacion()))
+                .fechaRegistro(LocalDateTime.now())
                 .episodio(episodio)
                 .usuario(usuario)
                 .build();
@@ -420,6 +422,8 @@ public class procedimientoMedicoService {
                 estado,
                 recursos,
                 entity.isRequiereAutorizacion(),
-                entity.isAutorizacionGenerada());
+                entity.isAutorizacionGenerada(),
+                UsuarioNombreCorto.formatear(entity.getUsuario()),
+                entity.getFechaRegistro());
     }
 }

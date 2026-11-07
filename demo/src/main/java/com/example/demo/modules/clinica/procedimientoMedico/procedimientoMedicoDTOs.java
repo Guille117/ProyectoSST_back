@@ -87,7 +87,9 @@ public class procedimientoMedicoDTOs {
             EstadoProcedimientoMedico estado,
             List<RecursoResponse> recursos,
             boolean requiereAutorizacion,
-            boolean autorizacionGenerada
+            boolean autorizacionGenerada,
+            String usuarioNombreCorto,
+            LocalDateTime fechaRegistro
     ) {
         /** Compatibilidad con respuestas que no incluyen el indicador de autorización. */
         public Response(
@@ -104,7 +106,8 @@ public class procedimientoMedicoDTOs {
                 EstadoProcedimientoMedico estado,
                 List<RecursoResponse> recursos) {
             this(id, tipoProcedimientoId, tipoProcedimientoNombre, descripcion, resultado, inicio,
-                    fin, episodioId, usuarioId, usuarioNombre, estado, recursos, false, false);
+                    fin, episodioId, usuarioId, usuarioNombre, estado, recursos, false, false,
+                    usuarioNombre, null);
         }
 
         /** Compatibilidad con respuestas que no incluyen el indicador de carta generada. */
@@ -123,7 +126,8 @@ public class procedimientoMedicoDTOs {
                 List<RecursoResponse> recursos,
                 boolean requiereAutorizacion) {
             this(id, tipoProcedimientoId, tipoProcedimientoNombre, descripcion, resultado, inicio,
-                    fin, episodioId, usuarioId, usuarioNombre, estado, recursos, requiereAutorizacion, false);
+                    fin, episodioId, usuarioId, usuarioNombre, estado, recursos, requiereAutorizacion, false,
+                    usuarioNombre, null);
         }
     }
 

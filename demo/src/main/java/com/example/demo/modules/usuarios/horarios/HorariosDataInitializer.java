@@ -41,7 +41,7 @@ public class HorariosDataInitializer implements CommandLineRunner {
                     .horario(horario)
                     .diaSemana(dia)
                     .horaEntrada(LocalTime.MIN)
-                    .horaSalida(LocalTime.MAX)
+                    .horaSalida(LocalTime.of(23, 59, 59))
                     .activo(true)
                     .build());
         }

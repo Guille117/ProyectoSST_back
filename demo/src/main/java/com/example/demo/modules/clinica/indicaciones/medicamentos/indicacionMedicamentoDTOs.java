@@ -58,8 +58,31 @@ public class indicacionMedicamentoDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             EstadoIndicacionMedicamento estado,
             LocalDateTime fechaInicio
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                Long medicamentoLogId,
+                String medicamento,
+                String medicamentoLibre,
+                String presentacion,
+                Integer cantidad,
+                Integer frecuencia,
+                Integer duracion,
+                TipoDuracion tipoDuracion,
+                String observaciones,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                EstadoIndicacionMedicamento estado,
+                LocalDateTime fechaInicio) {
+            this(id, medicamentoLogId, medicamento, medicamentoLibre, presentacion, cantidad,
+                    frecuencia, duracion, tipoDuracion, observaciones, episodioId, usuarioId,
+                    usuarioNombre, usuarioNombre, fecha, estado, fechaInicio);
+        }
+    }
 }

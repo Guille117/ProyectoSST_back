@@ -38,6 +38,9 @@ public class procedimientoMedicoEntity {
 
     private LocalDateTime fin;
 
+    @Column(name = "fecha_registro", nullable = false, updatable = false)
+    private LocalDateTime fechaRegistro;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoProcedimientoMedico estado;

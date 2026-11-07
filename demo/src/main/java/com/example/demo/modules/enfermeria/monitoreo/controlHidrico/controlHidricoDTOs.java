@@ -50,7 +50,23 @@ public class controlHidricoDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             boolean eliminado
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                TipoRegistroHidrico tipo,
+                String via,
+                Integer cantidad,
+                String descripcion,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                boolean eliminado) {
+            this(id, tipo, via, cantidad, descripcion, episodioId, usuarioId, usuarioNombre,
+                    usuarioNombre, fecha, eliminado);
+        }
+    }
 }

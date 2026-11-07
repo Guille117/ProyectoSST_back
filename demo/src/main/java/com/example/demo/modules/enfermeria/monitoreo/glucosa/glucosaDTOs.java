@@ -43,7 +43,22 @@ public class glucosaDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             boolean eliminado
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                Integer glucosa,
+                TipoMedicionGlucosa tipo,
+                String observacion,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                boolean eliminado) {
+            this(id, glucosa, tipo, observacion, episodioId, usuarioId, usuarioNombre,
+                    usuarioNombre, fecha, eliminado);
+        }
+    }
 }

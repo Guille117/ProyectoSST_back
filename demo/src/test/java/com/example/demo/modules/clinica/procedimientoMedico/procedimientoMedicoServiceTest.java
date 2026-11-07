@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -93,6 +94,8 @@ class procedimientoMedicoServiceTest {
         assertEquals("Sutura", response.tipoProcedimientoNombre());
         assertEquals(EstadoProcedimientoMedico.REALIZADO, response.estado());
         assertEquals("Dra. Ana López", response.usuarioNombre());
+        assertNotNull(response.usuarioNombreCorto());
+        assertNotNull(response.fechaRegistro());
         assertEquals(1, response.recursos().size());
         assertEquals("Amoxicilina Bayer tabletas de 500 mg", response.recursos().getFirst().nombre());
         assertEquals(2, response.recursos().getFirst().cantidad());

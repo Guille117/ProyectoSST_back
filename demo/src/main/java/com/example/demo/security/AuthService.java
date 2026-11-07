@@ -35,7 +35,8 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public AuthDTOs.AuthResponse login(AuthDTOs.LoginRequest request) {
-        AuthDTOs.AuthResponse response = login(request, LocalDate.now(), LocalTime.now());
+        LocalDateTime ahora = horarioLaboralService.momentoActual();
+        AuthDTOs.AuthResponse response = login(request, ahora.toLocalDate(), ahora.toLocalTime());
         try {
             bitacoraService.registrarLogin(response.id(), response.username());
         } catch (Exception ignorada) {
@@ -155,7 +156,7 @@ public class AuthService {
         pin.setFechaUso(LocalDateTime.now());
         pinRepository.save(pin);
 
-        horarioLaboralService.validarAcceso(usuario, LocalDateTime.now());
+        horarioLaboralService.validarAcceso(usuario, horarioLaboralService.momentoActual());
 
         return construirAuthResponse(usuario);
     }

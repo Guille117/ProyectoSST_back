@@ -20,9 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -120,7 +122,8 @@ class AuthServiceTest {
                 .build();
 
         HorarioLaboralService horarioLaboralService =
-                new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository);
+                new HorarioLaboralService(new UsuarioActualService(usuarioRepository), usuarioRepository,
+                        Clock.system(ZoneId.of("America/Guatemala")));
         authService = new AuthService(usuarioRepository, pinRepository, passwordEncoder, jwtUtil,
                 bitacoraService, horarioLaboralService);
     }

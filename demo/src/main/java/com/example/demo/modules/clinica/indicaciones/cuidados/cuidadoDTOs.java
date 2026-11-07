@@ -42,8 +42,26 @@ public class cuidadoDTOs {
             Long episodioId,
             Long usuarioId,
             String usuarioNombre,
+            String usuarioNombreCorto,
             LocalDateTime fecha,
             EstadoCuidado estado,
             LocalDateTime fechaInicio
-    ) {}
+    ) {
+        public Response(
+                Long id,
+                String nombreCuidado,
+                Integer frecuencia,
+                Integer duracion,
+                TipoDuracion tipoDuracion,
+                String observacion,
+                Long episodioId,
+                Long usuarioId,
+                String usuarioNombre,
+                LocalDateTime fecha,
+                EstadoCuidado estado,
+                LocalDateTime fechaInicio) {
+            this(id, nombreCuidado, frecuencia, duracion, tipoDuracion, observacion, episodioId,
+                    usuarioId, usuarioNombre, usuarioNombre, fecha, estado, fechaInicio);
+        }
+    }
 }

@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -27,6 +28,7 @@ public class HorarioLaboralService {
 
     private final UsuarioActualService usuarioActual;
     private final UsuarioRepository usuarioRepository;
+    private final Clock reloj;
 
     /**
      * Valida el horario de un usuario cargado dentro de una transacción para que
@@ -35,7 +37,11 @@ public class HorarioLaboralService {
     @Transactional(readOnly = true)
     public void validarAccesoPorUsername(String username) {
         usuarioRepository.findByUsernameIgnoreCase(username)
-                .ifPresent(usuario -> validarAcceso(usuario, LocalDateTime.now()));
+                .ifPresent(usuario -> validarAcceso(usuario, momentoActual()));
+    }
+
+    public LocalDateTime momentoActual() {
+        return LocalDateTime.now(reloj);
     }
 
     public void validarAcceso(UsuarioEntity usuario, LocalDateTime ahora) {
@@ -53,7 +59,7 @@ public class HorarioLaboralService {
             throw new HorarioAccessException("Acceso denegado: no tiene un horario asignado");
         }
 
-        LocalDateTime momento = ahora != null ? ahora : LocalDateTime.now();
+        LocalDateTime momento = ahora != null ? ahora : momentoActual();
         if (horario.isEsRotativo()) {
             validarGuardia(usuario, horario, momento);
         } else {
@@ -74,10 +80,19 @@ public class HorarioLaboralService {
             throw new HorarioAccessException(FUERA_DE_HORARIO);
         }
 
-        LocalTime horaActual = momento.toLocalTime();
-        if (horaActual.isBefore(detalle.getHoraEntrada()) || horaActual.isAfter(detalle.getHoraSalida())) {
+        if (!estaDentroDeHorario(momento.toLocalTime(), detalle.getHoraEntrada(), detalle.getHoraSalida())) {
             throw new HorarioAccessException(FUERA_DE_HORARIO);
         }
+    }
+
+    private boolean estaDentroDeHorario(LocalTime hora, LocalTime entrada, LocalTime salida) {
+        if (entrada.equals(salida)) {
+            return true;
+        }
+        if (salida.isAfter(entrada)) {
+            return !hora.isBefore(entrada) && !hora.isAfter(salida);
+        }
+        return !hora.isBefore(entrada) || !hora.isAfter(salida);
     }
 
     private void validarGuardia(UsuarioEntity usuario, HorarioEntity horario, LocalDateTime momento) {
